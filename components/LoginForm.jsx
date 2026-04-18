@@ -12,49 +12,52 @@ export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const getApiUrl = () => {
+    if (typeof window !== 'undefined') {
+      return `http://${window.location.hostname}:5000`;
+    }
+    return "http://localhost:5000";
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
     try {
-      // 1. Check for hardcoded admin fallback (optional, but keep it for Malik if needed)
-      if (username === 'Malik' && password === '112233') {
-        const sessionData = { username: 'Malik', type: 'Admin', loggedInAt: new Date().toISOString() };
-        localStorage.setItem('user_session', JSON.stringify(sessionData));
-        window.location.href = '/admin/dashboard';
-        return;
-      }
+      const response = await fetch(`${getApiUrl()}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
 
-      // 2. Query Firestore for regular users
-      const usersRef = collection(db, "users");
-      const q = query(usersRef, where("username", "==", username), where("password", "==", password));
-      const querySnapshot = await getDocs(q);
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const data = await response.json();
 
-      if (!querySnapshot.empty) {
-        const userDoc = querySnapshot.docs[0].data();
-        
-        // Save session accurately to localStorage for production requirement
-        const sessionData = { 
-          id: querySnapshot.docs[0].id,
-          username: userDoc.username, 
-          type: userDoc.type,
-          loggedInAt: new Date().toISOString() 
-        };
-        localStorage.setItem('user_session', JSON.stringify(sessionData));
+        if (response.ok) {
+          // Save session accurately to localStorage
+          const sessionData = { 
+            token: data.token,
+            username: data.user.username, 
+            loggedInAt: new Date().toISOString() 
+          };
+          localStorage.setItem('user_session', JSON.stringify(sessionData));
 
-        // Redirect based on type
-        if (userDoc.type === 'Master') {
-          window.location.href = '/admin/dashboard';
-        } else {
+          // Redirect to dashboard
           window.location.href = '/dashboard';
+        } else {
+          setError(data.error || 'Invalid username or password.');
         }
       } else {
-        setError('Invalid username or password. No user found.');
+        // Handle non-JSON response (e.g. HTML error page)
+        const text = await response.text();
+        console.error("Non-JSON response received:", text);
+        setError(`Server error: Received unexpected response format.`);
       }
     } catch (err) {
-      console.error("Login error:", err);
-      setError('An error occurred during login. Please try again.');
+      console.error("Fetch/Parsing error:", err);
+      setError('Connection refused or server failed to respond. Please check if the backend is running.');
     } finally {
       setIsLoading(false);
     }

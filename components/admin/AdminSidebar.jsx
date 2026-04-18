@@ -44,11 +44,8 @@ const navItems = [
   { label: "Current Position", href: "#", icon: <Filter size={18} className="opacity-80" /> },
   { label: "Reports", href: "/admin/reports", icon: <FileText size={18} className="opacity-80" /> },
   { label: "Bet Lock", href: "/admin/betlock", icon: <Lock size={18} className="opacity-80" /> },
-  { label: "Star Casino", href: "#", icon: <Star size={18} className="opacity-80" /> },
-  { label: "World Casino", href: "#", icon: <Globe size={18} className="opacity-80" /> },
-  { label: "BetFair Games", href: "#", icon: <Gamepad2 size={18} className="opacity-80" /> },
   { 
-    label: "Soccer", 
+    label: "Football", 
     href: "#", 
     isSport: true,
     icon: <FootballIcon />,
@@ -78,24 +75,12 @@ const navItems = [
       { label: "Bangladesh v New Zealand", id: "cricket-2" },
       { label: "Hyderabad Kingsmen v Rawalpindi Pindiz", id: "cricket-3" }
     ]
-  },
-  { 
-    label: "Horse Race", 
-    href: "#", 
-    isSport: true,
-    icon: <HorseIcon />,
-  },
-  { 
-    label: "Greyhound", 
-    href: "#", 
-    isSport: true,
-    icon: <Trophy size={18} className="opacity-80" />,
-  },
+  }
 ];
 
 export default function AdminSidebar({ isOpen, setIsOpen }) {
   const pathname = usePathname();
-  const [openSports, setOpenSports] = useState({ Cricket: true, Soccer: true });
+  const [openSports, setOpenSports] = useState({ Cricket: true, Football: true });
 
   const toggleSport = (label) => {
     setOpenSports(prev => ({

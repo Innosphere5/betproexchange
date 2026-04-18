@@ -10,9 +10,9 @@ import { Lock } from "lucide-react";
 // Mock match data generator
 const getMatchData = (id) => {
   const matches = {
-    'soccer-1': { name: 'Man Utd v Leeds', sport: 'Soccer' },
-    'soccer-2': { name: 'Atletico Madrid v Barcelona', sport: 'Soccer' },
-    'soccer-3': { name: 'Liverpool v Paris St-G', sport: 'Soccer' },
+    'soccer-1': { name: 'Man Utd v Leeds', sport: 'Football' },
+    'soccer-2': { name: 'Atletico Madrid v Barcelona', sport: 'Football' },
+    'soccer-3': { name: 'Liverpool v Paris St-G', sport: 'Football' },
     'tennis-1': { name: 'Al-Hilal v Al-Sadd', sport: 'Tennis' },
     'cricket-1': { name: 'Indian Premier League', sport: 'Cricket' },
     'cricket-3': { name: 'Hyderabad Kingsmen v Rawalpindi Pindiz', sport: 'Cricket' },
@@ -22,12 +22,12 @@ const getMatchData = (id) => {
 
   const runners = [
     { 
-      name: matchInfo.sport === 'Soccer' ? 'Man Utd' : matchInfo.name.split(' v ')[0] || 'Team A',
+      name: matchInfo.sport === 'Football' ? 'Man Utd' : matchInfo.name.split(' v ')[0] || 'Team A',
       back: [{ price: '1.57', size: '7.0M' }, { price: '1.58', size: '6.7M' }, { price: '1.59', size: '873.9K' }],
       lay: [{ price: '1.6', size: '925.7K' }, { price: '1.61', size: '8.0M' }, { price: '1.62', size: '1.4M' }]
     },
     { 
-      name: matchInfo.sport === 'Soccer' ? 'Leeds' : matchInfo.name.split(' v ')[1] || 'Team B',
+      name: matchInfo.sport === 'Football' ? 'Leeds' : matchInfo.name.split(' v ')[1] || 'Team B',
       back: [{ price: '6', size: '2.3M' }, { price: '6.2', size: '1.5M' }, { price: '6.4', size: '1.1M' }],
       lay: [{ price: '6.6', size: '155.7K' }, { price: '6.8', size: '1.4M' }, { price: '7', size: '1.7M' }]
     },

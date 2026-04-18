@@ -18,13 +18,15 @@ export default function RightPanel({ selection, clearSelection, type }) {
         </div>
       )}
 
-      {/* Bet Slip Integration */}
+      {/* Bet Slip Integration - Desktop Only in Side Panel */}
       {selection && (
-        <BetSlip 
-          selection={selection} 
-          onClose={clearSelection} 
-          type={type} 
-        />
+        <div className="hidden lg:block">
+          <BetSlip 
+            selection={selection} 
+            onClose={clearSelection} 
+            type={type} 
+          />
+        </div>
       )}
 
       {/* Open Bets Section */}

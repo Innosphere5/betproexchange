@@ -2,11 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
+import { useDashboard } from "./DashboardLayout";
+import BetModal from "./BetModal";
 
 export default function BetSlip({ selection, onClose, type = "back" }) {
+  const { fetchWallet } = useDashboard();
   const [odds, setOdds] = useState(selection?.price || 0);
   const [stake, setStake] = useState("");
   const [profit, setProfit] = useState(0);
+  const [modalConfig, setModalConfig] = useState(null);
 
   useEffect(() => {
     if (selection) {
@@ -14,14 +18,18 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
     }
   }, [selection]);
 
+  const getApiUrl = () => {
+    if (typeof window !== 'undefined') {
+      return `http://${window.location.hostname}:5000`;
+    }
+    return "http://localhost:5000";
+  };
+
   const calculateProfit = (val) => {
     const s = parseFloat(val) || 0;
     const o = parseFloat(odds) || 0;
-    if (type === "back") {
-      setProfit(Math.round(s * (o - 1)));
-    } else {
-      setProfit(Math.round(s)); // Simplified for Lay
-    }
+    // Standardizing profit calculation as Stake * (Odds - 1) for both types as requested
+    setProfit(Math.round(s * (o - 1)));
   };
 
   const handleStakeChange = (val) => {
@@ -37,6 +45,59 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
   };
 
   if (!selection) return null;
+
+  const handleSubmit = async () => {
+    if (!stake || parseFloat(stake) <= 0) {
+      setModalConfig({ title: "Invalid Stake", details: "Please enter a valid stake amount to place your bet.", isError: true });
+      return;
+    }
+
+    try {
+      const session = JSON.parse(localStorage.getItem('user_session') || '{}');
+      const res = await fetch(`${getApiUrl()}/api/user/bet`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json", 
+          "Authorization": `Bearer ${session.token}` 
+        },
+        body: JSON.stringify({
+          matchName: selection.matchName || "Unknown Match",
+          runner: selection.runner,
+          stake: parseFloat(stake),
+          odds: parseFloat(odds),
+          isLive: selection.isLive || false,
+          type: type // Pass back or lay
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setModalConfig({ title: "Bet Failed", details: data.error || "Failed to place bet", isError: true });
+        return;
+      }
+
+      if (selection.isLive) {
+        setModalConfig({ title: "Live Bet Placed!", details: `Runner: ${selection.runner}\nOdds: ${odds}\nStake: ${stake}\n\nYour live bet is matched.` });
+      } else {
+        setModalConfig({ title: "Advance Bet Scheduled", details: `Runner: ${selection.runner}\nOdds: ${odds}\nStake: ${stake}\n\nYour advance bet is open.` });
+      }
+
+      fetchWallet(); // update balance on dashboard
+      setStake("");
+      setProfit(0);
+      // Wait for user to dismiss modal before calling onClose()
+    } catch (err) {
+      setModalConfig({ title: "Connection Error", details: "Error reaching server.", isError: true });
+    }
+  };
+
+  const handleCloseModal = () => {
+    const wasSuccess = modalConfig && !modalConfig.isError;
+    setModalConfig(null);
+    if (wasSuccess) {
+        onClose(); // Cleanly close betslip only upon acknowledging success
+    }
+  };
 
   return (
     <div className="bg-white rounded-sm shadow-md border border-gray-300 overflow-hidden font-sans">
@@ -120,12 +181,22 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
             Clear
           </button>
           <button 
-            className="flex-1 bg-[#00c766] hover:bg-[#00a857] text-white font-black py-2 rounded-sm text-[13px] shadow-sm uppercase"
+            onClick={handleSubmit}
+            className="flex-1 bg-[#00c766] hover:bg-[#00a857] text-white font-black py-2 rounded-sm text-[13px] shadow-sm uppercase active:scale-95 transition-transform"
           >
             Submit
           </button>
         </div>
       </div>
+
+      {modalConfig && (
+        <BetModal 
+           title={modalConfig.title} 
+           details={modalConfig.details} 
+           isError={modalConfig.isError} 
+           onClose={handleCloseModal} 
+        />
+      )}
     </div>
   );
 }
