@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getApiUrl } from "@/lib/apiConfig";
 import { useDashboard } from "../../../components/DashboardLayout";
 import CasinoLayout from "../../../components/casino/CasinoLayout";
 import DealerSection from "../../../components/casino/DealerSection";

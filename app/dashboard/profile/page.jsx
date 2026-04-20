@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { getApiUrl } from "@/lib/apiConfig";
 
 export default function ProfilePage() {
   const [formData, setFormData] = useState({

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Filter, Search, BookOpen, Edit2, X, DollarSign } from "lucide-react";
+import { getApiUrl } from "@/lib/apiConfig";
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
