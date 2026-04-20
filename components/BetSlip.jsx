@@ -4,26 +4,13 @@ import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { useDashboard } from "./DashboardLayout";
 import BetModal from "./BetModal";
+import { getApiUrl } from "../lib/apiConfig";
 
 export default function BetSlip({ selection, onClose, type = "back" }) {
   const { fetchWallet } = useDashboard();
   const [odds, setOdds] = useState(selection?.price || 0);
   const [stake, setStake] = useState("");
   const [profit, setProfit] = useState(0);
-  const [modalConfig, setModalConfig] = useState(null);
-
-  useEffect(() => {
-    if (selection) {
-      setOdds(selection.price);
-    }
-  }, [selection]);
-
-  const getApiUrl = () => {
-    if (typeof window !== 'undefined') {
-      return `http://${window.location.hostname}:5000`;
-    }
-    return "http://localhost:5000";
-  };
 
   const calculateProfit = (val) => {
     const s = parseFloat(val) || 0;
@@ -56,9 +43,9 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
       const session = JSON.parse(localStorage.getItem('user_session') || '{}');
       const res = await fetch(`${getApiUrl()}/api/user/bet`, {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json", 
-          "Authorization": `Bearer ${session.token}` 
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.token}`
         },
         body: JSON.stringify({
           matchId: selection.matchId,
@@ -96,7 +83,7 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
     const wasSuccess = modalConfig && !modalConfig.isError;
     setModalConfig(null);
     if (wasSuccess) {
-        onClose(); // Cleanly close betslip only upon acknowledging success
+      onClose(); // Cleanly close betslip only upon acknowledging success
     }
   };
 
@@ -120,16 +107,16 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
         <div className="flex items-center gap-2 mb-4">
           <div className="flex-1 font-bold text-[13px] text-[#1c3246] truncate">{selection.runner}</div>
           <div className="w-16">
-            <input 
-              type="number" 
-              value={odds} 
+            <input
+              type="number"
+              value={odds}
               onChange={(e) => setOdds(e.target.value)}
               className="w-full h-8 text-center border border-gray-300 rounded-sm text-[13px] font-bold focus:outline-none focus:border-blue-500"
             />
           </div>
           <div className="w-20">
-            <input 
-              type="number" 
+            <input
+              type="number"
               value={stake}
               placeholder="0"
               onChange={(e) => handleStakeChange(e.target.value)}
@@ -144,7 +131,7 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
         {/* Quick Stakes */}
         <div className="grid grid-cols-4 gap-1.5 mb-2">
           {[2000, 5000, 10000, 25000].map((val) => (
-            <button 
+            <button
               key={val}
               onClick={() => handleStakeChange(val.toString())}
               className="bg-gray-300 hover:bg-gray-400 py-2.5 text-[13px] font-bold text-[#1c3246] rounded-sm transition-colors"
@@ -157,7 +144,7 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
         {/* Increment Stakes */}
         <div className="grid grid-cols-4 gap-1.5 mb-4">
           {[1000, 5000, 10000, 25000].map((val) => (
-            <button 
+            <button
               key={val}
               onClick={() => addStake(val)}
               className="bg-gray-200 hover:bg-gray-300 py-1.5 text-[11px] font-bold text-[#1c3246] rounded-sm transition-colors"
@@ -169,19 +156,19 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
 
         {/* Footer Actions */}
         <div className="flex gap-2">
-          <button 
+          <button
             onClick={onClose}
             className="flex-1 bg-[#f05b64] hover:bg-[#d44d55] text-white font-black py-2 rounded-sm text-[13px] shadow-sm uppercase"
           >
             Close
           </button>
-          <button 
-            onClick={() => {setStake(""); setProfit(0);}}
+          <button
+            onClick={() => { setStake(""); setProfit(0); }}
             className="flex-1 bg-[#ffb80c] hover:bg-[#e6a60b] text-[#1c3246] font-black py-2 rounded-sm text-[13px] shadow-sm uppercase"
           >
             Clear
           </button>
-          <button 
+          <button
             onClick={handleSubmit}
             className="flex-1 bg-[#00c766] hover:bg-[#00a857] text-white font-black py-2 rounded-sm text-[13px] shadow-sm uppercase active:scale-95 transition-transform"
           >
@@ -191,13 +178,14 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
       </div>
 
       {modalConfig && (
-        <BetModal 
-           title={modalConfig.title} 
-           details={modalConfig.details} 
-           isError={modalConfig.isError} 
-           onClose={handleCloseModal} 
+        <BetModal
+          title={modalConfig.title}
+          details={modalConfig.details}
+          isError={modalConfig.isError}
+          onClose={handleCloseModal}
         />
       )}
     </div>
   );
 }
+

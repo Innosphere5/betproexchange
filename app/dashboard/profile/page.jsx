@@ -13,13 +13,6 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState({ type: "", message: "" });
 
-  const getApiUrl = () => {
-    if (typeof window !== 'undefined') {
-      return `http://${window.location.hostname}:5000`;
-    }
-    return "http://localhost:5000";
-  };
-
   useEffect(() => {
     const fetchProfile = async () => {
       try {

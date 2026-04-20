@@ -25,13 +25,6 @@ export default function MasterUsers() {
   const [ledgerTransactions, setLedgerTransactions] = useState([]);
   const [isLedgerLoading, setIsLedgerLoading] = useState(false);
 
-  const getApiUrl = () => {
-    if (typeof window !== 'undefined') {
-      return `http://${window.location.hostname}:5000`;
-    }
-    return "http://localhost:5000";
-  };
-
   const getAuthToken = () => {
     const raw = localStorage.getItem("user_session");
     if (!raw) return null;

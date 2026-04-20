@@ -2,17 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { Calendar, AlignJustify, Loader2, TrendingUp, TrendingDown } from "lucide-react";
+import { getApiUrl } from "../../../lib/apiConfig";
 
 export default function ProfitLossPage() {
   const [plData, setPlData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  const getApiUrl = () => {
-    if (typeof window !== 'undefined') {
-      return `http://${window.location.hostname}:5000`;
-    }
-    return "http://localhost:5000";
-  };
 
   const fetchPL = async () => {
     setIsLoading(true);

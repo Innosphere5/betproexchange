@@ -3,6 +3,7 @@
 import { useState, useEffect, createContext, useContext } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import io from "socket.io-client";
+import { getApiUrl } from "../lib/apiConfig";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import NotificationPopup from "./NotificationPopup";
@@ -10,15 +11,6 @@ import BetSlip from "./BetSlip";
 
 // Create a context for dashboard state
 const DashboardContext = createContext();
-
-export const useDashboard = () => useContext(DashboardContext);
-
-const getApiUrl = () => {
-  if (typeof window !== 'undefined') {
-    return `http://${window.location.hostname}:5000`;
-  }
-  return "http://localhost:5000";
-};
 
 const getAuthToken = () => {
   if (typeof window !== 'undefined') {

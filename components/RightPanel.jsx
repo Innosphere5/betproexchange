@@ -65,17 +65,3 @@ function CollapsibleSection({ title, children }) {
     </div>
   );
 }
-
-function EventRow({ time, teams }) {
-  return (
-    <div className="flex gap-3 border-b border-gray-100 pb-2 last:border-0 last:pb-0 group cursor-pointer hover:bg-gray-50 -m-1 p-1 rounded-sm transition-colors">
-      <div className="text-[11px] font-bold text-gray-500 w-16 leading-tight flex flex-col items-center">
-        <span>{time.split(' ')[0]}</span>
-        <span>{time.split(' ')[1]}</span>
-      </div>
-      <div className="flex-1 text-[13px] font-bold text-[#243f55] group-hover:text-blue-700 leading-tight">
-        {teams}
-      </div>
-    </div>
-  );
-}

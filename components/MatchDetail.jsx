@@ -21,27 +21,27 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
 
   return (
     <div className="flex flex-col bg-[#eaedf1] h-full pb-6 lg:pb-0">
-      
+
       {/* 1. PREMIUM HEADER SECTION */}
       <div className="order-1 shrink-0 bg-[#243f55] m-2 rounded-sm overflow-hidden shadow-md">
         <div className="flex items-center justify-between px-5 py-4">
-           <div className="flex flex-col gap-1.5">
-             <div className="flex items-center gap-2 text-[10px] text-[#00c766] font-black uppercase tracking-widest">
-                <Clock size={12} strokeWidth={3} />
-                <span>In 4 Hours | {formattedDate} {formattedTime} | Winners: 1</span>
-             </div>
-             <h1 className="text-xl md:text-2xl font-black text-white tracking-tight leading-tight">
-                {matchName}
-             </h1>
-             <div className="flex items-center gap-3 text-[10px] text-gray-400 font-bold uppercase tracking-wide">
-                <span className="bg-white/10 px-1.5 py-0.5 rounded">Keep Display On</span>
-                <span className="opacity-50">{actualMatch.league}</span>
-             </div>
-           </div>
-           
-           <div className="flex flex-col items-end gap-1">
-              <span className="text-[#00c766] font-black text-2xl italic tracking-tighter leading-none">OPEN</span>
-           </div>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-2 text-[10px] text-[#00c766] font-black uppercase tracking-widest">
+              <Clock size={12} strokeWidth={3} />
+              <span>In 4 Hours | {formattedDate} {formattedTime} | Winners: 1</span>
+            </div>
+            <h1 className="text-xl md:text-2xl font-black text-white tracking-tight leading-tight">
+              {matchName}
+            </h1>
+            <div className="flex items-center gap-3 text-[10px] text-gray-400 font-bold uppercase tracking-wide">
+              <span className="bg-white/10 px-1.5 py-0.5 rounded">Keep Display On</span>
+              <span className="opacity-50">{actualMatch.league}</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-[#00c766] font-black text-2xl italic tracking-tighter leading-none">OPEN</span>
+          </div>
         </div>
       </div>
 
@@ -50,45 +50,45 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
         <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
           {/* Market Header Tab */}
           <div className="bg-[#5d7d9a] text-white h-9 flex items-center justify-between px-3">
-             <div className="flex items-center gap-2">
-               <div className="w-5 h-5 bg-[#00c766] rounded-sm flex items-center justify-center shrink-0">
-                  <Info size={12} color="white" strokeWidth={3} />
-               </div>
-               <span className="text-[12px] font-black uppercase tracking-wide">
-                  MATCH ODDS <span className="text-white/60 font-medium ml-1">(Max: 5M)</span>
-               </span>
-             </div>
-             <div className="flex items-center gap-4 text-[11px] font-black tracking-widest uppercase">
-                <div className="w-14 text-center">Back</div>
-                <div className="w-14 text-center">Lay</div>
-             </div>
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 bg-[#00c766] rounded-sm flex items-center justify-center shrink-0">
+                <Info size={12} color="white" strokeWidth={3} />
+              </div>
+              <span className="text-[12px] font-black uppercase tracking-wide">
+                MATCH ODDS <span className="text-white/60 font-medium ml-1">(Max: 5M)</span>
+              </span>
+            </div>
+            <div className="flex items-center gap-4 text-[11px] font-black tracking-widest uppercase">
+              <div className="w-14 text-center">Back</div>
+              <div className="w-14 text-center">Lay</div>
+            </div>
           </div>
 
           {/* Runners List */}
           <div className="flex flex-col">
-             {runners.map((runner, ridx) => (
-               <div key={ridx} className="flex items-stretch border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
-                  <div className="flex-1 flex items-center px-3 py-3 font-bold text-[#1c3246] text-[13px]">
-                     {runner.name}
-                  </div>
-                  <div className="flex w-32 shrink-0">
-                     <button 
-                      onClick={() => onSelectOutcome(runner.name, runner.back, 'back', actualMatch.status === 'live')}
-                      className="flex-1 bg-[#bbd9f9] flex flex-col items-center justify-center py-2 active:scale-95 transition-transform border-r border-white/40"
-                     >
-                        <span className="text-[15px] font-black text-[#1c3246] leading-none">{runner.back}</span>
-                        <span className="text-[9px] font-bold text-gray-500 mt-1">{runner.backVol}</span>
-                     </button>
-                     <button 
-                      onClick={() => onSelectOutcome(runner.name, runner.lay, 'lay', actualMatch.status === 'live')}
-                      className="flex-1 bg-[#f8c9d4] flex flex-col items-center justify-center py-2 active:scale-95 transition-transform"
-                     >
-                        <span className="text-[15px] font-black text-[#1c3246] leading-none">{runner.lay}</span>
-                        <span className="text-[9px] font-bold text-gray-500 mt-1">{runner.layVol}</span>
-                     </button>
-                  </div>
-               </div>
-             ))}
+            {runners.map((runner, ridx) => (
+              <div key={ridx} className="flex items-stretch border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                <div className="flex-1 flex items-center px-3 py-3 font-bold text-[#1c3246] text-[13px]">
+                  {runner.name}
+                </div>
+                <div className="flex w-32 shrink-0">
+                  <button
+                    onClick={() => onSelectOutcome(runner.name, runner.back, 'back', actualMatch.status === 'live')}
+                    className="flex-1 bg-[#bbd9f9] flex flex-col items-center justify-center py-2 active:scale-95 transition-transform border-r border-white/40"
+                  >
+                    <span className="text-[15px] font-black text-[#1c3246] leading-none">{runner.back}</span>
+                    <span className="text-[9px] font-bold text-gray-500 mt-1">{runner.backVol}</span>
+                  </button>
+                  <button
+                    onClick={() => onSelectOutcome(runner.name, runner.lay, 'lay', actualMatch.status === 'live')}
+                    className="flex-1 bg-[#f8c9d4] flex flex-col items-center justify-center py-2 active:scale-95 transition-transform"
+                  >
+                    <span className="text-[15px] font-black text-[#1c3246] leading-none">{runner.lay}</span>
+                    <span className="text-[9px] font-bold text-gray-500 mt-1">{runner.layVol}</span>
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -97,61 +97,61 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
       {actualMatch?.status === 'completed' ? (
         <div className="order-3 mt-auto shrink-0 animate-in zoom-in duration-500">
           <div className="bg-[#243f55] m-2 rounded-md overflow-hidden shadow-xl border border-yellow-500/30">
-             <div className="px-5 py-8 bg-gradient-to-tr from-[#1a2e3e] to-[#243f55] text-white text-center relative">
-               <div className="absolute top-0 left-0 w-full h-1 bg-yellow-500"></div>
-               
-               <h3 className="text-yellow-500 text-xs font-black uppercase tracking-[0.3em] mb-4">Match Completed</h3>
-               
-               <div className="flex items-center justify-center gap-8 mb-6">
-                  <div className="flex flex-col items-center">
-                    <div className="text-2xl font-black">{actualMatch.score?.teamA_runs || "0/0"}</div>
-                    <div className="text-[10px] text-gray-400 font-bold uppercase">{actualMatch.teamA}</div>
-                  </div>
-                  <div className="text-2xl font-light text-gray-600">VS</div>
-                  <div className="flex flex-col items-center">
-                    <div className="text-2xl font-black text-[#00c766]">{actualMatch.score?.teamB_runs || "0/0"}</div>
-                    <div className="text-[10px] text-gray-400 font-bold uppercase">{actualMatch.teamB}</div>
-                  </div>
-               </div>
+            <div className="px-5 py-8 bg-gradient-to-tr from-[#1a2e3e] to-[#243f55] text-white text-center relative">
+              <div className="absolute top-0 left-0 w-full h-1 bg-yellow-500"></div>
 
-               <div className="inline-block px-6 py-2 bg-white/10 rounded-full border border-white/20 backdrop-blur-sm">
-                  <span className="text-[13px] font-black uppercase tracking-widest text-[#00c766]">
-                    Final Result: Match Settled
-                  </span>
-               </div>
-             </div>
+              <h3 className="text-yellow-500 text-xs font-black uppercase tracking-[0.3em] mb-4">Match Completed</h3>
+
+              <div className="flex items-center justify-center gap-8 mb-6">
+                <div className="flex flex-col items-center">
+                  <div className="text-2xl font-black">{actualMatch.score?.teamA_runs || "0/0"}</div>
+                  <div className="text-[10px] text-gray-400 font-bold uppercase">{actualMatch.teamA}</div>
+                </div>
+                <div className="text-2xl font-light text-gray-600">VS</div>
+                <div className="flex flex-col items-center">
+                  <div className="text-2xl font-black text-[#00c766]">{actualMatch.score?.teamB_runs || "0/0"}</div>
+                  <div className="text-[10px] text-gray-400 font-bold uppercase">{actualMatch.teamB}</div>
+                </div>
+              </div>
+
+              <div className="inline-block px-6 py-2 bg-white/10 rounded-full border border-white/20 backdrop-blur-sm">
+                <span className="text-[13px] font-black uppercase tracking-widest text-[#00c766]">
+                  Final Result: Match Settled
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       ) : actualMatch?.status === 'live' && (
         <div className="order-3 mt-auto shrink-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="bg-black m-2 rounded-md overflow-hidden shadow-lg border border-gray-800">
-             <div className="px-5 py-6 bg-gradient-to-b from-[#111] to-black text-white relative">
-               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-[1px] bg-gradient-to-r from-transparent via-[#00c766] to-transparent opacity-50"></div>
- 
-               <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                 <div className="flex flex-col items-center md:items-start w-full md:w-1/2">
-                   <div className="flex items-center gap-3 mb-2">
-                     <div className="px-2 py-0.5 bg-red-600 rounded text-[10px] font-black uppercase flex items-center gap-1 animate-pulse tracking-widest shadow-[0_0_8px_rgba(220,38,38,0.8)]">
-                       <span className="w-1.5 h-1.5 bg-white rounded-full"></span> LIVE
-                     </div>
-                   </div>
-                   <h2 className="text-xl font-black text-white">{matchName}</h2>
-                 </div>
- 
-                 <div className="flex items-center gap-6">
-                    <div className="flex flex-col items-center min-w-[60px]">
-                      <div className="text-3xl font-black text-white tabular-nums">{actualMatch.score?.teamA_runs ?? "0/0"}</div>
-                      <div className="text-[10px] text-gray-400 font-bold tracking-widest uppercase">{actualMatch.teamA}</div>
+            <div className="px-5 py-6 bg-gradient-to-b from-[#111] to-black text-white relative">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-[1px] bg-gradient-to-r from-transparent via-[#00c766] to-transparent opacity-50"></div>
+
+              <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex flex-col items-center md:items-start w-full md:w-1/2">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="px-2 py-0.5 bg-red-600 rounded text-[10px] font-black uppercase flex items-center gap-1 animate-pulse tracking-widest shadow-[0_0_8px_rgba(220,38,38,0.8)]">
+                      <span className="w-1.5 h-1.5 bg-white rounded-full"></span> LIVE
                     </div>
-                    <div className="text-3xl text-gray-700 font-light opacity-50 px-2">-</div>
-                    <div className="flex flex-col items-center min-w-[60px]">
-                      <div className="text-3xl font-black text-[#00c766] tabular-nums">{actualMatch.score?.teamB_runs ?? "0/0"}</div>
-                      <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{actualMatch.teamB}</div>
-                    </div>
-                 </div>
-               </div>
-             </div>
-           </div>
+                  </div>
+                  <h2 className="text-xl font-black text-white">{matchName}</h2>
+                </div>
+
+                <div className="flex items-center gap-6">
+                  <div className="flex flex-col items-center min-w-[60px]">
+                    <div className="text-3xl font-black text-white tabular-nums">{actualMatch.score?.teamA_runs ?? "0/0"}</div>
+                    <div className="text-[10px] text-gray-400 font-bold tracking-widest uppercase">{actualMatch.teamA}</div>
+                  </div>
+                  <div className="text-3xl text-gray-700 font-light opacity-50 px-2">-</div>
+                  <div className="flex flex-col items-center min-w-[60px]">
+                    <div className="text-3xl font-black text-[#00c766] tabular-nums">{actualMatch.score?.teamB_runs ?? "0/0"}</div>
+                    <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{actualMatch.teamB}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

@@ -5,17 +5,12 @@ import { X, Menu, LogOut, Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
+import { getApiUrl } from "../../lib/apiConfig";
+
 export default function MasterHeader({ setIsSidebarOpen }) {
   const pathname = usePathname();
   const router = useRouter();
   const [walletBalance, setWalletBalance] = useState(0);
-
-  const getApiUrl = () => {
-    if (typeof window !== 'undefined') {
-      return `http://${window.location.hostname}:5000`;
-    }
-    return "http://localhost:5000";
-  };
 
   const getAuthToken = () => {
     if (typeof window !== 'undefined') {

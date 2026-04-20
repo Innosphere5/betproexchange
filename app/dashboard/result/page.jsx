@@ -2,18 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { Calendar, AlignJustify, Loader2 } from "lucide-react";
+import { getApiUrl } from "../../../lib/apiConfig";
 
 export default function ResultPage() {
   const [results, setResults] = useState({ cricket: [], casino: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("Cricket");
-
-  const getApiUrl = () => {
-    if (typeof window !== 'undefined') {
-      return `http://${window.location.hostname}:5000`;
-    }
-    return "http://localhost:5000";
-  };
 
   const fetchResults = async () => {
     setIsLoading(true);

@@ -3,19 +3,13 @@
 import { useState } from 'react';
 import { User, Lock, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
+import { getApiUrl } from "../lib/apiConfig";
 
 export default function LoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-
-  const getApiUrl = () => {
-    if (typeof window !== 'undefined') {
-      return `http://${window.location.hostname}:5000`;
-    }
-    return "http://localhost:5000";
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();

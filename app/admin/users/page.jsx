@@ -20,13 +20,6 @@ export default function AdminUsers() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [loadAmount, setLoadAmount] = useState("");
 
-  const getApiUrl = () => {
-    if (typeof window !== 'undefined') {
-      return `http://${window.location.hostname}:5000`;
-    }
-    return "http://localhost:5000";
-  };
-
   const getAuthToken = () => {
     const raw = localStorage.getItem("user_session");
     if (!raw) return null;

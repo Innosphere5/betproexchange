@@ -18,13 +18,6 @@ export default function CasinoPage() {
   const [isJoined, setIsJoined] = useState(false);
   const [resultData, setResultData] = useState(null); // { status: 'WIN'|'LOSE', amount: number, choice: string }
 
-  const getApiUrl = () => {
-    if (typeof window !== 'undefined') {
-      return `http://${window.location.hostname}:5000`;
-    }
-    return "http://localhost:5000";
-  };
-
   useEffect(() => {
     if (!socket) return;
 
