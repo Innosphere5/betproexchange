@@ -8,6 +8,7 @@ import { getApiUrl } from "../lib/apiConfig";
 
 export default function BetSlip({ selection, onClose, type = "back" }) {
   const { fetchWallet } = useDashboard();
+  const [modalConfig, setModalConfig] = useState(null);
   const [odds, setOdds] = useState(selection?.price || 0);
   const [stake, setStake] = useState("");
   const [profit, setProfit] = useState(0);

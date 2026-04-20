@@ -10,7 +10,16 @@ import NotificationPopup from "./NotificationPopup";
 import BetSlip from "./BetSlip";
 
 // Create a context for dashboard state
-const DashboardContext = createContext();
+export const DashboardContext = createContext();
+
+// Custom hook to use the dashboard context
+export const useDashboard = () => {
+    const context = useContext(DashboardContext);
+    if (!context) {
+        throw new Error("useDashboard must be used within a DashboardLayout");
+    }
+    return context;
+};
 
 const getAuthToken = () => {
   if (typeof window !== 'undefined') {
