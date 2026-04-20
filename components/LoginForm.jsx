@@ -3,8 +3,6 @@
 import { useState } from 'react';
 import { User, Lock, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
-import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
 
 export default function LoginForm() {
   const [username, setUsername] = useState('');
@@ -36,21 +34,34 @@ export default function LoginForm() {
         const data = await response.json();
 
         if (response.ok) {
-          // Save session accurately to localStorage
-          const sessionData = { 
+          const sessionData = {
             token: data.token,
-            username: data.user.username, 
-            loggedInAt: new Date().toISOString() 
+            username: data.user.username,
+            role: data.user.role,
+            loggedInAt: new Date().toISOString()
           };
+
+          // Save to localStorage for client-side access
           localStorage.setItem('user_session', JSON.stringify(sessionData));
 
-          // Redirect to dashboard
-          window.location.href = '/dashboard';
+          // Save to cookie so Next.js middleware can read it server-side
+          // Expires in 7 days, SameSite=Lax for safety
+          const expires = new Date();
+          expires.setDate(expires.getDate() + 7);
+          document.cookie = `user_session=${encodeURIComponent(JSON.stringify(sessionData))}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
+
+          // Redirect based on role
+          if (data.user.role === 'admin') {
+            window.location.href = '/admin/dashboard';
+          } else if (data.user.role === 'master') {
+            window.location.href = '/master/dashboard';
+          } else {
+            window.location.href = '/dashboard';
+          }
         } else {
           setError(data.error || 'Invalid username or password.');
         }
       } else {
-        // Handle non-JSON response (e.g. HTML error page)
         const text = await response.text();
         console.error("Non-JSON response received:", text);
         setError(`Server error: Received unexpected response format.`);
@@ -71,7 +82,7 @@ export default function LoginForm() {
           <div className="relative w-24 md:w-52 h-34 md:h-32">
             <Image
               src="/betlogo.png"
-              alt="BpExch Logo"
+              alt="Betproexchange Logo"
               fill
               priority
               className="object-contain"

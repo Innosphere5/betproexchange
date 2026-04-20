@@ -35,6 +35,10 @@ const getAuthToken = () => {
 };
 
 export default function DashboardLayout({ children }) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [isAuthorized, setIsAuthorized] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentView, setCurrentView] = useState("home");
   const [selectedMatchId, setSelectedMatchId] = useState(null);
@@ -43,6 +47,27 @@ export default function DashboardLayout({ children }) {
   const [walletBalance, setWalletBalance] = useState(0);
   const [socketInstance, setSocketInstance] = useState(null);
   const [notification, setNotification] = useState(null);
+
+
+  // ── Auth Guard ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const raw = localStorage.getItem("user_session");
+    if (!raw) {
+      router.replace("/login");
+      return;
+    }
+    try {
+      const session = JSON.parse(raw);
+      if (session?.role === "admin") {
+        router.replace("/admin/dashboard");
+        return;
+      }
+      setIsAuthorized(true);
+    } catch {
+      router.replace("/login");
+    }
+  }, [router]);
+  // ────────────────────────────────────────────────────────────────────────────
 
   const fetchWallet = async () => {
     const token = getAuthToken();
@@ -81,6 +106,10 @@ export default function DashboardLayout({ children }) {
         }
     });
 
+    socket.on('matches_updated', (data) => {
+        setCricketMatches(data);
+    });
+
     const fetchMatches = async () => {
       try {
         const res = await fetch(`${getApiUrl()}/api/matches`);
@@ -93,17 +122,32 @@ export default function DashboardLayout({ children }) {
       }
     };
 
+    const fetchLiveScores = async () => {
+      try {
+        const res = await fetch(`${getApiUrl()}/api/matches/live`);
+        if (res.ok) {
+          const liveData = await res.json();
+          setCricketMatches(prev => {
+            // Update only the live matches in the existing list
+            return prev.map(m => {
+              const updated = liveData.find(ld => ld.matchId === m.matchId);
+              return updated ? updated : m;
+            });
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch live scores:", err);
+      }
+    };
+
     fetchMatches();
-    const interval = setInterval(fetchMatches, 5000);
+    const interval = setInterval(fetchLiveScores, 20000); // 20s polling
 
     return () => {
-      clearInterval(interval);
       socket.disconnect();
+      clearInterval(interval);
     };
   }, []);
-
-  const router = useRouter();
-  const pathname = usePathname();
 
   const handleSelectMatch = (matchId) => {
     setSelectedMatchId(matchId);
@@ -118,7 +162,14 @@ export default function DashboardLayout({ children }) {
 
   const handleSelectOutcome = (runner, price, type, isLive) => {
     const match = cricketMatches.find(m => m.matchId === selectedMatchId);
-    setBetSelection({ runner, price, type, isLive, matchName: match ? `${match.teamA} v ${match.teamB}` : "Match" });
+    setBetSelection({ 
+      matchId: selectedMatchId,
+      runner, 
+      price, 
+      type, 
+      isLive, 
+      matchName: match ? `${match.teamA} v ${match.teamB}` : "Match" 
+    });
   };
 
   const clearBetSelection = () => setBetSelection(null);
@@ -132,6 +183,15 @@ export default function DashboardLayout({ children }) {
       router.push("/dashboard");
     }
   };
+
+  // Show spinner while auth is being checked / redirecting
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen bg-[#eaedf1] flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <DashboardContext.Provider value={{ 

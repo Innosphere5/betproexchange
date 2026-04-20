@@ -21,42 +21,35 @@ export default function RightPanel({ selection, clearSelection, type }) {
       {/* Bet Slip Integration - Desktop Only in Side Panel */}
       {selection && (
         <div className="hidden lg:block">
-          <BetSlip 
-            selection={selection} 
-            onClose={clearSelection} 
-            type={type} 
+          <BetSlip
+            selection={selection}
+            onClose={clearSelection}
+            type={type}
           />
         </div>
       )}
 
       {/* Open Bets Section */}
       <CollapsibleSection title="Open Bets (0)">
-         <div className="bg-gray-100 flex items-center px-3 py-2 text-[11px] font-bold text-gray-500 border-b border-gray-200 uppercase tracking-tight">
-            <div className="flex-1">Runner</div>
-            <div className="w-16 text-center">Price</div>
-            <div className="w-16 text-right">Size</div>
-         </div>
-         <div className="h-6 bg-white"></div>
+        <div className="bg-gray-100 flex items-center px-3 py-2 text-[11px] font-bold text-gray-500 border-b border-gray-200 uppercase tracking-tight">
+          <div className="flex-1">Runner</div>
+          <div className="w-16 text-center">Price</div>
+          <div className="w-16 text-right">Size</div>
+        </div>
+        <div className="h-6 bg-white"></div>
       </CollapsibleSection>
 
       {/* Matched Bets Section */}
       <CollapsibleSection title="Matched Bets (0)">
-         <div className="bg-gray-100 flex items-center px-3 py-2 text-[11px] font-bold text-gray-500 border-b border-gray-200 uppercase tracking-tight">
-            <div className="flex-1">Runner</div>
-            <div className="w-16 text-center">Price</div>
-            <div className="w-16 text-right">Size</div>
-         </div>
-         <div className="h-6 bg-white"></div>
+        <div className="bg-gray-100 flex items-center px-3 py-2 text-[11px] font-bold text-gray-500 border-b border-gray-200 uppercase tracking-tight">
+          <div className="flex-1">Runner</div>
+          <div className="w-16 text-center">Price</div>
+          <div className="w-16 text-right">Size</div>
+        </div>
+        <div className="h-6 bg-white"></div>
       </CollapsibleSection>
 
-      {/* Related Events Section */}
-      <CollapsibleSection title="Related Events">
-         <div className="bg-white p-3 flex flex-col gap-3">
-            <EventRow time="Today 19:30" teams="Sunrisers Hyderabad v Rajasthan Royals" />
-            <EventRow time="Today 19:30" teams="Peshawar Zalmi v Multan Sultans" />
-            <EventRow time="Tomorrow 19:30" teams="Chennai Super Kings v Kolkata Knight Riders" />
-         </div>
-      </CollapsibleSection>
+
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { X, Menu, LogOut, Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
-export default function AdminHeader({ setIsSidebarOpen }) {
+export default function MasterHeader({ setIsSidebarOpen }) {
   const pathname = usePathname();
   const router = useRouter();
   const [walletBalance, setWalletBalance] = useState(0);
@@ -61,6 +61,16 @@ export default function AdminHeader({ setIsSidebarOpen }) {
     window.location.href = "/login";
   };
 
+  const getUsername = () => {
+    if (typeof window !== 'undefined') {
+      try {
+        const session = JSON.parse(localStorage.getItem('user_session') || '{}');
+        return session.username || 'Master';
+      } catch (e) { return 'Master'; }
+    }
+    return 'Master';
+  };
+
   return (
     <header className="relative bg-white border-b border-gray-300 text-gray-700 flex items-center justify-between px-3 lg:px-6 h-12 lg:h-14 font-medium flex-shrink-0 z-30">
       {/* Left section */}
@@ -73,27 +83,27 @@ export default function AdminHeader({ setIsSidebarOpen }) {
         </button>
 
         {/* Brand / Logo */}
-        <div className="text-xl font-extrabold text-[#1abc9c] tracking-tighter">
-          Betproexchange
+        <div className="text-xl font-extrabold text-[#f39c12] tracking-tighter">
+          MASTER_PANEL
         </div>
 
         {/* Top Nav (hidden on mobile) */}
         <div className="hidden lg:flex items-center h-full ml-4">
           <Link
-            href="/admin/dashboard"
-            className={`flex items-center h-full px-4 text-sm hover:text-[#1abc9c] hover:border-b-2 hover:border-[#1abc9c] transition-colors ${pathname === '/admin/dashboard' ? 'text-[#1abc9c] border-b-2 border-[#1abc9c]' : 'text-gray-600'}`}
+            href="/master/dashboard"
+            className={`flex items-center h-full px-4 text-sm hover:text-[#f39c12] hover:border-b-2 hover:border-[#f39c12] transition-colors ${pathname === '/master/dashboard' ? 'text-[#f39c12] border-b-2 border-[#f39c12]' : 'text-gray-600'}`}
           >
             Dashboard
           </Link>
           <Link
-            href="/admin/users"
-            className={`flex items-center h-full px-4 text-sm hover:text-[#1abc9c] hover:border-b-2 hover:border-[#1abc9c] transition-colors ${pathname === '/admin/users' ? 'text-[#1abc9c] border-b-2 border-[#1abc9c]' : 'text-gray-600'}`}
+            href="/master/users"
+            className={`flex items-center h-full px-4 text-sm hover:text-[#f39c12] hover:border-b-2 hover:border-[#f39c12] transition-colors ${pathname === '/master/users' ? 'text-[#f39c12] border-b-2 border-[#f39c12]' : 'text-gray-600'}`}
           >
-            Users
+            Players (Users)
           </Link>
           <Link
-            href="/admin/reports"
-            className={`flex items-center h-full px-4 text-sm hover:text-[#1abc9c] hover:border-b-2 hover:border-[#1abc9c] transition-colors ${pathname === '/admin/reports' ? 'text-[#1abc9c] border-b-2 border-[#1abc9c]' : 'text-gray-600'}`}
+            href="/master/reports"
+            className={`flex items-center h-full px-4 text-sm hover:text-[#f39c12] hover:border-b-2 hover:border-[#f39c12] transition-colors ${pathname === '/master/reports' ? 'text-[#f39c12] border-b-2 border-[#f39c12]' : 'text-gray-600'}`}
           >
             Reports
           </Link>
@@ -102,15 +112,16 @@ export default function AdminHeader({ setIsSidebarOpen }) {
 
       {/* Right Section */}
       <div className="flex items-center gap-3 text-xs lg:text-sm text-gray-600 font-medium">
-        <div className="mr-1 text-gray-500">
-          <span>{typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user_session') || '{}').username || 'Admin' : 'Admin'} (Admin)</span>
+        <div className="mr-1 text-gray-500 hidden sm:block">
+          <span className="font-bold text-gray-700">{getUsername()}</span> <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded ml-1 uppercase">Broker</span>
         </div>
-        <div className="flex items-center gap-2 font-bold bg-gray-50 px-3 py-1 rounded-full border border-gray-100">
-          <Wallet size={14} className="text-[#1abc9c]" />
-          <span className="text-gray-800">
-            Balance: <span className="text-[#1abc9c]">{walletBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-          </span>
+        
+        {/* Balance Display */}
+        <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+           <Wallet size={14} className="text-[#f39c12]" />
+           <span className="font-bold text-gray-800">{walletBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
         </div>
+
         {/* Logout Button */}
         <button
           onClick={handleLogout}

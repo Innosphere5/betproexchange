@@ -1,26 +1,9 @@
 "use client";
 
 import { X, LayoutDashboard, Users, Filter, FileText, Lock, Star, Globe, Gamepad2, ChevronLeft, ChevronDown, Trophy } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-
-// Base SVGs for Sports
-const FootballIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="opacity-80">
-    <circle cx="12" cy="12" r="10" />
-    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-    <path d="M2 12h20" />
-  </svg>
-);
-
-const TennisIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-80">
-    <circle cx="12" cy="12" r="10" />
-    <path d="M5.5 5.5C7.5 9 7.5 15 5.5 18.5M18.5 5.5C16.5 9 16.5 15 18.5 18.5" />
-  </svg>
-);
 
 const CricketIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-80">
@@ -30,20 +13,10 @@ const CricketIcon = () => (
   </svg>
 );
 
-const HorseIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="opacity-80">
-    <path d="M4 18l2.5-3.5h7.5l2.5 3.5" />
-    <circle cx="12" cy="9" r="6" />
-    <path d="M10 9l2-2 2 2" />
-  </svg>
-);
-
 const navItems = [
-  { label: "Dashboard", href: "/admin/dashboard", icon: <LayoutDashboard size={18} className="opacity-80" /> },
-  { label: "Users", href: "/admin/users", icon: <Users size={18} className="opacity-80" /> },
-  { label: "Current Position", href: "#", icon: <Filter size={18} className="opacity-80" /> },
-  { label: "Reports", href: "/admin/reports", icon: <FileText size={18} className="opacity-80" /> },
-  { label: "Bet Lock", href: "/admin/betlock", icon: <Lock size={18} className="opacity-80" /> },
+  { label: "Dashboard", href: "/master/dashboard", icon: <LayoutDashboard size={18} className="opacity-80" /> },
+  { label: "Users (Bettors)", href: "/master/users", icon: <Users size={18} className="opacity-80" /> },
+  { label: "Reports", href: "/master/reports", icon: <FileText size={18} className="opacity-80" /> },
   { label: "Cricket", 
     href: "#", 
     isSport: true,
@@ -56,9 +29,9 @@ const navItems = [
   }
 ];
 
-export default function AdminSidebar({ isOpen, setIsOpen }) {
+export default function MasterSidebar({ isOpen, setIsOpen }) {
   const pathname = usePathname();
-  const [openSports, setOpenSports] = useState({ Cricket: true, Football: true });
+  const [openSports, setOpenSports] = useState({ Cricket: true });
 
   const toggleSport = (label) => {
     setOpenSports(prev => ({
@@ -69,12 +42,12 @@ export default function AdminSidebar({ isOpen, setIsOpen }) {
 
   return (
     <aside
-      className={`fixed lg:static top-0 left-0 h-screen lg:h-full w-[240px] bg-[#293c4e] text-[#b4cdd4] flex flex-col transition-transform duration-300 ease-in-out z-50 shadow-2xl lg:shadow-none
+      className={`fixed lg:static top-0 left-0 h-screen lg:h-full w-[240px] bg-[#2c3e50] text-[#b4cdd4] flex flex-col transition-transform duration-300 ease-in-out z-50 shadow-2xl lg:shadow-none
       ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
     >
       {/* Sidebar Header */}
-      <div className="flex items-center justify-between h-14 px-4 bg-[#213140] shrink-0 border-b border-[#1f2d3a]">
-        <div className="text-white font-bold text-lg tracking-wide invisible lg:visible">Admin</div>
+      <div className="flex items-center justify-between h-14 px-4 bg-[#1a252f] shrink-0 border-b border-[#1f2d3a]">
+        <div className="text-white font-bold text-lg tracking-wide invisible lg:visible uppercase">Broker Panel</div>
 
         <button
           className="lg:hidden text-gray-400 hover:text-white transition-colors focus:outline-none"
@@ -110,7 +83,7 @@ export default function AdminSidebar({ isOpen, setIsOpen }) {
                     href={item.href}
                     className={`flex items-center gap-3 px-5 py-3 text-sm font-medium transition-colors border-l-[3px] 
                       ${isActive
-                        ? 'bg-[#1a2632] text-white border-[#1abc9c]'
+                        ? 'bg-[#1a252f] text-white border-[#f39c12]'
                         : 'border-transparent hover:bg-[#34495e] hover:text-white'
                       }`}
                   >
@@ -121,12 +94,12 @@ export default function AdminSidebar({ isOpen, setIsOpen }) {
 
                 {/* Sub Menu */}
                 {hasChildren && isSportOpen && (
-                  <ul className="bg-[#1f2d3a] py-1">
+                  <ul className="bg-[#1a252f] py-1">
                     {item.children.map((child, cIdx) => (
                       <li key={cIdx}>
                         <Link
-                          href={`/admin/markets/${child.id}`}
-                          className={`flex items-center px-5 py-2.5 text-[13px] hover:text-white hover:bg-[#34495e] transition-colors ${pathname.includes(child.id) ? 'text-white bg-[#1a2632]' : 'text-[#8ba7ae]'}`}
+                          href={`/master/markets/${child.id}`}
+                          className={`flex items-center px-5 py-2.5 text-[13px] hover:text-white hover:bg-[#34495e] transition-colors ${pathname.includes(child.id) ? 'text-white bg-[#141b24]' : 'text-[#8ba7ae]'}`}
                         >
                           <span className="truncate">{child.label}</span>
                         </Link>
@@ -140,7 +113,7 @@ export default function AdminSidebar({ isOpen, setIsOpen }) {
         </ul>
       </nav>
 
-      <div className="p-4 bg-[#213140]">
+      <div className="p-4 bg-[#1a252f]">
         <button
           className="flex items-center justify-between w-full px-2 py-2 text-sm text-gray-400 hover:text-white"
           onClick={() => setIsOpen(false)} // mobile back behavior

@@ -61,6 +61,7 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
           "Authorization": `Bearer ${session.token}` 
         },
         body: JSON.stringify({
+          matchId: selection.matchId,
           matchName: selection.matchName || "Unknown Match",
           runner: selection.runner,
           stake: parseFloat(stake),

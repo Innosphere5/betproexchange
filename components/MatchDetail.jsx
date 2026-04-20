@@ -93,8 +93,36 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
         </div>
       </div>
 
-      {/* 3. LICE BLACK SCORECARD (Always at bottom on mobile) */}
-      {actualMatch?.status === 'live' && (
+      {/* 3. LIVE OR COMPLETED SCORECARD */}
+      {actualMatch?.status === 'completed' ? (
+        <div className="order-3 mt-auto shrink-0 animate-in zoom-in duration-500">
+          <div className="bg-[#243f55] m-2 rounded-md overflow-hidden shadow-xl border border-yellow-500/30">
+             <div className="px-5 py-8 bg-gradient-to-tr from-[#1a2e3e] to-[#243f55] text-white text-center relative">
+               <div className="absolute top-0 left-0 w-full h-1 bg-yellow-500"></div>
+               
+               <h3 className="text-yellow-500 text-xs font-black uppercase tracking-[0.3em] mb-4">Match Completed</h3>
+               
+               <div className="flex items-center justify-center gap-8 mb-6">
+                  <div className="flex flex-col items-center">
+                    <div className="text-2xl font-black">{actualMatch.score?.teamA_runs || "0/0"}</div>
+                    <div className="text-[10px] text-gray-400 font-bold uppercase">{actualMatch.teamA}</div>
+                  </div>
+                  <div className="text-2xl font-light text-gray-600">VS</div>
+                  <div className="flex flex-col items-center">
+                    <div className="text-2xl font-black text-[#00c766]">{actualMatch.score?.teamB_runs || "0/0"}</div>
+                    <div className="text-[10px] text-gray-400 font-bold uppercase">{actualMatch.teamB}</div>
+                  </div>
+               </div>
+
+               <div className="inline-block px-6 py-2 bg-white/10 rounded-full border border-white/20 backdrop-blur-sm">
+                  <span className="text-[13px] font-black uppercase tracking-widest text-[#00c766]">
+                    Final Result: Match Settled
+                  </span>
+               </div>
+             </div>
+          </div>
+        </div>
+      ) : actualMatch?.status === 'live' && (
         <div className="order-3 mt-auto shrink-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="bg-black m-2 rounded-md overflow-hidden shadow-lg border border-gray-800">
              <div className="px-5 py-6 bg-gradient-to-b from-[#111] to-black text-white relative">
@@ -112,13 +140,13 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
  
                  <div className="flex items-center gap-6">
                     <div className="flex flex-col items-center min-w-[60px]">
-                      <div className="text-3xl font-black text-white tabular-nums">{actualMatch.score?.home ?? "0/0"}</div>
+                      <div className="text-3xl font-black text-white tabular-nums">{actualMatch.score?.teamA_runs ?? "0/0"}</div>
                       <div className="text-[10px] text-gray-400 font-bold tracking-widest uppercase">{actualMatch.teamA}</div>
                     </div>
                     <div className="text-3xl text-gray-700 font-light opacity-50 px-2">-</div>
                     <div className="flex flex-col items-center min-w-[60px]">
-                      <div className="text-3xl font-black text-[#00c766] tabular-nums">{actualMatch.score?.away ?? "0/0"}</div>
-                      <div className="text-[10px] text-gray-400 font-bold tracking-widest uppercase">{actualMatch.teamB}</div>
+                      <div className="text-3xl font-black text-[#00c766] tabular-nums">{actualMatch.score?.teamB_runs ?? "0/0"}</div>
+                      <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{actualMatch.teamB}</div>
                     </div>
                  </div>
                </div>

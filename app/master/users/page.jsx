@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Filter, Search, BookOpen, Edit2, X, DollarSign } from "lucide-react";
 
-export default function AdminUsers() {
+export default function MasterUsers() {
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -19,6 +19,11 @@ export default function AdminUsers() {
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [loadAmount, setLoadAmount] = useState("");
+
+  // Ledger Modal State
+  const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
+  const [ledgerTransactions, setLedgerTransactions] = useState([]);
+  const [isLedgerLoading, setIsLedgerLoading] = useState(false);
 
   const getApiUrl = () => {
     if (typeof window !== 'undefined') {
@@ -139,14 +144,36 @@ export default function AdminUsers() {
     }
   };
 
+  const fetchUserStatement = async (username) => {
+    setIsLedgerLoading(true);
+    setLedgerTransactions([]);
+    setIsLedgerModalOpen(true);
+    const token = getAuthToken();
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/user-statement/${username}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setLedgerTransactions(data);
+      } else {
+        alert(data.error || "Failed to fetch ledger");
+      }
+    } catch (error) {
+      console.error("Error fetching ledger:", error);
+    } finally {
+      setIsLedgerLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4 max-w-full">
       {/* New User Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="bg-[#1abc9c] px-4 py-3 flex justify-between items-center text-white">
-              <h3 className="font-bold">Create New User</h3>
+            <div className="bg-[#f39c12] px-4 py-3 flex justify-between items-center text-white">
+              <h3 className="font-bold">Create New Player (Bettor)</h3>
               <button onClick={() => setIsModalOpen(false)} className="hover:bg-white/20 p-1 rounded">
                 <X size={20} />
               </button>
@@ -160,7 +187,7 @@ export default function AdminUsers() {
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
                   placeholder="Enter username"
-                  className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#1abc9c]"
+                  className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#f39c12]"
                 />
               </div>
               <div>
@@ -171,19 +198,8 @@ export default function AdminUsers() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Enter password"
-                  className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#1abc9c]"
+                  className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#f39c12]"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Role</label>
-                <select
-                  value={newType}
-                  onChange={(e) => setNewType(e.target.value)}
-                  className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#1abc9c]"
-                >
-                  <option value="user">Bettor (User)</option>
-                  <option value="master">Master</option>
-                </select>
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Initial Balance</label>
@@ -192,15 +208,15 @@ export default function AdminUsers() {
                   value={initialBalance}
                   onChange={(e) => setInitialBalance(e.target.value)}
                   placeholder="Enter initial balance"
-                  className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#1abc9c]"
+                  className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#f39c12]"
                 />
               </div>
               <button
                 type="submit"
                 disabled={isSaving}
-                className="w-full bg-[#1abc9c] hover:bg-[#16a085] text-white font-bold py-2.5 rounded shadow-sm transition-colors disabled:opacity-50"
+                className="w-full bg-[#f39c12] hover:bg-yellow-600 text-white font-bold py-2.5 rounded shadow-sm transition-colors disabled:opacity-50"
               >
-                {isSaving ? "Creating..." : "Save User"}
+                {isSaving ? "Creating..." : "Save Player"}
               </button>
             </form>
           </div>
@@ -241,6 +257,64 @@ export default function AdminUsers() {
         </div>
       )}
 
+      {/* Ledger Modal */}
+      {isLedgerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="bg-[#3b82f6] px-4 py-3 flex justify-between items-center text-white border-b border-blue-400 font-bold uppercase tracking-tight italic">
+              <h3>User Ledger: {selectedUser?.username}</h3>
+              <button onClick={() => setIsLedgerModalOpen(false)} className="hover:bg-white/20 p-1 rounded">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-0 max-h-[400px] overflow-y-auto">
+              <table className="w-full text-sm text-left border-collapse">
+                <thead className="bg-gray-100 sticky top-0 shadow-sm font-bold text-gray-700">
+                  <tr>
+                    <th className="px-4 py-2 border-b border-gray-200">Date/Time</th>
+                    <th className="px-4 py-2 border-b border-gray-200">Type</th>
+                    <th className="px-4 py-2 border-b border-gray-200 text-right">Amount</th>
+                    <th className="px-4 py-2 border-b border-gray-200">Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isLedgerLoading ? (
+                    <tr><td colSpan="4" className="px-4 py-8 text-center text-gray-400">Loading history...</td></tr>
+                  ) : ledgerTransactions.length === 0 ? (
+                    <tr><td colSpan="4" className="px-4 py-8 text-center text-gray-400">No transactions found</td></tr>
+                  ) : (
+                    ledgerTransactions.map((tx, idx) => (
+                      <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="px-4 py-2.5 text-[12px] text-gray-600">
+                          {new Date(tx.createdAt).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-2.5 font-bold uppercase text-[11px] text-gray-600">
+                          {tx.type}
+                        </td>
+                        <td className={`px-4 py-2.5 font-extrabold text-right ${tx.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-2.5 text-gray-500 text-[12px]">
+                          {tx.description}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+                <button 
+                  onClick={() => setIsLedgerModalOpen(false)} 
+                  className="bg-gray-800 hover:bg-black text-white px-6 py-2 rounded-sm font-bold text-[12px] transition-colors"
+                >
+                  CLOSE
+                </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Report Type Panel */}
       <div className="bg-white border border-gray-300 shadow-sm rounded-sm">
         <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 flex items-center font-bold text-gray-800 text-[13px]">
@@ -249,14 +323,14 @@ export default function AdminUsers() {
         </div>
         <div className="p-4 flex flex-wrap gap-2">
           {['Book Detail', 'Book Detail 2', 'Daily PL', 'Daily Report', 'Final Sheet'].map(btn => (
-            <button key={btn} className="border border-[#1abc9c] text-[#1abc9c] hover:bg-teal-50 px-3 py-1.5 text-sm font-medium rounded-sm">
+            <button key={btn} className="border border-[#f39c12] text-[#f39c12] hover:bg-orange-50 px-3 py-1.5 text-sm font-medium rounded-sm">
               {btn}
             </button>
           ))}
-          <button className="bg-[#1abc9c] border border-[#1abc9c] text-white px-3 py-1.5 text-sm font-medium rounded-sm shadow-sm">
+          <button className="bg-[#f39c12] border border-[#f39c12] text-white px-3 py-1.5 text-sm font-medium rounded-sm shadow-sm">
             Accounts
           </button>
-          <button className="border border-[#1abc9c] text-[#1abc9c] hover:bg-teal-50 px-3 py-1.5 text-sm font-medium rounded-sm">
+          <button className="border border-[#f39c12] text-[#f39c12] hover:bg-orange-50 px-3 py-1.5 text-sm font-medium rounded-sm">
             Commission Report
           </button>
         </div>
@@ -272,9 +346,9 @@ export default function AdminUsers() {
           <input 
             type="text" 
             placeholder="Username" 
-            className="border border-gray-300 px-3 py-1.5 focus:outline-none focus:border-[#1abc9c] w-64 text-sm"
+            className="border border-gray-300 px-3 py-1.5 focus:outline-none focus:border-[#f39c12] w-64 text-sm"
           />
-          <button className="bg-[#1abc9c] hover:bg-[#16a085] text-white px-3 py-1.5 flex items-center gap-1 text-sm font-semibold">
+          <button className="bg-[#f39c12] hover:bg-orange-600 text-white px-3 py-1.5 flex items-center gap-1 text-sm font-semibold">
             <Search size={14} />
             Search
           </button>
@@ -314,11 +388,11 @@ export default function AdminUsers() {
           <div className="flex items-center gap-2">
             <button 
               onClick={() => setIsModalOpen(true)}
-              className="bg-[#1abc9c] hover:bg-[#16a085] text-white px-3 py-1.5 text-sm font-semibold rounded-sm shadow-sm transition-all"
+              className="bg-[#f39c12] hover:bg-orange-600 text-white px-3 py-1.5 text-sm font-semibold rounded-sm shadow-sm transition-all"
             >
-              New User
+              New Player
             </button>
-            <button className="bg-[#1abc9c] hover:bg-[#16a085] text-white px-3 py-1.5 text-sm font-semibold rounded-sm flex items-center gap-1">
+            <button className="bg-[#f39c12] hover:bg-orange-600 text-white px-3 py-1.5 text-sm font-semibold rounded-sm flex items-center gap-1">
               <BookOpen size={16} />
               Account Ledger
             </button>
@@ -340,10 +414,10 @@ export default function AdminUsers() {
 
         {/* Main Table */}
         <div className="overflow-x-auto">
-          {/* Green Load Balance Bar */}
-          <div className="bg-[#1abc9c] px-4 py-2 flex items-center">
+          {/* Orange Load Balance Bar */}
+          <div className="bg-[#f39c12] px-4 py-2 flex items-center">
             <div className="bg-[#fbbf24] text-gray-900 text-xs font-bold px-3 py-1.5 rounded-sm">
-              Load Balance
+              Load Player Balance
             </div>
           </div>
           
@@ -387,16 +461,23 @@ export default function AdminUsers() {
                     <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
                     <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
                     <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
-                    <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold text-[#1abc9c]">{item.walletBalance?.toLocaleString()}</td>
+                    <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold text-[#f39c12]">{item.walletBalance?.toLocaleString()}</td>
                     <td className="px-4 py-2 flex items-center gap-1">
+                      {item.role === 'user' && (
+                        <button 
+                          onClick={() => { setSelectedUser(item); setIsLoadModalOpen(true); }}
+                          className="bg-[#fbbf24] hover:bg-yellow-500 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center shadow-sm"
+                        >
+                          C
+                        </button>
+                      )}
+                      <button className="bg-[#f39c12] hover:bg-orange-600 text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center"><Edit2 size={14} /></button>
                       <button 
-                        onClick={() => { setSelectedUser(item); setIsLoadModalOpen(true); }}
-                        className="bg-[#fbbf24] hover:bg-yellow-500 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center"
+                        onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }}
+                        className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center shadow-sm"
                       >
-                        C
+                        L
                       </button>
-                      <button className="bg-[#1abc9c] hover:bg-[#16a085] text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center"><Edit2 size={14} /></button>
-                      <button className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center">L</button>
                       <button className="border border-red-500 text-red-500 hover:bg-red-50 font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center">D</button>
                     </td>
                   </tr>

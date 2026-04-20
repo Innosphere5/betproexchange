@@ -112,7 +112,7 @@ export default function DashboardContent() {
                 <div className="p-4 flex items-center justify-between">
                   <div className="flex-1">
                     <div className="text-white font-bold text-base mb-1">{row.teamA}</div>
-                    <div className="text-2xl font-black text-white">{row.score?.home || "0/0"}</div>
+                    <div className="text-2xl font-black text-white">{row.score?.teamA_runs || "0/0"}</div>
                   </div>
 
                   <div className="px-6 flex flex-col items-center">
@@ -121,12 +121,12 @@ export default function DashboardContent() {
 
                   <div className="flex-1 text-right">
                     <div className="text-white font-bold text-base mb-1">{row.teamB}</div>
-                    <div className="text-2xl font-black text-green-400">{row.score?.away || "0/0"}</div>
+                    <div className="text-2xl font-black text-green-400">{row.score?.teamB_runs || "0/0"}</div>
                   </div>
                 </div>
 
                 <div className="bg-[#0f172a]/50 px-4 py-2 flex justify-between items-center border-t border-gray-800">
-                  <span className="text-[10px] text-gray-400 italic">Updated: {new Date(row.lastUpdated).toLocaleTimeString()}</span>
+                  <span className="text-[10px] text-gray-400 italic">Updated: {row.score?.lastUpdated ? new Date(row.score.lastUpdated).toLocaleTimeString() : new Date(row.lastUpdated).toLocaleTimeString()}</span>
                   <div className="flex gap-4">
                     <Info size={14} className="text-gray-500" />
                     <Tv size={14} className="text-gray-500" />

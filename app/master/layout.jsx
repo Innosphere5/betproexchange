@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import AdminSidebar from "../../components/admin/AdminSidebar";
-import AdminHeader from "../../components/admin/AdminHeader";
+import MasterSidebar from "../../components/master/MasterSidebar";
+import MasterHeader from "../../components/master/MasterHeader";
 
-export default function AdminLayout({ children }) {
+export default function MasterLayout({ children }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const router = useRouter();
@@ -18,12 +18,12 @@ export default function AdminLayout({ children }) {
     }
     try {
       const session = JSON.parse(raw);
-      if (session?.role !== "admin") {
+      if (session?.role !== "master") {
         router.replace("/dashboard");
         return;
       }
       setIsAuthorized(true);
-    } catch (e) {
+    } catch {
       router.replace("/login");
     }
   }, [router]);
@@ -31,13 +31,13 @@ export default function AdminLayout({ children }) {
   if (!isAuthorized) {
     return (
       <div className="min-h-screen bg-[#eaedf1] flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="flex bg-[#eaedf1] overflow-hidden font-sans text-sm min-h-screen">
+    <div className="flex bg-[#eaedf1] overflow-hidden font-sans text-sm min-h-screen border-t-4 border-yellow-500">
       {/* Sidebar overlay for mobile */}
       {isSidebarOpen && (
         <div
@@ -47,11 +47,11 @@ export default function AdminLayout({ children }) {
       )}
 
       {/* Sidebar */}
-      <AdminSidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+      <MasterSidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <AdminHeader setIsSidebarOpen={setIsSidebarOpen} />
+        <MasterHeader setIsSidebarOpen={setIsSidebarOpen} />
 
         {/* Scrollable Core */}
         <main className="flex-1 overflow-y-auto w-full p-2 lg:p-4">
