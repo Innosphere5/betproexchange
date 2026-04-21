@@ -37,9 +37,12 @@ export default function AdminHeader({ setIsSidebarOpen }) {
       if (res.ok) {
         const data = await res.json();
         setWalletBalance(data.balance);
+      } else if (res.status === 401) {
+         // Token expired or invalid
+         router.push('/login');
       }
     } catch (err) {
-      console.error("Failed to fetch wallet:", err);
+      console.warn("Wallet fetch failed. Backend server might be offline or URL is incorrect.");
     }
   };
 

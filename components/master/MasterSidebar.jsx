@@ -1,6 +1,6 @@
 "use client";
 
-import { X, LayoutDashboard, Users, Filter, FileText, Lock, Star, Globe, Gamepad2, ChevronLeft, ChevronDown, Trophy } from "lucide-react";
+import { X, LayoutDashboard, Users, Filter, FileText, Lock, Star, Globe, Gamepad2, ChevronLeft, ChevronDown, Trophy, LogOut } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -113,15 +113,27 @@ export default function MasterSidebar({ isOpen, setIsOpen }) {
         </ul>
       </nav>
 
-      <div className="p-4 bg-[#1a252f]">
-        <button
-          className="flex items-center justify-between w-full px-2 py-2 text-sm text-gray-400 hover:text-white"
-          onClick={() => setIsOpen(false)} // mobile back behavior
-        >
-          <span>Collapse</span>
-          <ChevronLeft size={16} />
-        </button>
-      </div>
+       <div className="p-4 bg-[#1a252f] space-y-2">
+         <button
+           className="flex items-center justify-between w-full px-2 py-2 text-sm text-gray-400 hover:text-white"
+           onClick={() => setIsOpen(false)} // mobile back behavior
+         >
+           <span>Collapse</span>
+           <ChevronLeft size={16} />
+         </button>
+         
+         <button
+           className="lg:hidden flex items-center gap-2 w-full px-2 py-2 text-sm text-red-400 hover:text-red-300 font-bold border-t border-gray-700 pt-3"
+           onClick={() => {
+             localStorage.removeItem("user_session");
+             document.cookie = 'user_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
+             window.location.href = "/login";
+           }}
+         >
+           <LogOut size={16} />
+           <span>Logout</span>
+         </button>
+       </div>
     </aside>
   );
 }

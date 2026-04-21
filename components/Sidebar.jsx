@@ -1,6 +1,6 @@
 "use client";
 
-import { X, ChevronDown, ChevronRight } from "lucide-react";
+import { X, ChevronDown, ChevronRight, LogOut } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
 import Link from "next/link";
@@ -143,7 +143,21 @@ export default function Sidebar({ isOpen, setIsOpen, onSelectMatch }) {
           })}
         </ul>
       </nav>
+
+      {/* Mobile Logout Button */}
+      <div className="lg:hidden p-4 border-t border-[#3b546b]">
+        <button
+          onClick={() => {
+            localStorage.removeItem("user_session");
+            document.cookie = 'user_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
+            window.location.href = "/login";
+          }}
+          className="flex items-center gap-3 w-full px-4 py-3 bg-red-600/20 hover:bg-red-600/40 text-red-400 font-bold rounded-lg transition-colors border border-red-500/30"
+        >
+          <LogOut size={18} />
+          <span className="text-sm uppercase tracking-wider">Logout</span>
+        </button>
+      </div>
     </aside>
   );
 }
-

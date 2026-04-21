@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Info, Tv, Clock } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useDashboard } from "./DashboardLayout";
 import MatchDetail from "./MatchDetail";
 import RightPanel from "./RightPanel";
@@ -16,6 +17,7 @@ const CricketIcon = () => (
 );
 
 export default function DashboardContent() {
+  const router = useRouter();
   const { currentView, selectedMatchId, handleSelectMatch, handleSelectOutcome, betSelection, clearBetSelection, cricketMatches } = useDashboard();
 
   if (currentView === "match") {
@@ -61,8 +63,11 @@ export default function DashboardContent() {
           </div>
         </div>
 
-        {/* Casino Hero */}
-        <div className="relative aspect-square rounded-lg md:rounded-xl overflow-hidden shadow-lg group cursor-pointer border-2 border-transparent hover:border-yellow-500 transition-all">
+         {/* Casino Hero */}
+        <div 
+          onClick={() => router.push("/dashboard/casino")}
+          className="relative aspect-square rounded-lg md:rounded-xl overflow-hidden shadow-lg group cursor-pointer border-2 border-transparent hover:border-yellow-500 transition-all font-sans"
+        >
           <img src="/images/casino_banner.png" className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" alt="Casino" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
           <div className="absolute bottom-2 left-2 md:bottom-4 md:left-5">

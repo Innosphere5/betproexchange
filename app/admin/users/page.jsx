@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Filter, Search, BookOpen, Edit2, X, DollarSign } from "lucide-react";
+import { Filter, Search, BookOpen, Edit2, X, DollarSign, AlertTriangle, Trash2 } from "lucide-react";
 import { getApiUrl } from "@/lib/apiConfig";
 
 export default function AdminUsers() {
@@ -14,12 +14,22 @@ export default function AdminUsers() {
   const [newPassword, setNewPassword] = useState("");
   const [newType, setNewType] = useState("user");
   const [initialBalance, setInitialBalance] = useState("0");
+  const [newShare, setNewShare] = useState("0");
   const [isSaving, setIsSaving] = useState(false);
 
   // Load Balance Modal State
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [loadAmount, setLoadAmount] = useState("");
+
+  // Edit User State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editShare, setEditShare] = useState("0");
+  const [editPassword, setEditPassword] = useState("");
+
+  // Delete Confirmation Modal State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
 
   const getAuthToken = () => {
     const raw = localStorage.getItem("user_session");
@@ -75,7 +85,8 @@ export default function AdminUsers() {
           username: newUsername, 
           password: newPassword, 
           role: newType,
-          initialBalance: parseFloat(initialBalance)
+          initialBalance: parseFloat(initialBalance),
+          share: parseFloat(newShare)
         })
       });
       
@@ -85,6 +96,7 @@ export default function AdminUsers() {
         setNewUsername("");
         setNewPassword("");
         setInitialBalance("0");
+        setNewShare("0");
         fetchUsers();
       } else {
         alert(data.error || "Failed to create user");
@@ -133,8 +145,141 @@ export default function AdminUsers() {
     }
   };
 
-  return (
+  const handleUpdateUser = async (e) => {
+    e.preventDefault();
+    if (!selectedUser) return;
+
+    setIsSaving(true);
+    const token = getAuthToken();
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/update-user`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          targetUsername: selectedUser.username, 
+          share: parseFloat(editShare),
+          newPassword: editPassword
+        })
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        setIsEditModalOpen(false);
+        setEditPassword("");
+        fetchUsers();
+      } else {
+        alert(data.error || "Failed to update user");
+      }
+    } catch (error) {
+      console.error("Error updating user:", error);
+      alert("Failed to update user. Check connection.");
+     } finally {
+       setIsSaving(false);
+     }
+   };
+ 
+   const handleToggleStatus = async (username, currentStatus) => {
+     const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+     const token = getAuthToken();
+     if (!token) return;
+ 
+     try {
+       const res = await fetch(`${getApiUrl()}/api/admin/toggle-status`, {
+         method: 'POST',
+         headers: { 
+           'Content-Type': 'application/json',
+           'Authorization': `Bearer ${token}`
+         },
+         body: JSON.stringify({ targetUsername: username, status: newStatus })
+       });
+       
+       if (res.ok) {
+         fetchUsers();
+       } else {
+         const data = await res.json();
+         alert(data.error || "Failed to update status");
+       }
+     } catch (error) {
+       console.error("Error toggling status:", error);
+     } finally {
+       setIsSaving(false);
+     }
+   };
+ 
+   const handleRemoveUser = async () => {
+     if (!userToDelete) return;
+ 
+     setIsSaving(true);
+     const token = getAuthToken();
+     if (!token) return;
+ 
+     try {
+       const res = await fetch(`${getApiUrl()}/api/admin/remove-user/${userToDelete.username}`, {
+         method: 'DELETE',
+         headers: { 'Authorization': `Bearer ${token}` }
+       });
+       
+       const data = await res.json();
+       if (res.ok) {
+         setIsDeleteModalOpen(false);
+         setUserToDelete(null);
+         fetchUsers();
+       } else {
+         alert(data.error || "Failed to delete user");
+       }
+     } catch (error) {
+       console.error("Error removing user:", error);
+       alert("Failed to remove user. Check connection.");
+     } finally {
+       setIsSaving(false);
+     }
+   };
+ 
+   return (
     <div className="flex flex-col gap-4 max-w-full">
+      {/* Premium Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in duration-200 border border-red-100">
+            <div className="bg-red-50 p-6 flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4 ring-8 ring-red-50 animate-pulse">
+                <AlertTriangle size={32} />
+              </div>
+              <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Confirm Deletion</h3>
+              <p className="text-gray-600 mt-2 text-sm px-4">
+                Are you sure you want to permanently remove <span className="font-bold text-red-600">@{userToDelete?.username}</span>? This action is irreversible and all profile data will be destroyed.
+              </p>
+            </div>
+            <div className="p-6 bg-white flex flex-col gap-3">
+              <button
+                onClick={handleRemoveUser}
+                disabled={isSaving}
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-red-200 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <Trash2 size={18} />
+                {isSaving ? "Destroying Account..." : "Yes, Purge Account"}
+              </button>
+              <button
+                onClick={() => { setIsDeleteModalOpen(false); setUserToDelete(null); }}
+                disabled={isSaving}
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-all"
+              >
+                Nevermind, Go Back
+              </button>
+            </div>
+            {/* Progress Bar (Simulated) */}
+            {isSaving && (
+              <div className="w-full h-1 bg-gray-100 overflow-hidden">
+                <div className="h-full bg-red-600 animate-progress w-full origin-left" />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* New User Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -189,6 +334,20 @@ export default function AdminUsers() {
                   className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#1abc9c]"
                 />
               </div>
+              {newType === "master" && (
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Share (%) (0-85)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="85"
+                    value={newShare}
+                    onChange={(e) => setNewShare(e.target.value)}
+                    placeholder="Enter share percentage"
+                    className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#1abc9c]"
+                  />
+                </div>
+              )}
               <button
                 type="submit"
                 disabled={isSaving}
@@ -206,12 +365,18 @@ export default function AdminUsers() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="bg-[#fbbf24] px-4 py-3 flex justify-between items-center text-gray-900">
-              <h3 className="font-bold">Load Balance: {selectedUser?.username}</h3>
+              <h3 className="font-bold uppercase tracking-tighter italic">Load Balance: {selectedUser?.username}</h3>
               <button onClick={() => setIsLoadModalOpen(false)} className="hover:bg-black/10 p-1 rounded">
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleLoadBalance} className="p-6 space-y-4">
+            <form onSubmit={handleLoadBalance} className="p-6 space-y-4 font-sans">
+              {selectedUser?.role === 'master' && (
+                <div className="bg-yellow-50 p-3 rounded border border-yellow-200 mb-2">
+                  <div className="text-[11px] font-bold text-yellow-700 uppercase tracking-widest">Master Share</div>
+                  <div className="text-2xl font-black text-gray-900">{selectedUser?.share || 0}%</div>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Amount to Add</label>
                 <input
@@ -230,6 +395,55 @@ export default function AdminUsers() {
               >
                 {isSaving ? "Updating..." : "Add Balance"}
               </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="bg-[#1abc9c] px-4 py-3 flex justify-between items-center text-white font-bold italic uppercase tracking-tighter">
+              <h3>Edit User: {selectedUser?.username}</h3>
+              <button onClick={() => setIsEditModalOpen(false)} className="hover:bg-white/20 p-1 rounded">
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateUser} className="p-6 space-y-4 font-sans">
+              {selectedUser?.role === 'master' && (
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Company Share (%) (0-85)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="85"
+                    required
+                    value={editShare}
+                    onChange={(e) => setEditShare(e.target.value)}
+                    className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#1abc9c] font-bold"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1 italic">New Password (leave blank to keep current)</label>
+                <input
+                  type="password"
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  placeholder="Enter new password"
+                  className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#1abc9c]"
+                />
+              </div>
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="w-full bg-[#1abc9c] hover:bg-[#16a085] text-white font-black py-3 rounded-lg shadow-md transition-all disabled:opacity-50 uppercase tracking-widest"
+                >
+                  {isSaving ? "Updating..." : "Update User Account"}
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -371,15 +585,16 @@ export default function AdminUsers() {
               ) : (
                 users.map((item, index) => (
                   <tr key={item._id} className="bg-white border-b border-gray-200 hover:bg-gray-50">
-                    <td className="px-4 py-2 font-bold text-gray-800 border-r border-gray-200 flex items-center gap-1 whitespace-nowrap">
+                    <td className={`px-4 py-2 border-r border-gray-200 font-bold ${item.status === 'inactive' ? 'text-red-500 line-through opacity-50' : 'text-gray-800'}`}>
                       {item.username} 
-                      <span className="w-4 h-4 bg-gray-800 text-white rounded-full inline-flex items-center justify-center text-[10px]">i</span>
+                      {item.status === 'inactive' && <span className="ml-2 text-[8px] bg-red-100 text-red-600 px-1 rounded uppercase">Inactive</span>}
+                      <span className="w-4 h-4 bg-gray-800 text-white rounded-full inline-flex items-center justify-center text-[10px] ml-1">i</span>
                     </td>
                     <td className="px-4 py-2 text-gray-600 border-r border-gray-200 uppercase">{item.role}</td>
                     <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
                     <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold">{item.walletBalance?.toLocaleString()}</td>
                     <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
-                    <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
+                    <td className="px-4 py-2 text-gray-600 border-r border-gray-200">{item.role === 'master' ? `${item.share || 0}%` : '-'}</td>
                     <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
                     <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold text-[#1abc9c]">{item.walletBalance?.toLocaleString()}</td>
                     <td className="px-4 py-2 flex items-center gap-1">
@@ -389,9 +604,47 @@ export default function AdminUsers() {
                       >
                         C
                       </button>
-                      <button className="bg-[#1abc9c] hover:bg-[#16a085] text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center"><Edit2 size={14} /></button>
-                      <button className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center">L</button>
-                      <button className="border border-red-500 text-red-500 hover:bg-red-50 font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center">D</button>
+                      <button 
+                        onClick={() => {
+                          setSelectedUser(item);
+                          setEditShare(item.share || "0");
+                          setEditPassword("");
+                          setIsEditModalOpen(true);
+                        }}
+                        className="bg-[#1abc9c] hover:bg-[#16a085] text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all hover:scale-110"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          const token = getAuthToken();
+                          if (!token) return;
+                          fetch(`${getApiUrl()}/api/admin/user-statement/${item.username}`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                          }).then(res => res.json()).then(data => {
+                            // Reusing Master statement logic if applicable
+                            setUsers(prev => prev.map(u => u.username === item.username ? {...u, ledger: data} : u));
+                            alert("Ledger fetched. In production, this would open a dedicated modal.");
+                          });
+                        }}
+                        className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center shadow-sm"
+                      >
+                        L
+                      </button>
+                      <button 
+                        onClick={() => handleToggleStatus(item.username, item.status)}
+                        className={`font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all ${item.status === 'inactive' ? 'bg-gray-400 text-white' : 'bg-[#10b981] text-white hover:bg-green-600'}`}
+                        title={item.status === 'inactive' ? 'Set Active' : 'Set InActive'}
+                      >
+                        A
+                      </button>
+                      <button 
+                        onClick={() => { setUserToDelete(item); setIsDeleteModalOpen(true); }}
+                        className="border border-red-500 text-red-500 hover:bg-red-500 hover:text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all"
+                        title="Delete Permanently"
+                      >
+                        D
+                      </button>
                     </td>
                   </tr>
                 ))
