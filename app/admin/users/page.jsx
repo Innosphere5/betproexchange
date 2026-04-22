@@ -8,7 +8,7 @@ export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
+
   // Form State
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -19,6 +19,7 @@ export default function AdminUsers() {
 
   // Load Balance Modal State
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
+  const [balanceMode, setBalanceMode] = useState("add"); // "add" or "reduce"
   const [selectedUser, setSelectedUser] = useState(null);
   const [loadAmount, setLoadAmount] = useState("");
 
@@ -77,19 +78,19 @@ export default function AdminUsers() {
     try {
       const res = await fetch(`${getApiUrl()}/api/admin/create-user`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ 
-          username: newUsername, 
-          password: newPassword, 
+        body: JSON.stringify({
+          username: newUsername,
+          password: newPassword,
           role: newType,
           initialBalance: parseFloat(initialBalance),
           share: parseFloat(newShare)
         })
       });
-      
+
       const data = await res.json();
       if (res.ok) {
         setIsModalOpen(false);
@@ -109,25 +110,27 @@ export default function AdminUsers() {
     }
   };
 
-  const handleLoadBalance = async (e) => {
+  const handleBalanceUpdate = async (e) => {
     e.preventDefault();
     if (!selectedUser || !loadAmount) return;
 
     setIsSaving(true);
     const token = getAuthToken();
+    const endpoint = balanceMode === "add" ? "/api/admin/load-balance" : "/api/admin/withdraw-balance";
+
     try {
-      const res = await fetch(`${getApiUrl()}/api/admin/load-balance`, {
+      const res = await fetch(`${getApiUrl()}${endpoint}`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ 
-          targetUsername: selectedUser.username, 
+        body: JSON.stringify({
+          targetUsername: selectedUser.username,
           amount: parseFloat(loadAmount)
         })
       });
-      
+
       const data = await res.json();
       if (res.ok) {
         setIsLoadModalOpen(false);
@@ -135,11 +138,11 @@ export default function AdminUsers() {
         setSelectedUser(null);
         fetchUsers();
       } else {
-        alert(data.error || "Failed to load balance");
+        alert(data.error || `Failed to ${balanceMode} balance`);
       }
     } catch (error) {
-      console.error("Error loading balance:", error);
-      alert("Failed to load balance. Check connection.");
+      console.error(`Error ${balanceMode}ing balance:`, error);
+      alert(`Failed to ${balanceMode} balance. Check connection.`);
     } finally {
       setIsSaving(false);
     }
@@ -154,17 +157,17 @@ export default function AdminUsers() {
     try {
       const res = await fetch(`${getApiUrl()}/api/admin/update-user`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ 
-          targetUsername: selectedUser.username, 
+        body: JSON.stringify({
+          targetUsername: selectedUser.username,
           share: parseFloat(editShare),
           newPassword: editPassword
         })
       });
-      
+
       const data = await res.json();
       if (res.ok) {
         setIsEditModalOpen(false);
@@ -176,69 +179,69 @@ export default function AdminUsers() {
     } catch (error) {
       console.error("Error updating user:", error);
       alert("Failed to update user. Check connection.");
-     } finally {
-       setIsSaving(false);
-     }
-   };
- 
-   const handleToggleStatus = async (username, currentStatus) => {
-     const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-     const token = getAuthToken();
-     if (!token) return;
- 
-     try {
-       const res = await fetch(`${getApiUrl()}/api/admin/toggle-status`, {
-         method: 'POST',
-         headers: { 
-           'Content-Type': 'application/json',
-           'Authorization': `Bearer ${token}`
-         },
-         body: JSON.stringify({ targetUsername: username, status: newStatus })
-       });
-       
-       if (res.ok) {
-         fetchUsers();
-       } else {
-         const data = await res.json();
-         alert(data.error || "Failed to update status");
-       }
-     } catch (error) {
-       console.error("Error toggling status:", error);
-     } finally {
-       setIsSaving(false);
-     }
-   };
- 
-   const handleRemoveUser = async () => {
-     if (!userToDelete) return;
- 
-     setIsSaving(true);
-     const token = getAuthToken();
-     if (!token) return;
- 
-     try {
-       const res = await fetch(`${getApiUrl()}/api/admin/remove-user/${userToDelete.username}`, {
-         method: 'DELETE',
-         headers: { 'Authorization': `Bearer ${token}` }
-       });
-       
-       const data = await res.json();
-       if (res.ok) {
-         setIsDeleteModalOpen(false);
-         setUserToDelete(null);
-         fetchUsers();
-       } else {
-         alert(data.error || "Failed to delete user");
-       }
-     } catch (error) {
-       console.error("Error removing user:", error);
-       alert("Failed to remove user. Check connection.");
-     } finally {
-       setIsSaving(false);
-     }
-   };
- 
-   return (
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleToggleStatus = async (username, currentStatus) => {
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    const token = getAuthToken();
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/toggle-status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ targetUsername: username, status: newStatus })
+      });
+
+      if (res.ok) {
+        fetchUsers();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to update status");
+      }
+    } catch (error) {
+      console.error("Error toggling status:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRemoveUser = async () => {
+    if (!userToDelete) return;
+
+    setIsSaving(true);
+    const token = getAuthToken();
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/remove-user/${userToDelete.username}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setIsDeleteModalOpen(false);
+        setUserToDelete(null);
+        fetchUsers();
+      } else {
+        alert(data.error || "Failed to delete user");
+      }
+    } catch (error) {
+      console.error("Error removing user:", error);
+      alert("Failed to remove user. Check connection.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
     <div className="flex flex-col gap-4 max-w-full">
       {/* Premium Delete Confirmation Modal */}
       {isDeleteModalOpen && (
@@ -359,42 +362,69 @@ export default function AdminUsers() {
           </div>
         </div>
       )}
-      
-      {/* Load Balance Modal */}
+
+      {/* Load/Reduce Balance Modal */}
       {isLoadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="bg-[#fbbf24] px-4 py-3 flex justify-between items-center text-gray-900">
-              <h3 className="font-bold uppercase tracking-tighter italic">Load Balance: {selectedUser?.username}</h3>
-              <button onClick={() => setIsLoadModalOpen(false)} className="hover:bg-black/10 p-1 rounded">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in duration-200">
+            <div className={`px-4 py-3 flex justify-between items-center text-white ${balanceMode === 'add' ? 'bg-[#fbbf24]' : 'bg-red-500'}`}>
+              <h3 className="font-bold uppercase tracking-tighter italic">
+                {balanceMode === 'add' ? 'Add Cash' : 'Reduce Cash'} — {selectedUser?.username}
+              </h3>
+              <button onClick={() => setIsLoadModalOpen(false)} className="hover:bg-black/10 p-1 rounded transition-colors">
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleLoadBalance} className="p-6 space-y-4 font-sans">
-              {selectedUser?.role === 'master' && (
-                <div className="bg-yellow-50 p-3 rounded border border-yellow-200 mb-2">
-                  <div className="text-[11px] font-bold text-yellow-700 uppercase tracking-widest">Master Share</div>
-                  <div className="text-2xl font-black text-gray-900">{selectedUser?.share || 0}%</div>
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Amount to Add</label>
-                <input
-                  type="number"
-                  required
-                  value={loadAmount}
-                  onChange={(e) => setLoadAmount(e.target.value)}
-                  placeholder="Enter amount"
-                  className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#fbbf24]"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="w-full bg-[#fbbf24] hover:bg-yellow-500 text-gray-900 font-bold py-2.5 rounded shadow-sm transition-colors disabled:opacity-50"
+            
+            <div className="flex border-b border-gray-100">
+              <button 
+                onClick={() => setBalanceMode("add")}
+                className={`flex-1 py-3 text-sm font-bold transition-all ${balanceMode === 'add' ? 'text-[#fbbf24] border-b-2 border-[#fbbf24] bg-yellow-50/30' : 'text-gray-400 hover:text-gray-600'}`}
               >
-                {isSaving ? "Updating..." : "Add Balance"}
+                Add Cash (+)
               </button>
+              <button 
+                onClick={() => setBalanceMode("reduce")}
+                className={`flex-1 py-3 text-sm font-bold transition-all ${balanceMode === 'reduce' ? 'text-red-500 border-b-2 border-red-500 bg-red-50/30' : 'text-gray-400 hover:text-gray-600'}`}
+              >
+                Reduce Cash (-)
+              </button>
+            </div>
+
+            <form onSubmit={handleBalanceUpdate} className="p-6 space-y-4 font-sans">
+              <div className="flex justify-between items-center text-xs text-gray-500 bg-gray-50 p-2 rounded border border-gray-100">
+                <span>Current Balance:</span>
+                <span className="font-bold text-gray-900">{selectedUser?.walletBalance?.toLocaleString()}</span>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">
+                  Amount to {balanceMode === 'add' ? 'Deposit' : 'Withdraw'}
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    step="any"
+                    value={loadAmount}
+                    onChange={(e) => setLoadAmount(e.target.value)}
+                    placeholder="0.00"
+                    className={`w-full border border-gray-300 pl-8 pr-3 py-2.5 rounded-lg focus:outline-none transition-all ${balanceMode === 'add' ? 'focus:border-[#fbbf24] focus:ring-2 focus:ring-yellow-100' : 'focus:border-red-500 focus:ring-2 focus:ring-red-100'}`}
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className={`w-full text-white font-black py-3 rounded-lg shadow-lg transition-all active:scale-95 disabled:opacity-50 uppercase tracking-widest ${balanceMode === 'add' ? 'bg-[#fbbf24] hover:bg-yellow-500 shadow-yellow-100' : 'bg-red-500 hover:bg-red-600 shadow-red-100'}`}
+                >
+                  {isSaving ? "Processing..." : `Confirm ${balanceMode === 'add' ? 'Deposit' : 'Withdrawal'}`}
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -477,9 +507,9 @@ export default function AdminUsers() {
           Search-Users
         </div>
         <div className="p-4 flex items-center gap-0 w-full max-w-lg">
-          <input 
-            type="text" 
-            placeholder="Username" 
+          <input
+            type="text"
+            placeholder="Username"
             className="border border-gray-300 px-3 py-1.5 focus:outline-none focus:border-[#1abc9c] w-64 text-sm"
           />
           <button className="bg-[#1abc9c] hover:bg-[#16a085] text-white px-3 py-1.5 flex items-center gap-1 text-sm font-semibold">
@@ -492,9 +522,9 @@ export default function AdminUsers() {
       {/* Main Clients List Panel */}
       <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden flex flex-col">
         <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px]">
-          Malik50ADN - Clients List | Default
+          Adnan & Waqas - Clients List | Default
         </div>
-        
+
         {/* Summary Table */}
         <div className="border-b border-gray-200">
           <table className="w-full text-sm font-bold text-left">
@@ -520,7 +550,7 @@ export default function AdminUsers() {
         {/* Toolbar */}
         <div className="px-4 py-3 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
           <div className="flex items-center gap-2">
-            <button 
+            <button
               onClick={() => setIsModalOpen(true)}
               className="bg-[#1abc9c] hover:bg-[#16a085] text-white px-3 py-1.5 text-sm font-semibold rounded-sm shadow-sm transition-all"
             >
@@ -554,7 +584,7 @@ export default function AdminUsers() {
               Load Balance
             </div>
           </div>
-          
+
           <table className="w-full text-sm text-left border-collapse border-b border-gray-200">
             <thead>
               <tr className="bg-white border-b border-gray-200">
@@ -585,26 +615,29 @@ export default function AdminUsers() {
               ) : (
                 users.map((item, index) => (
                   <tr key={item._id} className="bg-white border-b border-gray-200 hover:bg-gray-50">
-                    <td className={`px-4 py-2 border-r border-gray-200 font-bold ${item.status === 'inactive' ? 'text-red-500 line-through opacity-50' : 'text-gray-800'}`}>
-                      {item.username} 
+                    <td className={`px-4 py-2 border-r border-blue-200 font-bold ${item.status === 'inactive' ? 'text-red-500 line-through opacity-50' : (item.role === 'master' ? 'text-orange-500' : 'text-blue-600')}`}>
+                      {item.username}
                       {item.status === 'inactive' && <span className="ml-2 text-[8px] bg-red-100 text-red-600 px-1 rounded uppercase">Inactive</span>}
                       <span className="w-4 h-4 bg-gray-800 text-white rounded-full inline-flex items-center justify-center text-[10px] ml-1">i</span>
                     </td>
-                    <td className="px-4 py-2 text-gray-600 border-r border-gray-200 uppercase">{item.role}</td>
+                    <td className={`px-4 py-2 border-r border-gray-200 font-bold uppercase ${item.role === 'master' ? 'text-orange-500' : 'text-blue-600'}`}>
+                      {item.role === 'user' ? 'Bettor' : item.role}
+                    </td>
                     <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
                     <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold">{item.walletBalance?.toLocaleString()}</td>
                     <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
-                    <td className="px-4 py-2 text-gray-600 border-r border-gray-200">{item.role === 'master' ? `${item.share || 0}%` : '-'}</td>
+                    <td className="px-4 py-2 text-orange-600 border-r border-gray-200">{item.role === 'master' ? `${item.share || 0}%` : '-'}</td>
                     <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
                     <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold text-[#1abc9c]">{item.walletBalance?.toLocaleString()}</td>
                     <td className="px-4 py-2 flex items-center gap-1">
-                      <button 
-                        onClick={() => { setSelectedUser(item); setIsLoadModalOpen(true); }}
-                        className="bg-[#fbbf24] hover:bg-yellow-500 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center"
+                      <button
+                        onClick={() => { setSelectedUser(item); setBalanceMode("add"); setIsLoadModalOpen(true); }}
+                        className="bg-[#fbbf24] hover:bg-yellow-500 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all hover:scale-110 active:scale-90"
+                        title="Add/Reduce Cash"
                       >
                         C
                       </button>
-                      <button 
+                      <button
                         onClick={() => {
                           setSelectedUser(item);
                           setEditShare(item.share || "0");
@@ -615,7 +648,7 @@ export default function AdminUsers() {
                       >
                         <Edit2 size={14} />
                       </button>
-                      <button 
+                      <button
                         onClick={() => {
                           const token = getAuthToken();
                           if (!token) return;
@@ -623,7 +656,7 @@ export default function AdminUsers() {
                             headers: { 'Authorization': `Bearer ${token}` }
                           }).then(res => res.json()).then(data => {
                             // Reusing Master statement logic if applicable
-                            setUsers(prev => prev.map(u => u.username === item.username ? {...u, ledger: data} : u));
+                            setUsers(prev => prev.map(u => u.username === item.username ? { ...u, ledger: data } : u));
                             alert("Ledger fetched. In production, this would open a dedicated modal.");
                           });
                         }}
@@ -631,14 +664,14 @@ export default function AdminUsers() {
                       >
                         L
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleToggleStatus(item.username, item.status)}
                         className={`font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all ${item.status === 'inactive' ? 'bg-gray-400 text-white' : 'bg-[#10b981] text-white hover:bg-green-600'}`}
                         title={item.status === 'inactive' ? 'Set Active' : 'Set InActive'}
                       >
                         A
                       </button>
-                      <button 
+                      <button
                         onClick={() => { setUserToDelete(item); setIsDeleteModalOpen(true); }}
                         className="border border-red-500 text-red-500 hover:bg-red-500 hover:text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all"
                         title="Delete Permanently"

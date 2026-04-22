@@ -18,6 +18,7 @@ export default function MasterUsers() {
 
   // Load Balance Modal State
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
+  const [balanceMode, setBalanceMode] = useState("add"); // "add" or "reduce"
   const [selectedUser, setSelectedUser] = useState(null);
   const [loadAmount, setLoadAmount] = useState("");
 
@@ -25,6 +26,14 @@ export default function MasterUsers() {
   const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
   const [ledgerTransactions, setLedgerTransactions] = useState([]);
   const [isLedgerLoading, setIsLedgerLoading] = useState(false);
+
+  // Delete Confirmation Modal State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+
+  // Edit Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editPassword, setEditPassword] = useState("");
 
   const getAuthToken = () => {
     const raw = localStorage.getItem("user_session");
@@ -102,14 +111,16 @@ export default function MasterUsers() {
     }
   };
 
-  const handleLoadBalance = async (e) => {
+  const handleBalanceUpdate = async (e) => {
     e.preventDefault();
     if (!selectedUser || !loadAmount) return;
 
     setIsSaving(true);
     const token = getAuthToken();
+    const endpoint = balanceMode === "add" ? "/api/admin/load-balance" : "/api/admin/withdraw-balance";
+
     try {
-      const res = await fetch(`${getApiUrl()}/api/admin/load-balance`, {
+      const res = await fetch(`${getApiUrl()}${endpoint}`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -128,11 +139,76 @@ export default function MasterUsers() {
         setSelectedUser(null);
         fetchUsers();
       } else {
-        alert(data.error || "Failed to load balance");
+        alert(data.error || `Failed to ${balanceMode} balance`);
       }
     } catch (error) {
-      console.error("Error loading balance:", error);
-      alert("Failed to load balance. Check connection.");
+      console.error(`Error ${balanceMode}ing balance:`, error);
+      alert(`Failed to ${balanceMode} balance. Check connection.`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRemoveUser = async () => {
+    if (!userToDelete) return;
+
+    setIsSaving(true);
+    const token = getAuthToken();
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/remove-user/${userToDelete.username}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setIsDeleteModalOpen(false);
+        setUserToDelete(null);
+        fetchUsers();
+      } else {
+        alert(data.error || "Failed to delete player");
+      }
+    } catch (error) {
+      console.error("Error removing player:", error);
+      alert("Failed to remove player. Check connection.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleUpdateUser = async (e) => {
+    e.preventDefault();
+    if (!selectedUser) return;
+
+    setIsSaving(true);
+    const token = getAuthToken();
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/update-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          targetUsername: selectedUser.username,
+          newPassword: editPassword
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setIsEditModalOpen(false);
+        setEditPassword("");
+        setSelectedUser(null);
+        fetchUsers();
+      } else {
+        alert(data.error || "Failed to update user");
+      }
+    } catch (error) {
+      console.error("Error updating user:", error);
+      alert("Failed to update user. Check connection.");
     } finally {
       setIsSaving(false);
     }
@@ -162,6 +238,38 @@ export default function MasterUsers() {
 
   return (
     <div className="flex flex-col gap-4 max-w-full">
+      {/* Premium Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in duration-200 border border-red-100">
+            <div className="bg-red-50 p-6 flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4 ring-8 ring-red-50 animate-pulse">
+                <Filter size={32} />
+              </div>
+              <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Permanently Delete Player?</h3>
+              <p className="text-gray-600 mt-2 text-sm px-4">
+                Are you sure you want to remove <span className="font-bold text-red-600">@{userToDelete?.username}</span>? This action will wipe all performance data for this user.
+              </p>
+            </div>
+            <div className="p-6 bg-white flex flex-col gap-3">
+              <button
+                onClick={handleRemoveUser}
+                disabled={isSaving}
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-red-200 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isSaving ? "Purging User..." : "Yes, Delete Player"}
+              </button>
+              <button
+                onClick={() => { setIsDeleteModalOpen(false); setUserToDelete(null); }}
+                disabled={isSaving}
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* New User Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -217,35 +325,116 @@ export default function MasterUsers() {
         </div>
       )}
       
-      {/* Load Balance Modal */}
-      {isLoadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="bg-[#fbbf24] px-4 py-3 flex justify-between items-center text-gray-900">
-              <h3 className="font-bold">Load Balance: {selectedUser?.username}</h3>
-              <button onClick={() => setIsLoadModalOpen(false)} className="hover:bg-black/10 p-1 rounded">
+      {/* Edit User Modal (Pencil) */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in duration-200">
+            <div className="bg-[#1abc9c] px-4 py-3 flex justify-between items-center text-white">
+              <h3 className="font-bold uppercase tracking-tighter italic flex items-center gap-2">
+                <Edit2 size={18} /> Edit Player: {selectedUser?.username}
+              </h3>
+              <button onClick={() => setIsEditModalOpen(false)} className="hover:bg-white/20 p-1 rounded transition-colors">
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleLoadBalance} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Amount to Add</label>
-                <input
-                  type="number"
-                  required
-                  value={loadAmount}
-                  onChange={(e) => setLoadAmount(e.target.value)}
-                  placeholder="Enter amount"
-                  className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#fbbf24]"
-                />
+            
+            <form onSubmit={handleUpdateUser} className="p-6 space-y-5 font-sans">
+              <div className="bg-teal-50 p-3 rounded border border-teal-100 mb-2">
+                <p className="text-[11px] text-teal-700 font-bold uppercase tracking-widest">Account Status</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm font-black text-gray-800 uppercase">{selectedUser?.status || 'active'}</span>
+                </div>
               </div>
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="w-full bg-[#fbbf24] hover:bg-yellow-500 text-gray-900 font-bold py-2.5 rounded shadow-sm transition-colors disabled:opacity-50"
-              >
-                {isSaving ? "Updating..." : "Add Balance"}
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Update Password</label>
+                <input
+                  type="password"
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  placeholder="Enter new password (optional)"
+                  className="w-full border border-gray-300 px-3 py-2.5 rounded-lg focus:outline-none focus:border-[#1abc9c] focus:ring-2 focus:ring-teal-100 transition-all font-mono"
+                />
+                <p className="text-[10px] text-gray-400 mt-1 italic">Leave blank to keep current password.</p>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="w-full bg-[#1abc9c] hover:bg-teal-700 text-white font-black py-3 rounded-lg shadow-lg shadow-teal-100 transition-all active:scale-95 disabled:opacity-50 uppercase tracking-widest"
+                >
+                  {isSaving ? "Saving..." : "Update Account"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Load/Reduce Balance Modal */}
+      {isLoadModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in duration-200">
+            <div className={`px-4 py-3 flex justify-between items-center text-white ${balanceMode === 'add' ? 'bg-[#fbbf24]' : 'bg-red-500'}`}>
+              <h3 className="font-bold uppercase tracking-tighter italic">
+                {balanceMode === 'add' ? 'Add Player Cash' : 'Reduce Player Cash'} — {selectedUser?.username}
+              </h3>
+              <button onClick={() => setIsLoadModalOpen(false)} className="hover:bg-black/10 p-1 rounded transition-colors">
+                <X size={20} />
               </button>
+            </div>
+
+            <div className="flex border-b border-gray-100">
+              <button 
+                onClick={() => setBalanceMode("add")}
+                className={`flex-1 py-3 text-sm font-bold transition-all ${balanceMode === 'add' ? 'text-[#f39c12] border-b-2 border-[#f39c12] bg-orange-50/30' : 'text-gray-400 hover:text-gray-600'}`}
+              >
+                Add Cash (+)
+              </button>
+              <button 
+                onClick={() => setBalanceMode("reduce")}
+                className={`flex-1 py-3 text-sm font-bold transition-all ${balanceMode === 'reduce' ? 'text-red-500 border-b-2 border-red-500 bg-red-50/30' : 'text-gray-400 hover:text-gray-600'}`}
+              >
+                Reduce Cash (-)
+              </button>
+            </div>
+
+            <form onSubmit={handleBalanceUpdate} className="p-6 space-y-4 font-sans">
+              <div className="flex justify-between items-center text-xs text-gray-500 bg-gray-50 p-2 rounded border border-gray-100">
+                <span>Current Balance:</span>
+                <span className="font-bold text-gray-900">{selectedUser?.walletBalance?.toLocaleString()}</span>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">
+                  Amount to {balanceMode === 'add' ? 'Deposit' : 'Withdraw'}
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    step="any"
+                    value={loadAmount}
+                    onChange={(e) => setLoadAmount(e.target.value)}
+                    placeholder="0.00"
+                    className={`w-full border border-gray-300 pl-8 pr-3 py-2.5 rounded-lg focus:outline-none transition-all ${balanceMode === 'add' ? 'focus:border-[#f39c12] focus:ring-2 focus:ring-orange-100' : 'focus:border-red-500 focus:ring-2 focus:ring-red-100'}`}
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className={`w-full text-white font-black py-3 rounded-lg shadow-lg transition-all active:scale-95 disabled:opacity-50 uppercase tracking-widest ${balanceMode === 'add' ? 'bg-[#f39c12] hover:bg-orange-600 shadow-orange-100' : 'bg-red-500 hover:bg-red-600 shadow-red-100'}`}
+                >
+                  {isSaving ? "Processing..." : `Confirm ${balanceMode === 'add' ? 'Deposit' : 'Withdrawal'}`}
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -459,20 +648,33 @@ export default function MasterUsers() {
                     <td className="px-4 py-2 flex items-center gap-1">
                       {item.role === 'user' && (
                         <button 
-                          onClick={() => { setSelectedUser(item); setIsLoadModalOpen(true); }}
-                          className="bg-[#fbbf24] hover:bg-yellow-500 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center shadow-sm"
+                          onClick={() => { setSelectedUser(item); setBalanceMode("add"); setIsLoadModalOpen(true); }}
+                          className="bg-[#fbbf24] hover:bg-yellow-500 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center shadow-sm transition-all hover:scale-110 active:scale-90"
+                          title="Add/Reduce Cash"
                         >
                           C
                         </button>
                       )}
-                      <button className="bg-[#f39c12] hover:bg-orange-600 text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center"><Edit2 size={14} /></button>
+                      <button 
+                        onClick={() => { setSelectedUser(item); setEditPassword(""); setIsEditModalOpen(true); }}
+                        className="bg-[#1abc9c] hover:bg-teal-700 text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all hover:scale-110 active:scale-90 shadow-sm"
+                        title="Edit Player Info"
+                      >
+                        <Edit2 size={14} />
+                      </button>
                       <button 
                         onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }}
                         className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center shadow-sm"
                       >
                         L
                       </button>
-                      <button className="border border-red-500 text-red-500 hover:bg-red-50 font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center">D</button>
+                      <button 
+                        onClick={() => { setUserToDelete(item); setIsDeleteModalOpen(true); }}
+                        className="border border-red-500 text-red-500 hover:bg-red-500 hover:text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all active:scale-90"
+                        title="Delete Player"
+                      >
+                        D
+                      </button>
                     </td>
                   </tr>
                 ))

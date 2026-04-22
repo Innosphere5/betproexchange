@@ -22,14 +22,6 @@ const TennisIcon = () => (
   </svg>
 );
 
-const CricketIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-80">
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
-    <line x1="8" y1="16" x2="16" y2="8" strokeWidth="2.5" />
-    <line x1="6" y1="18" x2="8" y2="16" strokeWidth="2.5" />
-  </svg>
-);
-
 const HorseIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="opacity-80">
     <path d="M4 18l2.5-3.5h7.5l2.5 3.5" />
@@ -43,22 +35,12 @@ const navItems = [
   { label: "Users", href: "/admin/users", icon: <Users size={18} className="opacity-80" /> },
   { label: "Current Position", href: "#", icon: <Filter size={18} className="opacity-80" /> },
   { label: "Reports", href: "/admin/reports", icon: <FileText size={18} className="opacity-80" /> },
-  { label: "Bet Lock", href: "/admin/betlock", icon: <Lock size={18} className="opacity-80" /> },
-  { label: "Cricket", 
-    href: "#", 
-    isSport: true,
-    icon: <CricketIcon />,
-    children: [
-      { label: "Indian Premier League", id: "cricket-1" },
-      { label: "Bangladesh v New Zealand", id: "cricket-2" },
-      { label: "Hyderabad Kingsmen v Rawalpindi Pindiz", id: "cricket-3" }
-    ]
-  }
+  { label: "Bet Lock", href: "/admin/betlock", icon: <Lock size={18} className="opacity-80" /> }
 ];
 
 export default function AdminSidebar({ isOpen, setIsOpen }) {
   const pathname = usePathname();
-  const [openSports, setOpenSports] = useState({ Cricket: true, Football: true });
+  const [openSports, setOpenSports] = useState({ Football: true });
 
   const toggleSport = (label) => {
     setOpenSports(prev => ({

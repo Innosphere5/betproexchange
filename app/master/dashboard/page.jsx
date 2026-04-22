@@ -1,15 +1,37 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Filter, Search } from "lucide-react";
+import { getApiUrl } from "@/lib/apiConfig";
 
 export default function MasterDashboard() {
-  const matches = [
-    { name: "Chennai Super Kings v Kolkata Knight Riders / Match Odds", amount: "1,361,670" },
-    { name: "Mumbai Indians v Punjab Kings / Match Odds", amount: "270,137" },
-    { name: "Royal Challengers Bengaluru v Lucknow Super Giants / Match Odds", amount: "33,401" },
-    { name: "Sunrisers Hyderabad v Rajasthan Royals / Match Odds", amount: "624,007" },
-    { name: "Delhi Capitals v Gujarat Titans / Match Odds", amount: "3,895,776" },
-  ];
+  const [matches, setMatches] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchStats = async () => {
+    setIsLoading(true);
+    const raw = localStorage.getItem("user_session");
+    if (!raw) return;
+    const token = JSON.parse(raw).token;
+
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/dashboard-stats`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMatches(data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
 
   return (
     <div className="flex flex-col gap-4">
@@ -41,8 +63,12 @@ export default function MasterDashboard() {
         {/* Panel Header */}
         <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 flex items-center gap-2 font-bold text-gray-800 text-[13px]">
           Broker Sport Highlights
-          <button className="bg-[#f39c12] hover:bg-orange-600 text-white text-[11px] px-2 py-0.5 rounded-sm transition-colors font-medium ml-1">
-            Refresh
+          <button 
+            onClick={fetchStats}
+            disabled={isLoading}
+            className="bg-[#f39c12] hover:bg-orange-600 text-white text-[11px] px-2 py-0.5 rounded-sm transition-colors font-medium ml-1 disabled:opacity-50"
+          >
+            {isLoading ? "Refreshing..." : "Refresh"}
           </button>
         </div>
         {/* Panel Body */}
@@ -55,22 +81,29 @@ export default function MasterDashboard() {
               </tr>
             </thead>
             <tbody>
-              {matches.map((item, index) => (
-                <tr 
-                  key={index} 
-                  className={`border-b border-gray-200 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-[#fafafa]'}`}
-                >
-                  <td className="px-4 py-2.5 text-[#f39c12] font-medium flex items-center gap-2">
-                    {item.name}
-                    {item.hasDot && (
-                      <span className="w-3 h-3 bg-green-700 rounded-full inline-block"></span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 text-gray-700 font-medium">
-                    {item.amount}
-                  </td>
+              {isLoading && matches.length === 0 ? (
+                <tr>
+                   <td colSpan="2" className="px-4 py-8 text-center text-gray-400">Loading matches...</td>
                 </tr>
-              ))}
+              ) : matches.length === 0 ? (
+                <tr>
+                   <td colSpan="2" className="px-4 py-8 text-center text-gray-400">No active matches with bets found</td>
+                </tr>
+              ) : (
+                matches.map((item, index) => (
+                  <tr 
+                    key={index} 
+                    className={`border-b border-gray-200 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-[#fafafa]'}`}
+                  >
+                    <td className="px-4 py-2.5 text-[#f39c12] font-medium flex items-center gap-2">
+                      {item.name}
+                    </td>
+                    <td className="px-4 py-2.5 text-gray-700 font-medium">
+                      {item.amount?.toLocaleString()}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

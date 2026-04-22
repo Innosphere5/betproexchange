@@ -107,7 +107,9 @@ export default function BetsPage() {
                   bets.map((bet, idx) => {
                     const isWin = bet.status === 'WIN';
                     const isLose = bet.status === 'LOSE';
-                    const pl = isWin ? (bet.stake * (bet.odds - 1)) : (isLose ? -bet.stake : 0);
+                    const pl = isWin 
+                        ? ((bet.stake * (bet.odds || (bet.sport === 'Casino' ? 2.0 : 1))) - bet.stake - 50) 
+                        : (isLose ? -bet.stake : 0);
                     
                     return (
                       <tr key={bet._id} className="hover:bg-gray-50 border-b border-gray-200 last:border-0 font-medium text-gray-800">

@@ -46,9 +46,9 @@ export default function LoginForm() {
 
           // Redirect based on role
           if (data.user.role === 'admin') {
-            window.location.href = '/admin/dashboard';
+            window.location.href = '/admin/users';
           } else if (data.user.role === 'master') {
-            window.location.href = '/master/dashboard';
+            window.location.href = '/master/users';
           } else {
             window.location.href = '/dashboard';
           }

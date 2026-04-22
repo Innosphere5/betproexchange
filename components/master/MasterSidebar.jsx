@@ -5,33 +5,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
-const CricketIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-80">
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
-    <line x1="8" y1="16" x2="16" y2="8" strokeWidth="2.5" />
-    <line x1="6" y1="18" x2="8" y2="16" strokeWidth="2.5" />
-  </svg>
-);
-
 const navItems = [
   { label: "Dashboard", href: "/master/dashboard", icon: <LayoutDashboard size={18} className="opacity-80" /> },
   { label: "Users (Bettors)", href: "/master/users", icon: <Users size={18} className="opacity-80" /> },
-  { label: "Reports", href: "/master/reports", icon: <FileText size={18} className="opacity-80" /> },
-  { label: "Cricket", 
-    href: "#", 
-    isSport: true,
-    icon: <CricketIcon />,
-    children: [
-      { label: "Indian Premier League", id: "cricket-1" },
-      { label: "Bangladesh v New Zealand", id: "cricket-2" },
-      { label: "Hyderabad Kingsmen v Rawalpindi Pindiz", id: "cricket-3" }
-    ]
-  }
+  { label: "Reports", href: "/master/reports", icon: <FileText size={18} className="opacity-80" /> }
 ];
 
 export default function MasterSidebar({ isOpen, setIsOpen }) {
   const pathname = usePathname();
-  const [openSports, setOpenSports] = useState({ Cricket: true });
+  const [openSports, setOpenSports] = useState({});
 
   const toggleSport = (label) => {
     setOpenSports(prev => ({
@@ -83,9 +65,9 @@ export default function MasterSidebar({ isOpen, setIsOpen }) {
                     href={item.href}
                     className={`flex items-center gap-3 px-5 py-3 text-sm font-medium transition-colors border-l-[3px] 
                       ${isActive
-                        ? 'bg-[#1a252f] text-white border-[#f39c12]'
-                        : 'border-transparent hover:bg-[#34495e] hover:text-white'
-                      }`}
+                         ? 'bg-[#1a252f] text-white border-[#f39c12]'
+                         : 'border-transparent hover:bg-[#34495e] hover:text-white'
+                       }`}
                   >
                     {item.icon}
                     <span className="tracking-wide">{item.label}</span>
