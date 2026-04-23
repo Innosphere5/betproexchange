@@ -105,10 +105,10 @@ export default function BetsPage() {
                   </tr>
                 ) : (
                   bets.map((bet, idx) => {
-                    const isWin = bet.status === 'WIN';
-                    const isLose = bet.status === 'LOSE';
+                    const isWin = bet.status === 'won' || bet.status === 'WIN';
+                    const isLose = bet.status === 'lost' || bet.status === 'LOSE';
                     const pl = isWin 
-                        ? ((bet.stake * (bet.odds || (bet.sport === 'Casino' ? 2.0 : 1))) - bet.stake - 50) 
+                        ? ((bet.stake * (bet.odds || (bet.sport === 'Casino' ? 2.0 : 1))) - bet.stake) 
                         : (isLose ? -bet.stake : 0);
                     
                     return (

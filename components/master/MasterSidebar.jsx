@@ -29,7 +29,7 @@ export default function MasterSidebar({ isOpen, setIsOpen }) {
     >
       {/* Sidebar Header */}
       <div className="flex items-center justify-between h-14 px-4 bg-[#1a252f] shrink-0 border-b border-[#1f2d3a]">
-        <div className="text-white font-bold text-lg tracking-wide invisible lg:visible uppercase">Broker Panel</div>
+        <div className="text-white font-bold text-lg tracking-wide invisible lg:visible uppercase">MASTER PANEL</div>
 
         <button
           className="lg:hidden text-gray-400 hover:text-white transition-colors focus:outline-none"

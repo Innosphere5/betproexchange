@@ -18,6 +18,7 @@ export default function CasinoPage() {
   const [selectedChoice, setSelectedChoice] = useState(null); // 'A' or 'B'
   const [isJoined, setIsJoined] = useState(false);
   const [resultData, setResultData] = useState(null); // { status: 'WIN'|'LOSE', amount: number, choice: string }
+  const [generalResult, setGeneralResult] = useState(null); // 'A' or 'B'
 
   useEffect(() => {
     if (!socket) return;
@@ -32,6 +33,8 @@ export default function CasinoPage() {
     const onResult = (r) => {
        setRound(prev => ({ ...prev, status: 'RESULT_DECLARED', result: r.result, cards: r.cards }));
        setHistory(prev => [r.result, ...prev].slice(0, 18));
+       setGeneralResult(r.result);
+       setTimeout(() => setGeneralResult(null), 5000);
     };
     const onPayout = (data) => {
        fetchWallet();
@@ -201,28 +204,19 @@ export default function CasinoPage() {
               <div className="mb-6">
                  {resultData.status === 'WIN' ? (
                    <div className="w-24 h-24 mx-auto bg-white/20 rounded-full flex items-center justify-center ring-8 ring-white/10 mb-4 animate-bounce">
-                      <span className="text-5xl">👑</span>
+                      <span className="text-5xl">🏆</span>
                    </div>
                  ) : (
                    <div className="w-24 h-24 mx-auto bg-black/20 rounded-full flex items-center justify-center ring-8 ring-black/10 mb-4">
-                      <span className="text-5xl">💔</span>
+                      <span className="text-5xl">❌</span>
                    </div>
                  )}
-                 <h2 className="text-3xl font-black text-white italic tracking-tight uppercase leading-tight drop-shadow-md">
-                   {resultData.status === 'WIN' ? 'Congratulation!' : 'Hard Luck!'}
+                 <h2 className="text-4xl font-black text-white italic tracking-tight uppercase leading-tight drop-shadow-md">
+                   {resultData.status === 'WIN' ? 'YOU WON!' : 'YOU LOST!'}
                  </h2>
-                 <p className="text-white/60 text-[10px] font-bold uppercase tracking-[0.2em] mt-2">
-                   {resultData.status === 'WIN' ? 'You beat the house' : 'Better luck next time'}
+                 <p className="text-white/60 text-xs font-bold uppercase tracking-[0.2em] mt-2">
+                   {resultData.status === 'WIN' ? 'Profit added to wallet' : 'Better luck next time'}
                  </p>
-              </div>
-
-              <div className={`py-6 px-4 rounded-2xl bg-black/30 backdrop-blur-md mb-8 border border-white/5`}>
-                 <div className="text-[11px] font-bold text-white/40 uppercase tracking-widest mb-1">
-                   {resultData.status === 'WIN' ? 'Total Winnings' : 'Total Loss'}
-                 </div>
-                 <div className={`text-4xl font-black font-mono ${resultData.status === 'WIN' ? 'text-white' : 'text-red-400'}`}>
-                   {resultData.status === 'WIN' ? '+' : '-'}₹{resultData.amount.toLocaleString()}
-                 </div>
               </div>
 
               <button 
@@ -232,8 +226,51 @@ export default function CasinoPage() {
                     ? 'bg-white text-yellow-800 hover:bg-yellow-50 shadow-xl' 
                     : 'bg-white/10 text-white hover:bg-white/20 border border-white/10'}`}
               >
-                Continue Playing
+                Close
               </button>
+           </div>
+        </div>
+      )}
+
+      {/* 📣 PREMIUM GENERAL RESULT POPUP */}
+      {generalResult && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center pointer-events-none p-4">
+           {/* Animated Backdrop Flash */}
+           <div className={`absolute inset-0 animate-in fade-in duration-500 
+             ${generalResult === 'A' ? 'bg-blue-600/30' : 'bg-pink-600/30'}`}></div>
+           
+           <div className={`relative px-10 py-12 lg:px-24 lg:py-20 rounded-[40px] border-[8px] shadow-[0_0_120px_rgba(0,0,0,1)] text-center transform animate-in zoom-in-75 duration-700
+             ${generalResult === 'A' 
+               ? 'bg-gradient-to-br from-blue-700 via-blue-600 to-blue-900 border-blue-400/50 shadow-blue-500/60' 
+               : 'bg-gradient-to-br from-pink-700 via-pink-600 to-pink-900 border-pink-400/50 shadow-pink-500/60'}`}>
+              
+              {/* Floating Icons */}
+              <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-2xl border-4 border-inherit animate-bounce">
+                 <span className="text-5xl">{generalResult === 'A' ? '💎' : '🌸'}</span>
+              </div>
+
+              <div className="space-y-4">
+                <div className="text-white/40 text-xs lg:text-sm font-black uppercase tracking-[0.6em] animate-pulse">Winner Announced</div>
+                
+                <div className="flex flex-col items-center">
+                  <h1 className="text-5xl lg:text-9xl font-black text-white italic tracking-tighter leading-none drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]">
+                    PLAYER {generalResult}
+                  </h1>
+                  <h2 className="text-4xl lg:text-7xl font-black text-yellow-400 italic tracking-tight mt-2 uppercase drop-shadow-lg">
+                    WINS! 🏆
+                  </h2>
+                </div>
+
+                <div className="pt-8 flex items-center justify-center gap-6">
+                   <div className="h-1 w-12 lg:w-24 bg-gradient-to-r from-transparent to-white/30 rounded-full"></div>
+                   <div className="text-white font-black text-sm lg:text-lg uppercase tracking-[0.3em] whitespace-nowrap">
+                      Result: {generalResult}
+                   </div>
+                   <div className="h-1 w-12 lg:w-24 bg-gradient-to-l from-transparent to-white/30 rounded-full"></div>
+                </div>
+              </div>
+
+              {/* Sparkle effects could be added here if we had more SVGs */}
            </div>
         </div>
       )}

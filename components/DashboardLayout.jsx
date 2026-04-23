@@ -100,6 +100,11 @@ export default function DashboardLayout({ children }) {
         fetchWallet(); // Automatically update balance if payout happened
     });
 
+    socket.on('bet_settled', (data) => {
+        setNotification(data);
+        fetchWallet();
+    });
+
     socket.on('wallet_updated', (data) => {
         const session = JSON.parse(localStorage.getItem('user_session') || '{}');
         if (data.userId === session.username) {

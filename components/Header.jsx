@@ -42,8 +42,8 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
             </>
           )}
         </div>
-        <div className="lg:hidden text-[15px] font-semibold">
-          Dashboard <span className="font-bold text-[13px] ml-1">exch</span>
+        <div className="lg:hidden text-[13px] md:text-[15px] font-semibold">
+          Dashboard <span className="font-bold text-[11px] ml-0.5">exch</span>
         </div>
       </div>
 
@@ -56,10 +56,12 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
 
         {/* Right Info */}
         <div className="flex items-center text-xs lg:text-sm font-bold tracking-wide gap-1.5 lg:gap-3">
-          <div className="flex items-center">
-            <span>B: {walletBalance ? walletBalance.toLocaleString() : "0"}</span>
-            <span className="mx-1.5 lg:mx-2 text-gray-400">|</span>
-            <span>L: 0</span>
+          <div className="flex items-center bg-[#1c3246] px-2 py-1 rounded border border-white/10 shadow-inner">
+            <span className="text-[#00c766]">B:</span> 
+            <span className="ml-1">{walletBalance ? walletBalance.toLocaleString() : "0"}</span>
+            <span className="mx-1 text-white/20">|</span>
+            <span className="text-gray-400">L:</span>
+            <span className="ml-1">0</span>
           </div>
           <div className="hidden lg:block text-gray-400">|</div>
 
@@ -69,7 +71,7 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
               className="flex items-center cursor-pointer hover:text-gray-300 group"
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             >
-              <span>{typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user_session') || '{}').username || 'test_user' : 'test_user'}</span>
+              <span>{typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user_session') || '{}').username || 'User' : 'User'}</span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="ml-1 opacity-70 group-hover:opacity-100">
                 <polyline points="6 9 12 15 18 9" />
               </svg>

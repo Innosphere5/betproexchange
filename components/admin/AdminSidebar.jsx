@@ -56,7 +56,7 @@ export default function AdminSidebar({ isOpen, setIsOpen }) {
     >
       {/* Sidebar Header */}
       <div className="flex items-center justify-between h-14 px-4 bg-[#213140] shrink-0 border-b border-[#1f2d3a]">
-        <div className="text-white font-bold text-lg tracking-wide invisible lg:visible italic uppercase">Admin Panel</div>
+        <div className="text-white font-bold text-lg tracking-wide invisible lg:visible italic uppercase">BETPRO ADMIN</div>
 
         <button
           className="lg:hidden text-gray-400 hover:text-white transition-colors focus:outline-none"

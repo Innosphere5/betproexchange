@@ -111,7 +111,7 @@ export default function ResultPage() {
                             hour12: true
                          })}
                       </td>
-                      <td className={`p-2 font-bold ${row.status === 'WIN' ? 'text-[#00b050]' : 'text-[#dc3545]'}`}>
+                      <td className={`p-2 font-bold ${(row.status === 'won' || row.status === 'WIN') ? 'text-[#00b050]' : 'text-[#dc3545]'}`}>
                         {row.status}
                       </td>
                     </tr>

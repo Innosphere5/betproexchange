@@ -19,9 +19,12 @@ export default function AdminUsers() {
 
   // Load Balance Modal State
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
-  const [balanceMode, setBalanceMode] = useState("add"); // "add" or "reduce"
+  const [activeTab, setActiveTab] = useState("cash"); // "cash" or "credit"
   const [selectedUser, setSelectedUser] = useState(null);
-  const [loadAmount, setLoadAmount] = useState("");
+  const [depositAmount, setDepositAmount] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [depositDescription, setDepositDescription] = useState("");
+  const [withdrawDescription, setWithdrawDescription] = useState("");
 
   // Edit User State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -110,13 +113,16 @@ export default function AdminUsers() {
     }
   };
 
-  const handleBalanceUpdate = async (e) => {
+  const handleBalanceUpdate = async (e, mode, tab) => {
     e.preventDefault();
-    if (!selectedUser || !loadAmount) return;
+    const amount = mode === "add" ? depositAmount : withdrawAmount;
+    const desc = mode === "add" ? depositDescription : withdrawDescription;
+
+    if (!selectedUser || !amount) return;
 
     setIsSaving(true);
     const token = getAuthToken();
-    const endpoint = balanceMode === "add" ? "/api/admin/load-balance" : "/api/admin/withdraw-balance";
+    const endpoint = mode === "add" ? "/api/admin/load-balance" : "/api/admin/withdraw-balance";
 
     try {
       const res = await fetch(`${getApiUrl()}${endpoint}`, {
@@ -127,22 +133,27 @@ export default function AdminUsers() {
         },
         body: JSON.stringify({
           targetUsername: selectedUser.username,
-          amount: parseFloat(loadAmount)
+          amount: parseFloat(amount),
+          description: desc,
+          type: tab // cash or credit
         })
       });
 
       const data = await res.json();
       if (res.ok) {
         setIsLoadModalOpen(false);
-        setLoadAmount("");
+        setDepositAmount("");
+        setWithdrawAmount("");
+        setDepositDescription("");
+        setWithdrawDescription("");
         setSelectedUser(null);
         fetchUsers();
       } else {
-        alert(data.error || `Failed to ${balanceMode} balance`);
+        alert(data.error || `Failed to ${mode} balance`);
       }
     } catch (error) {
-      console.error(`Error ${balanceMode}ing balance:`, error);
-      alert(`Failed to ${balanceMode} balance. Check connection.`);
+      console.error(`Error ${mode}ing balance:`, error);
+      alert(`Failed to ${mode} balance. Check connection.`);
     } finally {
       setIsSaving(false);
     }
@@ -365,67 +376,134 @@ export default function AdminUsers() {
 
       {/* Load/Reduce Balance Modal */}
       {isLoadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in duration-200">
-            <div className={`px-4 py-3 flex justify-between items-center text-white ${balanceMode === 'add' ? 'bg-[#fbbf24]' : 'bg-red-500'}`}>
-              <h3 className="font-bold uppercase tracking-tighter italic">
-                {balanceMode === 'add' ? 'Add Cash' : 'Reduce Cash'} — {selectedUser?.username}
-              </h3>
-              <button onClick={() => setIsLoadModalOpen(false)} className="hover:bg-black/10 p-1 rounded transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div className="flex border-b border-gray-100">
-              <button 
-                onClick={() => setBalanceMode("add")}
-                className={`flex-1 py-3 text-sm font-bold transition-all ${balanceMode === 'add' ? 'text-[#fbbf24] border-b-2 border-[#fbbf24] bg-yellow-50/30' : 'text-gray-400 hover:text-gray-600'}`}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200 mt-10">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in duration-200 border border-gray-300">
+            {/* Tabs */}
+            <div className="flex bg-white border-b border-gray-200">
+              <button
+                onClick={() => { setActiveTab("cash"); setDepositAmount(""); setWithdrawAmount(""); setDepositDescription(""); setWithdrawDescription(""); }}
+                className={`flex-1 py-3 text-[14px] font-bold transition-all ${activeTab === 'cash' ? 'bg-[#007bff] text-white' : 'bg-white text-[#28a745] hover:bg-gray-50'}`}
               >
-                Add Cash (+)
+                Cash
               </button>
-              <button 
-                onClick={() => setBalanceMode("reduce")}
-                className={`flex-1 py-3 text-sm font-bold transition-all ${balanceMode === 'reduce' ? 'text-red-500 border-b-2 border-red-500 bg-red-50/30' : 'text-gray-400 hover:text-gray-600'}`}
+              <button
+                onClick={() => { setActiveTab("credit"); setDepositAmount(""); setWithdrawAmount(""); setDepositDescription(""); setWithdrawDescription(""); }}
+                className={`flex-1 py-3 text-[14px] font-bold transition-all ${activeTab === 'credit' ? 'bg-[#007bff] text-white' : 'bg-white text-[#28a745] hover:bg-gray-50'}`}
               >
-                Reduce Cash (-)
+                Credit
               </button>
             </div>
 
-            <form onSubmit={handleBalanceUpdate} className="p-6 space-y-4 font-sans">
-              <div className="flex justify-between items-center text-xs text-gray-500 bg-gray-50 p-2 rounded border border-gray-100">
-                <span>Current Balance:</span>
-                <span className="font-bold text-gray-900">{selectedUser?.walletBalance?.toLocaleString()}</span>
-              </div>
+            <div className="p-4 bg-[#f8f9fa] space-y-4">
+              {/* Username */}
+              <h2 className="text-2xl font-bold text-gray-800">{selectedUser?.username}</h2>
 
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">
-                  Amount to {balanceMode === 'add' ? 'Deposit' : 'Withdraw'}
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    step="any"
-                    value={loadAmount}
-                    onChange={(e) => setLoadAmount(e.target.value)}
-                    placeholder="0.00"
-                    className={`w-full border border-gray-300 pl-8 pr-3 py-2.5 rounded-lg focus:outline-none transition-all ${balanceMode === 'add' ? 'focus:border-[#fbbf24] focus:ring-2 focus:ring-yellow-100' : 'focus:border-red-500 focus:ring-2 focus:ring-red-100'}`}
-                  />
+              {/* Summary Boxes */}
+              <div className="grid grid-cols-3 gap-0 border border-gray-200 bg-white">
+                <div className="p-3 border-r border-gray-200">
+                  <p className="text-[12px] font-bold text-gray-700">{activeTab === 'cash' ? 'Credit' : 'Credit limit'}</p>
+                  <p className="text-[13px] font-bold text-gray-900 mt-1">{activeTab === 'cash' ? '0 Rs.' : '50,000 Rs.'}</p>
+                </div>
+                <div className="p-3 border-r border-gray-200">
+                  <p className="text-[12px] font-bold text-gray-700">{activeTab === 'cash' ? 'Balance' : `${selectedUser?.username} Credit`}</p>
+                  <p className="text-[13px] font-bold text-gray-900 mt-1">{activeTab === 'cash' ? `${selectedUser?.walletBalance?.toLocaleString()} Rs.` : '0 Rs.'}</p>
+                </div>
+                <div className="p-3">
+                  <p className="text-[12px] font-bold text-gray-700">{activeTab === 'cash' ? 'Max Withdraw' : `${selectedUser?.username} Available Balance`}</p>
+                  <p className="text-[13px] font-bold text-gray-900 mt-1">{activeTab === 'cash' ? `${selectedUser?.walletBalance?.toLocaleString()} Rs.` : '0 Rs.'}</p>
                 </div>
               </div>
 
-              <div className="pt-2">
+              {/* Deposit Section */}
+              <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
+                <div className="bg-[#1abc9c] px-4 py-2 text-white font-bold text-[14px]">
+                  Deposit {activeTab === 'cash' ? 'Cash' : 'Credit'} in {selectedUser?.username} account
+                </div>
+                <div className="p-4 space-y-3">
+                  <div className="flex items-center">
+                    <label className="w-32 text-sm font-bold text-gray-700">Description</label>
+                    <input
+                      type="text"
+                      value={depositDescription}
+                      onChange={(e) => setDepositDescription(e.target.value)}
+                      placeholder={`${activeTab === 'cash' ? 'Cash' : 'Credit'} deposit in ${selectedUser?.username}`}
+                      className="flex-1 border border-gray-300 px-3 py-1.5 rounded-sm focus:outline-none focus:border-[#1abc9c] text-sm"
+                    />
+                  </div>
+                  <div className="flex items-center">
+                    <label className="w-32 text-sm font-bold text-gray-700">Amount</label>
+                    <div className="flex-1 flex items-center">
+                      <span className="bg-gray-100 border border-r-0 border-gray-300 px-3 py-1.5 text-sm text-gray-600 rounded-l-sm">Rs.</span>
+                      <input
+                        type="number"
+                        value={depositAmount}
+                        onChange={(e) => setDepositAmount(e.target.value)}
+                        className="w-full border border-gray-300 px-3 py-1.5 rounded-r-sm focus:outline-none focus:border-[#1abc9c] text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-start pl-32">
+                    <button
+                      onClick={(e) => handleBalanceUpdate(e, "add", activeTab)}
+                      disabled={isSaving}
+                      className="bg-[#1abc9c] hover:bg-[#16a085] text-white px-6 py-2 rounded-sm font-bold text-sm shadow-sm transition-all disabled:opacity-50"
+                    >
+                      Submit
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Withdraw Section */}
+              <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
+                <div className="bg-[#e74c3c] px-4 py-2 text-white font-bold text-[14px]">
+                  Withdraw {activeTab === 'cash' ? 'cash' : 'Credit'} from {selectedUser?.username} account
+                </div>
+                <div className="p-4 space-y-3">
+                  <div className="flex items-center">
+                    <label className="w-32 text-sm font-bold text-gray-700">Description</label>
+                    <input
+                      type="text"
+                      value={withdrawDescription}
+                      onChange={(e) => setWithdrawDescription(e.target.value)}
+                      placeholder={`${activeTab === 'cash' ? 'Cash' : 'Credit'} withdrawn from ${selectedUser?.username}`}
+                      className="flex-1 border border-gray-300 px-3 py-1.5 rounded-sm focus:outline-none focus:border-[#e74c3c] text-sm"
+                    />
+                  </div>
+                  <div className="flex items-center">
+                    <label className="w-32 text-sm font-bold text-gray-700">Amount</label>
+                    <div className="flex-1 flex items-center">
+                      <span className="bg-gray-100 border border-r-0 border-gray-300 px-3 py-1.5 text-sm text-gray-600 rounded-l-sm">Rs.</span>
+                      <input
+                        type="number"
+                        value={withdrawAmount}
+                        onChange={(e) => setWithdrawAmount(e.target.value)}
+                        className="w-full border border-gray-300 px-3 py-1.5 rounded-r-sm focus:outline-none focus:border-[#e74c3c] text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-start pl-32">
+                    <button
+                      onClick={(e) => handleBalanceUpdate(e, "reduce", activeTab)}
+                      disabled={isSaving}
+                      className="bg-[#e74c3c] hover:bg-[#c0392b] text-white px-6 py-2 rounded-sm font-bold text-sm shadow-sm transition-all disabled:opacity-50"
+                    >
+                      Submit
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Close Button */}
+              <div className="flex justify-end pt-2">
                 <button
-                  type="submit"
-                  disabled={isSaving}
-                  className={`w-full text-white font-black py-3 rounded-lg shadow-lg transition-all active:scale-95 disabled:opacity-50 uppercase tracking-widest ${balanceMode === 'add' ? 'bg-[#fbbf24] hover:bg-yellow-500 shadow-yellow-100' : 'bg-red-500 hover:bg-red-600 shadow-red-100'}`}
+                  onClick={() => setIsLoadModalOpen(false)}
+                  className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-sm font-bold text-sm transition-all"
                 >
-                  {isSaving ? "Processing..." : `Confirm ${balanceMode === 'add' ? 'Deposit' : 'Withdrawal'}`}
+                  Cancel
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
@@ -522,7 +600,7 @@ export default function AdminUsers() {
       {/* Main Clients List Panel */}
       <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden flex flex-col">
         <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px]">
-          Adnan & Waqas - Clients List | Default
+          Admin - Clients List | Default
         </div>
 
         {/* Summary Table */}
@@ -631,7 +709,7 @@ export default function AdminUsers() {
                     <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold text-[#1abc9c]">{item.walletBalance?.toLocaleString()}</td>
                     <td className="px-4 py-2 flex items-center gap-1">
                       <button
-                        onClick={() => { setSelectedUser(item); setBalanceMode("add"); setIsLoadModalOpen(true); }}
+                        onClick={() => { setSelectedUser(item); setActiveTab("cash"); setIsLoadModalOpen(true); }}
                         className="bg-[#fbbf24] hover:bg-yellow-500 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all hover:scale-110 active:scale-90"
                         title="Add/Reduce Cash"
                       >

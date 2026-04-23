@@ -71,7 +71,7 @@ export default function AdminHeader({ setIsSidebarOpen }) {
         </button>
 
         {/* Brand / Logo */}
-        <div className="text-xl font-extrabold text-[#1abc9c] tracking-tighter">
+        <div className="text-base lg:text-xl font-extrabold text-[#1abc9c] tracking-tighter">
           Betproexchange
         </div>
 
@@ -100,22 +100,27 @@ export default function AdminHeader({ setIsSidebarOpen }) {
 
       {/* Right Section */}
       <div className="flex items-center gap-3 text-xs lg:text-sm text-gray-600 font-medium">
-        <div className="mr-1 text-gray-500">
-          <span>{typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user_session') || '{}').username || 'Admin' : 'Admin'} (Admin)</span>
+        <div className="mr-1 text-gray-500 hidden sm:block">
+          <span className="font-bold text-[#1abc9c]">
+            {typeof window !== 'undefined' 
+              ? (JSON.parse(localStorage.getItem('user_session') || '{}').username?.toLowerCase() === 'adnan' ? 'Admin' : JSON.parse(localStorage.getItem('user_session') || '{}').username || 'Admin')
+              : 'Admin'}
+          </span>
         </div>
-        <div className="flex items-center gap-2 font-bold bg-gray-50 px-3 py-1 rounded-full border border-gray-100">
+        <div className="flex items-center gap-1.5 font-bold bg-gray-50 px-2 lg:px-3 py-1 rounded-full border border-gray-100">
           <Wallet size={14} className="text-[#1abc9c]" />
           <span className="text-gray-800">
-            Balance: <span className="text-[#1abc9c]">{walletBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <span className="hidden sm:inline">Balance: </span>
+            <span className="text-[#1abc9c]">{walletBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </span>
         </div>
         {/* Logout Button */}
         <button
           onClick={handleLogout}
-          className="flex items-center gap-1.5 ml-2 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 font-semibold text-xs rounded-md border border-red-200 transition-colors"
+          className="flex items-center gap-1 ml-1 lg:ml-2 px-2 lg:px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] lg:text-xs rounded-full shadow-md shadow-red-100 transition-all active:scale-95"
         >
-          <LogOut size={14} />
-          <span className="hidden lg:inline">Logout</span>
+          <LogOut size={14} strokeWidth={3} />
+          <span className="hidden xs:inline">Logout</span>
         </button>
       </div>
     </header>

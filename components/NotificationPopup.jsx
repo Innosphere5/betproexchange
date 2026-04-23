@@ -50,10 +50,10 @@ export default function NotificationPopup({ notification, onClose }) {
             
             <p className="text-gray-300 text-sm mt-1 font-medium leading-tight">
               {isWin 
-                ? `You won ₹${notification.amount?.toFixed(2)} on ${notification.runner}.`
+                ? `You won on ${notification.runner}.`
                 : isRefund 
                   ? notification.message || `The match was voided and your stake was returned.`
-                  : `You lost ₹${notification.amount?.toFixed(2)} on ${notification.runner}.`
+                  : `You lost on ${notification.runner}.`
               }
             </p>
 

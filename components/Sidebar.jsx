@@ -78,8 +78,8 @@ export default function Sidebar({ isOpen, setIsOpen, onSelectMatch }) {
     >
       {/* Sidebar Header */}
       <div className="flex items-center justify-between h-14 px-4 border-b border-[#3b546b] shrink-0 bg-[#243f55]">
-        <div className="relative w-[120px] h-[40px] flex items-center">
-          <span className="text-[#00c766] font-black text-2xl tracking-tighter">BetProExchange</span>
+        <div className="relative w-[100px] lg:w-[120px] h-[30px] lg:h-[40px] flex items-center">
+          <span className="text-[#00c766] font-black text-xl lg:text-2xl tracking-tighter">BetProExchange</span>
         </div>
         <button
           className="lg:hidden text-white p-1 hover:text-gray-300 transition-colors focus:outline-none"
