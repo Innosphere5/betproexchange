@@ -35,6 +35,11 @@ export default function AdminUsers() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
 
+  // Ledger Modal State
+  const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
+  const [ledgerTransactions, setLedgerTransactions] = useState([]);
+  const [isLedgerLoading, setIsLedgerLoading] = useState(false);
+
   const getAuthToken = () => {
     const raw = localStorage.getItem("user_session");
     if (!raw) return null;
@@ -102,6 +107,206 @@ export default function AdminUsers() {
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    if (!newUsername || !newPassword) return;
+
+    setIsSaving(true);
+    const token = getAuthToken();
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/create-user`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          username: newUsername, 
+          password: newPassword, 
+          role: newType,
+          initialBalance: parseFloat(initialBalance),
+          share: parseFloat(newShare) || 0
+        })
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        setIsModalOpen(false);
+        setNewUsername("");
+        setNewPassword("");
+        setInitialBalance("0");
+        setNewShare("0");
+        fetchUsers();
+      } else {
+        alert(data.error || "Failed to create user");
+      }
+    } catch (error) {
+      console.error("Error creating user:", error);
+      alert("Failed to create user. Check connection.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleBalanceUpdate = async (e, mode, tab) => {
+    e.preventDefault();
+    const amount = mode === "add" ? depositAmount : withdrawAmount;
+    const desc = mode === "add" ? depositDescription : withdrawDescription;
+
+    if (!selectedUser || !amount) return;
+
+    setIsSaving(true);
+    const token = getAuthToken();
+    const endpoint = mode === "add" ? "/api/admin/load-balance" : "/api/admin/withdraw-balance";
+
+    try {
+      const res = await fetch(`${getApiUrl()}${endpoint}`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          targetUsername: selectedUser.username, 
+          amount: parseFloat(amount),
+          description: desc,
+          type: tab
+        })
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        setIsLoadModalOpen(false);
+        setDepositAmount("");
+        setWithdrawAmount("");
+        setDepositDescription("");
+        setWithdrawDescription("");
+        setSelectedUser(null);
+        fetchUsers();
+      } else {
+        alert(data.error || `Failed to ${mode} balance`);
+      }
+    } catch (error) {
+      console.error(`Error ${mode}ing balance:`, error);
+      alert(`Failed to ${mode} balance. Check connection.`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRemoveUser = async () => {
+    if (!userToDelete) return;
+
+    setIsSaving(true);
+    const token = getAuthToken();
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/remove-user/${userToDelete.username}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setIsDeleteModalOpen(false);
+        setUserToDelete(null);
+        fetchUsers();
+      } else {
+        alert(data.error || "Failed to delete user");
+      }
+    } catch (error) {
+      console.error("Error removing user:", error);
+      alert("Failed to remove user. Check connection.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleUpdateUser = async (e) => {
+    e.preventDefault();
+    if (!selectedUser) return;
+
+    setIsSaving(true);
+    const token = getAuthToken();
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/update-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          targetUsername: selectedUser.username,
+          newPassword: editPassword,
+          share: parseFloat(editShare) || 0
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setIsEditModalOpen(false);
+        setEditPassword("");
+        setEditShare("0");
+        setSelectedUser(null);
+        fetchUsers();
+      } else {
+        alert(data.error || "Failed to update user");
+      }
+    } catch (error) {
+      console.error("Error updating user:", error);
+      alert("Failed to update user. Check connection.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const fetchUserStatement = async (username) => {
+    setIsLedgerLoading(true);
+    setLedgerTransactions([]);
+    setIsLedgerModalOpen(true);
+    const token = getAuthToken();
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/user-statement/${username}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setLedgerTransactions(data);
+      } else {
+        alert(data.error || "Failed to fetch ledger");
+      }
+    } catch (error) {
+      console.error("Error fetching ledger:", error);
+    } finally {
+      setIsLedgerLoading(false);
+    }
+  };
+
+  const handleToggleStatus = async (username, currentStatus) => {
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    const token = getAuthToken();
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/toggle-status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ targetUsername: username, status: newStatus })
+      });
+      if (res.ok) {
+        fetchUsers();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to toggle status");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error toggling status");
+    }
+  };
 
 
   const renderReportUI = () => {
@@ -538,6 +743,64 @@ export default function AdminUsers() {
         </div>
       )}
 
+      {/* Ledger Modal */}
+      {isLedgerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="bg-[#3b82f6] px-4 py-3 flex justify-between items-center text-white border-b border-blue-400 font-bold uppercase tracking-tight italic">
+              <h3>User Ledger: {selectedUser?.username}</h3>
+              <button onClick={() => setIsLedgerModalOpen(false)} className="hover:bg-white/20 p-1 rounded">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-0 max-h-[400px] overflow-y-auto">
+              <table className="w-full text-sm text-left border-collapse">
+                <thead className="bg-gray-100 sticky top-0 shadow-sm font-bold text-gray-700">
+                  <tr>
+                    <th className="px-4 py-2 border-b border-gray-200">Date/Time</th>
+                    <th className="px-4 py-2 border-b border-gray-200">Type</th>
+                    <th className="px-4 py-2 border-b border-gray-200 text-right">Amount</th>
+                    <th className="px-4 py-2 border-b border-gray-200">Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isLedgerLoading ? (
+                    <tr><td colSpan="4" className="px-4 py-8 text-center text-gray-400">Loading history...</td></tr>
+                  ) : ledgerTransactions.length === 0 ? (
+                    <tr><td colSpan="4" className="px-4 py-8 text-center text-gray-400">No transactions found</td></tr>
+                  ) : (
+                    ledgerTransactions.map((tx, idx) => (
+                      <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="px-4 py-2.5 text-[12px] text-gray-600">
+                          {new Date(tx.createdAt).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-2.5 font-bold uppercase text-[11px] text-gray-600">
+                          {tx.type}
+                        </td>
+                        <td className={`px-4 py-2.5 font-extrabold text-right ${tx.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-2.5 text-gray-500 text-[12px]">
+                          {tx.description}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+                <button 
+                  onClick={() => setIsLedgerModalOpen(false)} 
+                  className="bg-gray-800 hover:bg-black text-white px-6 py-2 rounded-sm font-bold text-[12px] transition-colors"
+                >
+                  CLOSE
+                </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Edit User Modal */}
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -743,7 +1006,7 @@ export default function AdminUsers() {
                         <td className="px-4 py-2 flex items-center gap-1">
                           <button onClick={() => { setSelectedUser(item); setActiveTab("cash"); setIsLoadModalOpen(true); }} className="bg-[#fbbf24] hover:bg-yellow-500 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all hover:scale-110 active:scale-90" title="Add/Reduce Cash">C</button>
                           <button onClick={() => { setSelectedUser(item); setEditShare(item.share || "0"); setEditPassword(""); setIsEditModalOpen(true); }} className="bg-[#1abc9c] hover:bg-[#16a085] text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all hover:scale-110"><Edit2 size={14} /></button>
-                          <button className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center shadow-sm">L</button>
+                          <button onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }} className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center shadow-sm">L</button>
                           <button onClick={() => handleToggleStatus(item.username, item.status)} className={`font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all ${item.status === 'inactive' ? 'bg-gray-400 text-white' : 'bg-[#10b981] text-white hover:bg-green-600'}`} title={item.status === 'inactive' ? 'Set Active' : 'Set InActive'}>A</button>
                           <button onClick={() => { setUserToDelete(item); setIsDeleteModalOpen(true); }} className="border border-red-500 text-red-500 hover:bg-red-500 hover:text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all" title="Delete Permanently">D</button>
                         </td>
