@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Filter, Calendar, Layout, List, CheckSquare } from "lucide-react";
 
-export default function AdminReports() {
+export default function SuperAdminReports() {
   const [activeReport, setActiveReport] = useState("Daily Report");
   const [hideZero, setHideZero] = useState(false);
 
@@ -94,7 +94,7 @@ export default function AdminReports() {
             <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px]">
               <div className="flex items-center gap-2 mb-1">
                 <List size={16} className="text-gray-700" />
-                Admin - Final Sheet
+                Ghujar7 - Final Sheet
               </div>
               <div className="flex items-center gap-1 font-normal text-gray-600 text-[11px]">
                 <input 
@@ -183,6 +183,7 @@ export default function AdminReports() {
                     </tr>
                   </thead>
                   <tbody>
+                    {/* Placeholder for data */}
                     <tr className="border-b border-gray-100">
                       <td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No commission data found for this period</td>
                     </tr>
@@ -236,8 +237,8 @@ export default function AdminReports() {
       {/* Dynamic Report Content */}
       {renderReportContent()}
 
-      <div className="text-gray-500 text-[11px] font-bold mt-4 self-center italic text-center w-full">
-        Welcome to Betproexchange Admin Portal.
+      <div className="text-gray-500 text-[11px] font-bold mt-4 self-center italic">
+        Welcome to Betproexchange Reports Portal.
       </div>
     </div>
   );

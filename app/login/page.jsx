@@ -13,10 +13,16 @@ export default function LoginPage() {
       const raw = localStorage.getItem('user_session');
       if (raw) {
         const session = JSON.parse(raw);
-        if (session?.role === 'admin') {
-          router.replace('/admin/dashboard');
-        } else if (session?.role) {
-          router.replace('/dashboard');
+        if (session) {
+          if (session.role === 'superadmin') {
+            router.replace('/superadmin/dashboard');
+          } else if (session.role === 'admin') {
+            router.replace('/admin/dashboard');
+          } else if (session.role === 'master') {
+            router.replace('/master/dashboard');
+          } else if (session.role) {
+            router.replace('/dashboard');
+          }
         }
       }
     } catch {

@@ -45,7 +45,9 @@ export default function LoginForm() {
           document.cookie = `user_session=${encodeURIComponent(JSON.stringify(sessionData))}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
 
           // Redirect based on role
-          if (data.user.role === 'admin') {
+          if (data.user.role === 'superadmin') {
+            window.location.href = '/superadmin/users';
+          } else if (data.user.role === 'admin') {
             window.location.href = '/admin/users';
           } else if (data.user.role === 'master') {
             window.location.href = '/master/users';

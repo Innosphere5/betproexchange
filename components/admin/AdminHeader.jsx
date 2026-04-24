@@ -103,7 +103,7 @@ export default function AdminHeader({ setIsSidebarOpen }) {
         <div className="mr-1 text-gray-500 hidden sm:block">
           <span className="font-bold text-[#1abc9c]">
             {typeof window !== 'undefined' 
-              ? (JSON.parse(localStorage.getItem('user_session') || '{}').username?.toLowerCase() === 'adnan' ? 'Admin' : JSON.parse(localStorage.getItem('user_session') || '{}').username || 'Admin')
+              ? JSON.parse(localStorage.getItem('user_session') || '{}').username || 'Admin'
               : 'Admin'}
           </span>
         </div>

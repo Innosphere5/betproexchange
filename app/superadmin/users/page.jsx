@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Filter, Search, BookOpen, Edit2, X, DollarSign, AlertTriangle, Trash2 } from "lucide-react";
 import { getApiUrl } from "@/lib/apiConfig";
 
-export default function AdminUsers() {
+export default function SuperAdminUsers() {
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -45,7 +45,6 @@ export default function AdminUsers() {
     }
   };
 
-  // Fetch users from Backend
   const [activeReportType, setActiveReportType] = useState("Accounts");
   const [hideZero, setHideZero] = useState(false);
   const [reportData, setReportData] = useState([]);
@@ -76,7 +75,6 @@ export default function AdminUsers() {
     }
   }, [activeReportType]);
 
-  // Fetch users from Backend
   const fetchUsers = async () => {
     setIsLoading(true);
     const token = getAuthToken();
@@ -158,13 +156,13 @@ export default function AdminUsers() {
       case "Final Sheet":
         const filteredProfitUsers = users.filter(u => (!hideZero || u.walletBalance !== 0));
         const totalProfit = filteredProfitUsers.reduce((sum, u) => sum + (u.walletBalance || 0), 0);
-
+        
         return (
           <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden animate-in fade-in duration-300">
             <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px]">
               <div className="flex items-center gap-2 mb-1">
                 <Filter size={16} className="text-gray-700" />
-                Admin - Final Sheet
+                SuperAdmin - Final Sheet
               </div>
               <div className="flex items-center gap-1 font-normal text-gray-600 text-[11px]">
                 <input type="checkbox" id="hideZero" checked={hideZero} onChange={(e) => setHideZero(e.target.checked)} className="w-3 h-3 accent-[#1abc9c]" />
@@ -187,7 +185,7 @@ export default function AdminUsers() {
                       filteredProfitUsers.map((u, i) => (
                         <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
                           <td className="px-3 py-2 border-r text-blue-600 font-medium">
-                            {u.username}
+                            {u.username} 
                             <span className="ml-1 text-[9px] bg-gray-100 text-gray-500 px-1 rounded uppercase">{u.role === 'user' ? 'Bettor' : u.role}</span>
                           </td>
                           <td className={`px-3 py-2 font-bold ${u.walletBalance > 0 ? 'text-green-600' : 'text-gray-600'}`}>
@@ -235,7 +233,7 @@ export default function AdminUsers() {
           <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden animate-in fade-in duration-300">
             <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 flex items-center font-bold text-gray-800 text-[13px]">
               <Filter size={16} className="mr-2 text-gray-700" />
-              Admin - Commission Report
+              SuperAdmin - Commission Report
             </div>
             <div className="p-4">
               <div className="mb-4 text-sm text-gray-600 italic">All Commission goes to As per share (Auto Commission)</div>
@@ -280,7 +278,7 @@ export default function AdminUsers() {
 
   return (
     <div className="flex flex-col gap-4 max-w-full pb-10">
-      {/* Premium Delete Confirmation Modal */}
+      {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in duration-200 border border-red-100">
@@ -290,7 +288,7 @@ export default function AdminUsers() {
               </div>
               <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Confirm Deletion</h3>
               <p className="text-gray-600 mt-2 text-sm px-4">
-                Are you sure you want to permanently remove <span className="font-bold text-red-600">@{userToDelete?.username}</span>? This action is irreversible and all profile data will be destroyed.
+                Are you sure you want to permanently remove <span className="font-bold text-red-600">@{userToDelete?.username}</span>? This action is irreversible.
               </p>
             </div>
             <div className="p-6 bg-white flex flex-col gap-3">
@@ -300,32 +298,26 @@ export default function AdminUsers() {
                 className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-red-200 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <Trash2 size={18} />
-                {isSaving ? "Destroying Account..." : "Yes, Purge Account"}
+                {isSaving ? "Deleting..." : "Yes, Delete Account"}
               </button>
               <button
                 onClick={() => { setIsDeleteModalOpen(false); setUserToDelete(null); }}
                 disabled={isSaving}
                 className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-all"
               >
-                Nevermind, Go Back
+                Cancel
               </button>
             </div>
-            {/* Progress Bar (Simulated) */}
-            {isSaving && (
-              <div className="w-full h-1 bg-gray-100 overflow-hidden">
-                <div className="h-full bg-red-600 animate-progress w-full origin-left" />
-              </div>
-            )}
           </div>
         </div>
       )}
 
-      {/* New User Modal */}
+      {/* New Downline Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="bg-[#1abc9c] px-4 py-3 flex justify-between items-center text-white">
-              <h3 className="font-bold">Create New User</h3>
+              <h3 className="font-bold">Create New Downline</h3>
               <button onClick={() => setIsModalOpen(false)} className="hover:bg-white/20 p-1 rounded">
                 <X size={20} />
               </button>
@@ -360,8 +352,9 @@ export default function AdminUsers() {
                   onChange={(e) => setNewType(e.target.value)}
                   className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#1abc9c]"
                 >
-                  <option value="user">Bettor (User)</option>
+                  <option value="admin">Admin</option>
                   <option value="master">Master</option>
+                  <option value="user">User (Bettor)</option>
                 </select>
               </div>
               <div>
@@ -374,13 +367,13 @@ export default function AdminUsers() {
                   className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#1abc9c]"
                 />
               </div>
-              {newType === "master" && (
+              {(newType === "master" || newType === "admin") && (
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Share (%) (0-85)</label>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Share (%) (0-100)</label>
                   <input
                     type="number"
                     min="0"
-                    max="85"
+                    max="100"
                     value={newShare}
                     onChange={(e) => setNewShare(e.target.value)}
                     placeholder="Enter share percentage"
@@ -400,11 +393,10 @@ export default function AdminUsers() {
         </div>
       )}
 
-      {/* Load/Reduce Balance Modal */}
+      {/* Load Balance Modal */}
       {isLoadModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200 mt-10">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in duration-200 border border-gray-300">
-            {/* Tabs */}
             <div className="flex bg-white border-b border-gray-200">
               <button
                 onClick={() => { setActiveTab("cash"); setDepositAmount(""); setWithdrawAmount(""); setDepositDescription(""); setWithdrawDescription(""); }}
@@ -421,22 +413,19 @@ export default function AdminUsers() {
             </div>
 
             <div className="p-4 bg-[#f8f9fa] space-y-4">
-              {/* Username */}
               <h2 className="text-2xl font-bold text-gray-800">{selectedUser?.username}</h2>
-
-              {/* Summary Boxes */}
-              <div className="grid grid-cols-4 gap-0 border border-gray-200 bg-white">
+              <div className="grid grid-cols-4 gap-0 border border-gray-200 bg-white text-center">
                 <div className="p-3 border-r border-gray-200">
-                  <p className="text-[12px] font-bold text-gray-700">{activeTab === 'cash' ? 'Credit' : 'Credit limit'}</p>
-                  <p className="text-[13px] font-bold text-gray-900 mt-1">{activeTab === 'cash' ? '0 Rs.' : '50,000 Rs.'}</p>
+                  <p className="text-[12px] font-bold text-gray-700">Credit limit</p>
+                  <p className="text-[13px] font-bold text-gray-900 mt-1">100,000,000</p>
                 </div>
                 <div className="p-3 border-r border-gray-200">
-                  <p className="text-[12px] font-bold text-gray-700">{activeTab === 'cash' ? 'Balance' : `${selectedUser?.username} Credit`}</p>
-                  <p className="text-[13px] font-bold text-gray-900 mt-1">{activeTab === 'cash' ? `${selectedUser?.walletBalance?.toLocaleString()} Rs.` : '0 Rs.'}</p>
+                  <p className="text-[12px] font-bold text-gray-700">Balance</p>
+                  <p className="text-[13px] font-bold text-gray-900 mt-1">{selectedUser?.walletBalance?.toLocaleString()}</p>
                 </div>
                 <div className="p-3 border-r border-gray-200">
-                  <p className="text-[12px] font-bold text-gray-700">{activeTab === 'cash' ? 'Max Withdraw' : `${selectedUser?.username} Available Balance`}</p>
-                  <p className="text-[13px] font-bold text-gray-900 mt-1">{activeTab === 'cash' ? `${selectedUser?.walletBalance?.toLocaleString()} Rs.` : '0 Rs.'}</p>
+                  <p className="text-[12px] font-bold text-gray-700">Available</p>
+                  <p className="text-[13px] font-bold text-[#1abc9c] mt-1">{selectedUser?.walletBalance?.toLocaleString()}</p>
                 </div>
                 <div className="p-3">
                   <p className="text-[12px] font-bold text-gray-700">Accounts</p>
@@ -444,94 +433,54 @@ export default function AdminUsers() {
                 </div>
               </div>
 
-              {/* Deposit Section */}
-              <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
-                <div className="bg-[#1abc9c] px-4 py-2 text-white font-bold text-[14px]">
-                  Deposit {activeTab === 'cash' ? 'Cash' : 'Credit'} in {selectedUser?.username} account
+              <div className="bg-white border border-gray-200 rounded-sm overflow-hidden shadow-sm">
+                <div className="bg-[#1abc9c] px-4 py-2 text-white font-bold text-[14px] flex justify-between items-center">
+                  <span>Deposit {activeTab} in {selectedUser?.username} account</span>
                 </div>
                 <div className="p-4 space-y-3">
                   <div className="flex items-center">
-                    <label className="w-32 text-sm font-bold text-gray-700">Description</label>
-                    <input
-                      type="text"
-                      value={depositDescription}
-                      onChange={(e) => setDepositDescription(e.target.value)}
-                      placeholder={`${activeTab === 'cash' ? 'Cash' : 'Credit'} deposit in ${selectedUser?.username}`}
-                      className="flex-1 border border-gray-300 px-3 py-1.5 rounded-sm focus:outline-none focus:border-[#1abc9c] text-sm"
-                    />
-                  </div>
-                  <div className="flex items-center">
-                    <label className="w-32 text-sm font-bold text-gray-700">Amount</label>
+                    <label className="w-24 text-sm font-bold text-gray-600">Amount</label>
                     <div className="flex-1 flex items-center">
-                      <span className="bg-gray-100 border border-r-0 border-gray-300 px-3 py-1.5 text-sm text-gray-600 rounded-l-sm">Rs.</span>
+                      <span className="bg-gray-100 border border-r-0 border-gray-300 px-3 py-2 text-sm text-gray-500 rounded-l-sm">Rs.</span>
                       <input
                         type="number"
                         value={depositAmount}
                         onChange={(e) => setDepositAmount(e.target.value)}
-                        className="w-full border border-gray-300 px-3 py-1.5 rounded-r-sm focus:outline-none focus:border-[#1abc9c] text-sm"
+                        className="w-full border border-gray-300 px-3 py-2 rounded-r-sm focus:outline-none focus:border-[#1abc9c] text-sm"
                       />
                     </div>
                   </div>
-                  <div className="flex justify-start pl-32">
-                    <button
-                      onClick={(e) => handleBalanceUpdate(e, "add", activeTab)}
-                      disabled={isSaving}
-                      className="bg-[#1abc9c] hover:bg-[#16a085] text-white px-6 py-2 rounded-sm font-bold text-sm shadow-sm transition-all disabled:opacity-50"
-                    >
-                      Submit
-                    </button>
+                  <div className="flex justify-start pl-24">
+                    <button onClick={(e) => handleBalanceUpdate(e, "add", activeTab)} className="bg-[#1abc9c] hover:bg-[#16a085] text-white px-8 py-2 rounded-sm font-bold text-sm shadow-sm">Submit</button>
                   </div>
                 </div>
               </div>
 
-              {/* Withdraw Section */}
-              <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
-                <div className="bg-[#e74c3c] px-4 py-2 text-white font-bold text-[14px]">
-                  Withdraw {activeTab === 'cash' ? 'cash' : 'Credit'} from {selectedUser?.username} account
+              <div className="bg-white border border-gray-200 rounded-sm overflow-hidden shadow-sm">
+                <div className="bg-[#e74c3c] px-4 py-2 text-white font-bold text-[14px] flex justify-between items-center">
+                  <span>Withdraw {activeTab} from {selectedUser?.username} account</span>
                 </div>
                 <div className="p-4 space-y-3">
                   <div className="flex items-center">
-                    <label className="w-32 text-sm font-bold text-gray-700">Description</label>
-                    <input
-                      type="text"
-                      value={withdrawDescription}
-                      onChange={(e) => setWithdrawDescription(e.target.value)}
-                      placeholder={`${activeTab === 'cash' ? 'Cash' : 'Credit'} withdrawn from ${selectedUser?.username}`}
-                      className="flex-1 border border-gray-300 px-3 py-1.5 rounded-sm focus:outline-none focus:border-[#e74c3c] text-sm"
-                    />
-                  </div>
-                  <div className="flex items-center">
-                    <label className="w-32 text-sm font-bold text-gray-700">Amount</label>
+                    <label className="w-24 text-sm font-bold text-gray-600">Amount</label>
                     <div className="flex-1 flex items-center">
-                      <span className="bg-gray-100 border border-r-0 border-gray-300 px-3 py-1.5 text-sm text-gray-600 rounded-l-sm">Rs.</span>
+                      <span className="bg-gray-100 border border-r-0 border-gray-300 px-3 py-2 text-sm text-gray-500 rounded-l-sm">Rs.</span>
                       <input
                         type="number"
                         value={withdrawAmount}
                         onChange={(e) => setWithdrawAmount(e.target.value)}
-                        className="w-full border border-gray-300 px-3 py-1.5 rounded-r-sm focus:outline-none focus:border-[#e74c3c] text-sm"
+                        className="w-full border border-gray-300 px-3 py-2 rounded-r-sm focus:outline-none focus:border-[#e74c3c] text-sm"
                       />
                     </div>
                   </div>
-                  <div className="flex justify-start pl-32">
-                    <button
-                      onClick={(e) => handleBalanceUpdate(e, "reduce", activeTab)}
-                      disabled={isSaving}
-                      className="bg-[#e74c3c] hover:bg-[#c0392b] text-white px-6 py-2 rounded-sm font-bold text-sm shadow-sm transition-all disabled:opacity-50"
-                    >
-                      Submit
-                    </button>
+                  <div className="flex justify-start pl-24">
+                    <button onClick={(e) => handleBalanceUpdate(e, "reduce", activeTab)} className="bg-[#e74c3c] hover:bg-[#c0392b] text-white px-8 py-2 rounded-sm font-bold text-sm shadow-sm">Submit</button>
                   </div>
                 </div>
               </div>
 
-              {/* Close Button */}
               <div className="flex justify-end pt-2">
-                <button
-                  onClick={() => setIsLoadModalOpen(false)}
-                  className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-sm font-bold text-sm transition-all"
-                >
-                  Cancel
-                </button>
+                <button onClick={() => setIsLoadModalOpen(false)} className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-sm font-bold text-sm transition-all">Cancel</button>
               </div>
             </div>
           </div>
@@ -542,20 +491,20 @@ export default function AdminUsers() {
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="bg-[#1abc9c] px-4 py-3 flex justify-between items-center text-white font-bold italic uppercase tracking-tighter">
+            <div className="bg-[#1abc9c] px-4 py-3 flex justify-between items-center text-white font-bold uppercase tracking-tighter">
               <h3>Edit User: {selectedUser?.username}</h3>
               <button onClick={() => setIsEditModalOpen(false)} className="hover:bg-white/20 p-1 rounded">
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleUpdateUser} className="p-6 space-y-4 font-sans">
-              {selectedUser?.role === 'master' && (
+            <form onSubmit={handleUpdateUser} className="p-6 space-y-4">
+              {(selectedUser?.role === 'master' || selectedUser?.role === 'admin') && (
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Company Share (%) (0-85)</label>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Company Share (%) (0-100)</label>
                   <input
                     type="number"
                     min="0"
-                    max="85"
+                    max="100"
                     required
                     value={editShare}
                     onChange={(e) => setEditShare(e.target.value)}
@@ -574,12 +523,8 @@ export default function AdminUsers() {
                 />
               </div>
               <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="w-full bg-[#1abc9c] hover:bg-[#16a085] text-white font-black py-3 rounded-lg shadow-md transition-all disabled:opacity-50 uppercase tracking-widest"
-                >
-                  {isSaving ? "Updating..." : "Update User Account"}
+                <button type="submit" disabled={isSaving} className="w-full bg-[#1abc9c] hover:bg-[#16a085] text-white font-black py-3 rounded-lg shadow-md transition-all disabled:opacity-50 uppercase tracking-widest">
+                  {isSaving ? "Updating..." : "Update User"}
                 </button>
               </div>
             </form>
@@ -634,7 +579,7 @@ export default function AdminUsers() {
           {/* Main Clients List Panel */}
           <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden flex flex-col">
             <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px]">
-              Admin - Clients List | Default
+              SuperAdmin - Clients List | Default
             </div>
 
             {/* Summary Table */}
@@ -666,26 +611,20 @@ export default function AdminUsers() {
                   onClick={() => setIsModalOpen(true)}
                   className="bg-[#1abc9c] hover:bg-[#16a085] text-white px-3 py-1.5 text-sm font-semibold rounded-sm shadow-sm transition-all"
                 >
-                  New User
+                  + New Downline
                 </button>
                 <button className="bg-[#1abc9c] hover:bg-[#16a085] text-white px-3 py-1.5 text-sm font-semibold rounded-sm flex items-center gap-1">
                   <BookOpen size={16} />
                   Account Ledger
                 </button>
               </div>
-              <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-gray-600">
+              <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold text-gray-500 uppercase">
                 <span className="flex items-center gap-1"><span className="bg-[#fbbf24] text-white px-1.5 py-0.5 rounded-sm">C</span> Cash / Credit</span>
                 <span className="flex items-center gap-1"><span className="bg-[#1abc9c] text-white px-1.5 py-0.5 rounded-sm"><Edit2 size={12} /></span> Edit</span>
                 <span className="flex items-center gap-1"><span className="bg-[#3b82f6] text-white px-1.5 py-0.5 rounded-sm">L</span> Ledger</span>
                 <span className="flex items-center gap-1"><span className="bg-[#10b981] text-white px-1.5 py-0.5 rounded-sm">A</span> Active</span>
-                <span className="flex items-center gap-1"><span className="border text-red-500 border-red-500 bg-white px-1.5 py-0.5 rounded-sm">D</span> InActive</span>
+                <span className="flex items-center gap-1"><span className="bg-gray-400 text-white px-1.5 py-0.5 rounded-sm text-[8px] flex items-center justify-center">D</span> InActive</span>
               </div>
-            </div>
-
-            {/* Search Field right aligned */}
-            <div className="px-4 pb-2 flex justify-end items-center gap-2">
-              <span className="text-sm text-gray-700 font-medium">Search:</span>
-              <input type="text" className="border border-gray-300 px-2 py-1 w-48 text-sm focus:outline-none focus:border-[#1abc9c]" />
             </div>
 
             {/* Main Table (Desktop) */}
@@ -696,56 +635,44 @@ export default function AdminUsers() {
                 </div>
               </div>
 
-              <table className="w-full text-sm text-left border-collapse border-b border-gray-200">
+              <table className="w-full text-sm text-left">
                 <thead>
                   <tr className="bg-white border-b border-gray-200">
-                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Username</th>
-                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Type</th>
-                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Credit</th>
-                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Balance</th>
-                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Client (P/L)</th>
-                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Share</th>
-                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Accounts</th>
-                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Avail. Bal.</th>
-                    <th className="px-4 py-2.5 font-bold text-gray-800">Options</th>
+                    <th className="px-4 py-2.5 font-bold border-r">Username</th>
+                    <th className="px-4 py-2.5 font-bold border-r">Type</th>
+                    <th className="px-4 py-2.5 font-bold border-r">Credit</th>
+                    <th className="px-4 py-2.5 font-bold border-r">Balance</th>
+                    <th className="px-4 py-2.5 font-bold border-r">Client (P/L)</th>
+                    <th className="px-4 py-2.5 font-bold border-r">Share</th>
+                    <th className="px-4 py-2.5 font-bold border-r">Accounts</th>
+                    <th className="px-4 py-2.5 font-bold border-r">Avail. Bal.</th>
+                    <th className="px-4 py-2.5 font-bold">Options</th>
                   </tr>
                 </thead>
                 <tbody>
                   {isLoading ? (
-                    <tr>
-                      <td colSpan="9" className="px-4 py-10 text-center text-gray-500 font-medium">
-                        Loading users...
-                      </td>
-                    </tr>
+                    <tr><td colSpan="9" className="p-10 text-center text-gray-500">Loading...</td></tr>
                   ) : users.length === 0 ? (
-                    <tr>
-                      <td colSpan="9" className="px-4 py-10 text-center text-gray-500 font-medium">
-                        No users found. Click "New User" to create one.
-                      </td>
-                    </tr>
+                    <tr><td colSpan="9" className="p-10 text-center text-gray-500 font-medium">No users found.</td></tr>
                   ) : (
                     users.map((item) => (
-                      <tr key={item._id} className="bg-white border-b border-gray-200 hover:bg-gray-50 transition-colors text-gray-700 font-medium">
-                        <td className={`px-4 py-2 border-r border-blue-200 font-bold ${item.status === 'inactive' ? 'text-red-500 line-through opacity-50' : (item.role === 'master' ? 'text-orange-500' : 'text-blue-600')}`}>
-                          {item.username}
-                          {item.status === 'inactive' && <span className="ml-2 text-[8px] bg-red-100 text-red-600 px-1 rounded uppercase">Inactive</span>}
-                          <span className="w-4 h-4 bg-gray-800 text-white rounded-full inline-flex items-center justify-center text-[10px] ml-1">i</span>
+                      <tr key={item._id} className="border-b hover:bg-gray-50 transition-colors text-gray-700 font-medium">
+                        <td className={`px-4 py-2 border-r font-bold ${item.status === 'inactive' ? 'text-red-500' : 'text-blue-600'}`}>
+                          {item.username} <span className="text-[10px] bg-gray-800 text-white w-4 h-4 rounded-full inline-flex items-center justify-center ml-1">i</span>
                         </td>
-                        <td className={`px-4 py-2 border-r border-gray-200 font-bold uppercase ${item.role === 'master' ? 'text-orange-500' : 'text-blue-600'}`}>
-                          {item.role === 'user' ? 'Bettor' : item.role}
-                        </td>
-                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
-                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold">{item.walletBalance?.toLocaleString()}</td>
-                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
-                        <td className="px-4 py-2 text-orange-600 border-r border-gray-200">{item.role === 'master' ? `${item.share || 0}%` : '-'}</td>
-                        <td className="px-4 py-2 text-blue-600 border-r border-gray-200 font-bold">{item.downlineCount || 0}</td>
-                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold text-[#1abc9c]">{item.walletBalance?.toLocaleString()}</td>
-                        <td className="px-4 py-2 flex items-center gap-1">
-                          <button onClick={() => { setSelectedUser(item); setActiveTab("cash"); setIsLoadModalOpen(true); }} className="bg-[#fbbf24] hover:bg-yellow-500 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all hover:scale-110 active:scale-90" title="Add/Reduce Cash">C</button>
-                          <button onClick={() => { setSelectedUser(item); setEditShare(item.share || "0"); setEditPassword(""); setIsEditModalOpen(true); }} className="bg-[#1abc9c] hover:bg-[#16a085] text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all hover:scale-110"><Edit2 size={14} /></button>
-                          <button className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center shadow-sm">L</button>
-                          <button onClick={() => handleToggleStatus(item.username, item.status)} className={`font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all ${item.status === 'inactive' ? 'bg-gray-400 text-white' : 'bg-[#10b981] text-white hover:bg-green-600'}`} title={item.status === 'inactive' ? 'Set Active' : 'Set InActive'}>A</button>
-                          <button onClick={() => { setUserToDelete(item); setIsDeleteModalOpen(true); }} className="border border-red-500 text-red-500 hover:bg-red-500 hover:text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all" title="Delete Permanently">D</button>
+                        <td className="px-4 py-2 border-r uppercase font-bold text-gray-600">{item.role === 'user' ? 'Bettor' : item.role}</td>
+                        <td className="px-4 py-2 border-r">-</td>
+                        <td className="px-4 py-2 border-r font-bold">{item.walletBalance?.toLocaleString()}</td>
+                        <td className="px-4 py-2 border-r">-</td>
+                        <td className="px-4 py-2 border-r font-bold text-orange-600">{(item.role === 'master' || item.role === 'admin') ? `${item.share}%` : '-'}</td>
+                        <td className="px-4 py-2 border-r font-bold text-blue-600">{item.downlineCount || 0}</td>
+                        <td className="px-4 py-2 border-r font-bold text-[#1abc9c]">{item.walletBalance?.toLocaleString()}</td>
+                        <td className="px-4 py-2 flex gap-1">
+                          <button onClick={() => { setSelectedUser(item); setIsLoadModalOpen(true); }} className="bg-[#fbbf24] text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold hover:brightness-95 active:scale-95 transition-all">C</button>
+                          <button onClick={() => { setSelectedUser(item); setEditShare(item.share || "0"); setIsEditModalOpen(true); }} className="bg-[#1abc9c] text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center hover:brightness-95 active:scale-95 transition-all"><Edit2 size={14} /></button>
+                          <button className="bg-[#3b82f6] text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold">L</button>
+                          <button onClick={() => handleToggleStatus(item.username, item.status)} className={`p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold text-white transition-all hover:brightness-95 active:scale-95 ${item.status === 'inactive' ? 'bg-gray-400' : 'bg-[#10b981]'}`}>A</button>
+                          <button onClick={() => { setUserToDelete(item); setIsDeleteModalOpen(true); }} className="border border-red-500 text-red-500 p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold hover:bg-red-50 active:scale-95 transition-all">D</button>
                         </td>
                       </tr>
                     ))
@@ -797,8 +724,8 @@ export default function AdminUsers() {
         renderReportUI()
       )}
 
-      <div className="text-gray-800 text-sm font-medium mt-2 italic">
-        Welcome to Exchange Portal.
+      <div className="text-gray-800 text-xs font-medium mt-2 italic">
+        Welcome to Betproexchange SuperAdmin Portal.
       </div>
     </div>
   );

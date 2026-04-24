@@ -3,6 +3,9 @@ import { NextResponse } from 'next/server';
 // Routes that are always public (no auth needed)
 const PUBLIC_PATHS = ['/login'];
 
+// Routes only superadmins can access
+const SUPERADMIN_PATHS = ['/superadmin'];
+
 // Routes only admins can access
 const ADMIN_PATHS = ['/admin'];
 
@@ -53,9 +56,17 @@ export function middleware(request) {
 
   const role = session?.role;
 
+  // Superadmin trying to access other panels → allow only /superadmin
+  if (role === 'superadmin') {
+    if (USER_PATHS.some((p) => pathname.startsWith(p)) || ADMIN_PATHS.some((p) => pathname.startsWith(p)) || MASTER_PATHS.some((p) => pathname.startsWith(p))) {
+      return NextResponse.redirect(new URL('/superadmin/dashboard', request.url));
+    }
+    return NextResponse.next();
+  }
+
   // Admin trying to access other panels → allow only /admin
   if (role === 'admin') {
-    if (USER_PATHS.some((p) => pathname.startsWith(p)) || MASTER_PATHS.some((p) => pathname.startsWith(p))) {
+    if (USER_PATHS.some((p) => pathname.startsWith(p)) || MASTER_PATHS.some((p) => pathname.startsWith(p)) || SUPERADMIN_PATHS.some((p) => pathname.startsWith(p))) {
       return NextResponse.redirect(new URL('/admin/dashboard', request.url));
     }
     return NextResponse.next();
@@ -63,14 +74,14 @@ export function middleware(request) {
 
   // Master trying to access other panels → allow only /master
   if (role === 'master') {
-    if (USER_PATHS.some((p) => pathname.startsWith(p)) || ADMIN_PATHS.some((p) => pathname.startsWith(p))) {
+    if (USER_PATHS.some((p) => pathname.startsWith(p)) || ADMIN_PATHS.some((p) => pathname.startsWith(p)) || SUPERADMIN_PATHS.some((p) => pathname.startsWith(p))) {
       return NextResponse.redirect(new URL('/master/dashboard', request.url));
     }
     return NextResponse.next();
   }
 
-  // Regular User trying to access admin/master panel → redirect to dashboard
-  if (ADMIN_PATHS.some((p) => pathname.startsWith(p)) || MASTER_PATHS.some((p) => pathname.startsWith(p))) {
+  // Regular User trying to access privileged panels → redirect to dashboard
+  if (SUPERADMIN_PATHS.some((p) => pathname.startsWith(p)) || ADMIN_PATHS.some((p) => pathname.startsWith(p)) || MASTER_PATHS.some((p) => pathname.startsWith(p))) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 

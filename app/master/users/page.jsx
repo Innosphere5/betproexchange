@@ -38,6 +38,36 @@ export default function MasterUsers() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editPassword, setEditPassword] = useState("");
 
+  const [activeReportType, setActiveReportType] = useState("Accounts");
+  const [hideZero, setHideZero] = useState(false);
+  const [reportData, setReportData] = useState([]);
+  const [reportLoading, setReportLoading] = useState(false);
+
+  const fetchReportData = async () => {
+    if (activeReportType !== "Commission Report") return;
+    setReportLoading(true);
+    const token = getAuthToken();
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/commission-report`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setReportData(data);
+      }
+    } catch (err) {
+      console.error("Report Fetch Error:", err);
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeReportType === "Commission Report") {
+      fetchReportData();
+    }
+  }, [activeReportType]);
+
   const getAuthToken = () => {
     const raw = localStorage.getItem("user_session");
     if (!raw) return null;
@@ -247,8 +277,183 @@ export default function MasterUsers() {
     }
   };
 
+
+  const renderReportUI = () => {
+    switch (activeReportType) {
+      case "Daily Report":
+        return (
+          <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden animate-in fade-in duration-300">
+            <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 flex items-center font-bold text-gray-800 text-[13px]">
+              <Filter size={16} className="mr-2 text-gray-700" />
+              Report
+            </div>
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="border border-gray-200">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200 text-left">
+                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200">Name</th>
+                      <th className="px-3 py-2 font-bold text-gray-700">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td colSpan="2" className="px-3 py-4 text-center text-gray-500 font-medium italic">No data available in table</td></tr>
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-[#f39c12] text-white font-bold">
+                      <td className="px-3 py-2 border-r border-orange-600">Total</td>
+                      <td className="px-3 py-2">0</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <div className="border border-gray-200">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200 text-left">
+                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200">Name</th>
+                      <th className="px-3 py-2 font-bold text-gray-700">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td colSpan="2" className="px-3 py-4 text-center text-gray-500 font-medium italic">No data available in table</td></tr>
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-[#e74c3c] text-white font-bold">
+                      <td className="px-3 py-2 border-r border-red-400">Total</td>
+                      <td className="px-3 py-2">0</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+      case "Final Sheet":
+        const filteredProfitUsers = users.filter(u => (!hideZero || u.walletBalance !== 0));
+        const totalProfit = filteredProfitUsers.reduce((sum, u) => sum + (u.walletBalance || 0), 0);
+
+        return (
+          <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden animate-in fade-in duration-300">
+            <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px]">
+              <div className="flex items-center gap-2 mb-1">
+                <Filter size={16} className="text-gray-700" />
+                Master - Final Sheet
+              </div>
+              <div className="flex items-center gap-1 font-normal text-gray-600 text-[11px]">
+                <input type="checkbox" id="hideZero" checked={hideZero} onChange={(e) => setHideZero(e.target.checked)} className="w-3 h-3 accent-[#f39c12]" />
+                <label htmlFor="hideZero">Hide Zero Amounts</label>
+              </div>
+            </div>
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="border border-gray-200">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200 text-left font-bold text-gray-700">
+                      <th className="px-3 py-2 border-r">Name</th>
+                      <th className="px-3 py-2">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredProfitUsers.length === 0 ? (
+                      <tr><td colSpan="2" className="px-3 py-4 text-center text-gray-400 italic">No data available</td></tr>
+                    ) : (
+                      filteredProfitUsers.map((u, i) => (
+                        <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="px-3 py-2 border-r text-blue-600 font-medium">
+                            {u.username}
+                            <span className="ml-1 text-[9px] bg-gray-100 text-gray-500 px-1 rounded uppercase">Bettor</span>
+                          </td>
+                          <td className={`px-3 py-2 font-bold ${u.walletBalance > 0 ? 'text-green-600' : 'text-gray-600'}`}>
+                            {u.walletBalance?.toLocaleString()}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-[#f39c12] text-white font-bold">
+                      <td className="px-3 py-2 border-r border-orange-600">Total</td>
+                      <td className="px-3 py-2">{totalProfit.toLocaleString()}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <div className="border border-gray-200">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200 text-left font-bold text-gray-700">
+                      <th className="px-3 py-2 border-r">Name</th>
+                      <th className="px-3 py-2">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="px-3 py-2 border-r text-green-600 font-bold">Cash</td>
+                      <td className="px-3 py-2 text-red-500 font-bold">-{totalProfit.toLocaleString()}</td>
+                    </tr>
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-[#e74c3c] text-white font-bold">
+                      <td className="px-3 py-2 border-r border-red-400">Total</td>
+                      <td className="px-3 py-2">-{totalProfit.toLocaleString()}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+      case "Commission Report":
+        return (
+          <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden animate-in fade-in duration-300">
+            <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 flex items-center font-bold text-gray-800 text-[13px]">
+              <Filter size={16} className="mr-2 text-gray-700" />
+              Master - Commission Report
+            </div>
+            <div className="p-4">
+              <div className="mb-4 text-sm text-gray-600 italic">All Commission goes to As per share (Auto Commission)</div>
+              <div className="border border-gray-200">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200 text-left text-gray-700 font-bold">
+                      <th className="px-3 py-2 border-r">User Name</th>
+                      <th className="px-3 py-2">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reportData && reportData.length > 0 ? (
+                      reportData.map((c, i) => (
+                        <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="px-3 py-2 border-r text-blue-600 font-medium">{c.name}</td>
+                          <td className={`px-3 py-2 font-bold ${c.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {c.amount.toFixed(2)}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No commission data found for this period</td></tr>
+                    )}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-[#1abc9c] text-white font-black">
+                      <td className="px-3 py-2.5 border-r border-teal-600 uppercase">Total</td>
+                      <td className="px-3 py-2.5">
+                        {reportData ? reportData.reduce((sum, c) => sum + c.amount, 0).toFixed(2) : '0.00'}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+      default: return null;
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-4 max-w-full">
+    <div className="flex flex-col gap-4 max-w-full pb-10">
       {/* Premium Delete Confirmation Modal */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
@@ -409,7 +614,7 @@ export default function MasterUsers() {
               <h2 className="text-2xl font-bold text-gray-800">{selectedUser?.username}</h2>
 
               {/* Summary Boxes */}
-              <div className="grid grid-cols-3 gap-0 border border-gray-200 bg-white">
+              <div className="grid grid-cols-4 gap-0 border border-gray-200 bg-white">
                 <div className="p-3 border-r border-gray-200">
                   <p className="text-[12px] font-bold text-gray-700">{activeTab === 'cash' ? 'Credit' : 'Credit limit'}</p>
                   <p className="text-[13px] font-bold text-gray-900 mt-1">{activeTab === 'cash' ? '0 Rs.' : '50,000 Rs.'}</p>
@@ -418,9 +623,13 @@ export default function MasterUsers() {
                   <p className="text-[12px] font-bold text-gray-700">{activeTab === 'cash' ? 'Balance' : `${selectedUser?.username} Credit`}</p>
                   <p className="text-[13px] font-bold text-gray-900 mt-1">{activeTab === 'cash' ? `${selectedUser?.walletBalance?.toLocaleString()} Rs.` : '0 Rs.'}</p>
                 </div>
-                <div className="p-3">
+                <div className="p-3 border-r border-gray-200">
                   <p className="text-[12px] font-bold text-gray-700">{activeTab === 'cash' ? 'Max Withdraw' : `${selectedUser?.username} Available Balance`}</p>
                   <p className="text-[13px] font-bold text-gray-900 mt-1">{activeTab === 'cash' ? `${selectedUser?.walletBalance?.toLocaleString()} Rs.` : '0 Rs.'}</p>
+                </div>
+                <div className="p-3">
+                  <p className="text-[12px] font-bold text-gray-700">Accounts</p>
+                  <p className="text-[13px] font-bold text-blue-600 mt-1">{selectedUser?.downlineCount || 0}</p>
                 </div>
               </div>
 
@@ -584,190 +793,222 @@ export default function MasterUsers() {
           Report Type
         </div>
         <div className="p-4 flex flex-wrap gap-2">
-          {['Book Detail', 'Book Detail 2', 'Daily PL', 'Daily Report', 'Final Sheet'].map(btn => (
-            <button key={btn} className="border border-[#f39c12] text-[#f39c12] hover:bg-orange-50 px-3 py-1.5 text-sm font-medium rounded-sm">
+          {['Book Detail', 'Book Detail 2', 'Daily PL', 'Daily Report', 'Final Sheet', 'Accounts', 'Commission Report'].map(btn => (
+            <button 
+              key={btn} 
+              onClick={() => setActiveReportType(btn)}
+              className={`px-3 py-1.5 text-sm font-bold rounded-sm shadow-sm transition-all border ${
+                activeReportType === btn 
+                ? 'bg-[#f39c12] border-[#f39c12] text-white' 
+                : 'bg-white border-gray-300 text-[#f39c12] hover:bg-orange-50'
+              }`}
+            >
               {btn}
             </button>
           ))}
-          <button className="bg-[#f39c12] border border-[#f39c12] text-white px-3 py-1.5 text-sm font-medium rounded-sm shadow-sm">
-            Accounts
-          </button>
-          <button className="border border-[#f39c12] text-[#f39c12] hover:bg-orange-50 px-3 py-1.5 text-sm font-medium rounded-sm">
-            Commission Report
-          </button>
         </div>
       </div>
 
-      {/* Search Users Panel */}
-      <div className="bg-white border border-gray-300 shadow-sm rounded-sm">
-        <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 flex items-center font-bold text-gray-800 text-[13px]">
-          <Filter size={16} className="mr-2 text-gray-700" />
-          Search-Users
-        </div>
-        <div className="p-4 flex items-center gap-0 w-full max-w-lg">
-          <input 
-            type="text" 
-            placeholder="Username" 
-            className="border border-gray-300 px-3 py-1.5 focus:outline-none focus:border-[#f39c12] w-64 text-sm"
-          />
-          <button className="bg-[#f39c12] hover:bg-orange-600 text-white px-3 py-1.5 flex items-center gap-1 text-sm font-semibold">
-            <Search size={14} />
-            Search
-          </button>
-        </div>
-      </div>
-
-      {/* Main Clients List Panel */}
-      <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden flex flex-col">
-        <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px]">
-          Malik50ADN - Clients List | Default
-        </div>
-        
-        {/* Summary Table */}
-        <div className="border-b border-gray-200">
-          <table className="w-full text-sm font-bold text-left">
-            <thead>
-              <tr className="bg-white border-b border-gray-200">
-                <th className="px-4 py-2 text-gray-800">Credit Remaining</th>
-                <th className="px-4 py-2 text-gray-800">Cash</th>
-                <th className="px-4 py-2 text-gray-800">P/L Downline</th>
-                <th className="px-4 py-2 text-gray-800">Users</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="px-4 py-3 text-green-700">0</td>
-                <td className="px-4 py-3 text-green-700">0</td>
-                <td className="px-4 py-3 text-green-700">0</td>
-                <td className="px-4 py-3 text-gray-800">{users.length}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* Toolbar */}
-        <div className="px-4 py-3 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setIsModalOpen(true)}
-              className="bg-[#f39c12] hover:bg-orange-600 text-white px-3 py-1.5 text-sm font-semibold rounded-sm shadow-sm transition-all"
-            >
-              New Player
-            </button>
-            <button className="bg-[#f39c12] hover:bg-orange-600 text-white px-3 py-1.5 text-sm font-semibold rounded-sm flex items-center gap-1">
-              <BookOpen size={16} />
-              Account Ledger
-            </button>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-gray-600">
-            <span className="flex items-center gap-1"><span className="bg-[#fbbf24] text-white px-1.5 py-0.5 rounded-sm">C</span> Cash / Credit</span>
-            <span className="flex items-center gap-1"><span className="bg-[#1abc9c] text-white px-1.5 py-0.5 rounded-sm"><Edit2 size={12} /></span> Edit</span>
-            <span className="flex items-center gap-1"><span className="bg-[#3b82f6] text-white px-1.5 py-0.5 rounded-sm">L</span> Ledger</span>
-            <span className="flex items-center gap-1"><span className="bg-[#10b981] text-white px-1.5 py-0.5 rounded-sm">A</span> Active</span>
-            <span className="flex items-center gap-1"><span className="border text-red-500 border-red-500 bg-white px-1.5 py-0.5 rounded-sm">D</span> InActive</span>
-          </div>
-        </div>
-
-        {/* Search Field right aligned */}
-        <div className="px-4 pb-2 flex justify-end items-center gap-2">
-          <span className="text-sm text-gray-700 font-medium">Search:</span>
-          <input type="text" className="border border-gray-300 px-2 py-1 w-48 text-sm focus:outline-none focus:border-[#1abc9c]" />
-        </div>
-
-        {/* Main Table */}
-        <div className="overflow-x-auto">
-          {/* Orange Load Balance Bar */}
-          <div className="bg-[#f39c12] px-4 py-2 flex items-center">
-            <div className="bg-[#fbbf24] text-gray-900 text-xs font-bold px-3 py-1.5 rounded-sm">
-              Load Player Balance
+      {activeReportType === "Accounts" ? (
+        <>
+          {/* Search Users Panel */}
+          <div className="bg-white border border-gray-300 shadow-sm rounded-sm">
+            <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 flex items-center font-bold text-gray-800 text-[13px]">
+              <Filter size={16} className="mr-2 text-gray-700" />
+              Search-Users
+            </div>
+            <div className="p-4 flex items-center gap-0 w-full max-w-lg">
+              <input 
+                type="text" 
+                placeholder="Username" 
+                className="border border-gray-300 px-3 py-1.5 focus:outline-none focus:border-[#f39c12] w-64 text-sm"
+              />
+              <button className="bg-[#f39c12] hover:bg-orange-600 text-white px-3 py-1.5 flex items-center gap-1 text-sm font-semibold">
+                <Search size={14} />
+                Search
+              </button>
             </div>
           </div>
-          
-          <table className="w-full text-sm text-left border-collapse border-b border-gray-200">
-            <thead>
-              <tr className="bg-white border-b border-gray-200">
-                <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Username</th>
-                <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Type</th>
-                <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Credit</th>
-                <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Balance</th>
-                <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Client (P/L)</th>
-                <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Share</th>
-                <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Exposure</th>
-                <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Available Balance</th>
-                <th className="px-4 py-2.5 font-bold text-gray-800">Options</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr>
-                  <td colSpan="9" className="px-4 py-10 text-center text-gray-500 font-medium">
-                    Loading users...
-                  </td>
-                </tr>
-              ) : users.length === 0 ? (
-                <tr>
-                  <td colSpan="9" className="px-4 py-10 text-center text-gray-500 font-medium">
-                    No users found. Click "New User" to create one.
-                  </td>
-                </tr>
-              ) : (
-                users.map((item, index) => (
-                  <tr key={item._id} className="bg-white border-b border-gray-200 hover:bg-gray-50">
-                    <td className="px-4 py-2 font-bold text-gray-800 border-r border-gray-200 flex items-center gap-1 whitespace-nowrap">
-                      {item.username} 
-                      <span className="w-4 h-4 bg-gray-800 text-white rounded-full inline-flex items-center justify-center text-[10px]">i</span>
-                    </td>
-                    <td className="px-4 py-2 text-gray-600 border-r border-gray-200 uppercase">{item.role}</td>
-                    <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
-                    <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold">{item.walletBalance?.toLocaleString()}</td>
-                    <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
-                    <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
-                    <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
-                    <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold text-[#f39c12]">{item.walletBalance?.toLocaleString()}</td>
-                    <td className="px-4 py-2 flex items-center gap-1">
-                      {item.role === 'user' && (
-                        <button 
-                          onClick={() => { setSelectedUser(item); setActiveTab("cash"); setIsLoadModalOpen(true); }}
-                          className="bg-[#fbbf24] hover:bg-yellow-500 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center shadow-sm transition-all hover:scale-110 active:scale-90"
-                          title="Add/Reduce Cash"
-                        >
-                          C
-                        </button>
-                      )}
-                      <button 
-                        onClick={() => { setSelectedUser(item); setEditPassword(""); setIsEditModalOpen(true); }}
-                        className="bg-[#1abc9c] hover:bg-teal-700 text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all hover:scale-110 active:scale-90 shadow-sm"
-                        title="Edit Player Info"
-                      >
-                        <Edit2 size={14} />
-                      </button>
-                      <button 
-                        onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }}
-                        className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center shadow-sm"
-                      >
-                        L
-                      </button>
-                      <button 
-                        onClick={() => { setUserToDelete(item); setIsDeleteModalOpen(true); }}
-                        className="border border-red-500 text-red-500 hover:bg-red-500 hover:text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all active:scale-90"
-                        title="Delete Player"
-                      >
-                        D
-                      </button>
-                    </td>
+
+          {/* Main Clients List Panel */}
+          <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden flex flex-col">
+            <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px]">
+              Master - Clients List | Default
+            </div>
+            
+            {/* Summary Table */}
+            <div className="border-b border-gray-200">
+              <table className="w-full text-sm font-bold text-left">
+                <thead>
+                  <tr className="bg-white border-b border-gray-200">
+                    <th className="px-4 py-2 text-gray-800">Credit Remaining</th>
+                    <th className="px-4 py-2 text-gray-800">Cash</th>
+                    <th className="px-4 py-2 text-gray-800">P/L Downline</th>
+                    <th className="px-4 py-2 text-gray-800">Users</th>
                   </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="px-4 py-3 text-green-700">0</td>
+                    <td className="px-4 py-3 text-green-700">0</td>
+                    <td className="px-4 py-3 text-green-700">0</td>
+                    <td className="px-4 py-3 text-gray-800">{users.length}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Toolbar */}
+            <div className="px-4 py-3 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setIsModalOpen(true)}
+                  className="bg-[#f39c12] hover:bg-orange-600 text-white px-3 py-1.5 text-sm font-semibold rounded-sm shadow-sm transition-all"
+                >
+                  New Player
+                </button>
+                <button className="bg-[#f39c12] hover:bg-orange-600 text-white px-3 py-1.5 text-sm font-semibold rounded-sm flex items-center gap-1">
+                  <BookOpen size={16} />
+                  Account Ledger
+                </button>
+              </div>
+              <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-gray-600 uppercase font-black">
+                <span className="flex items-center gap-1"><span className="bg-[#fbbf24] text-white px-1.5 py-0.5 rounded-sm">C</span> Cash / Credit</span>
+                <span className="flex items-center gap-1"><span className="bg-[#1abc9c] text-white px-1.5 py-0.5 rounded-sm"><Edit2 size={12} /></span> Edit</span>
+                <span className="flex items-center gap-1"><span className="bg-[#3b82f6] text-white px-1.5 py-0.5 rounded-sm">L</span> Ledger</span>
+                <span className="flex items-center gap-1"><span className="bg-[#10b981] text-white px-1.5 py-0.5 rounded-sm">A</span> Active</span>
+                <span className="flex items-center gap-1"><span className="border text-red-500 border-red-500 bg-white px-1.5 py-0.5 rounded-sm">D</span> InActive</span>
+              </div>
+            </div>
+
+            {/* Main Table (Desktop) */}
+            <div className="overflow-x-auto hidden md:block">
+              <div className="bg-[#f39c12] px-4 py-2 flex items-center">
+                <div className="bg-[#fbbf24] text-gray-900 text-xs font-bold px-3 py-1.5 rounded-sm">
+                  Load Player Balance
+                </div>
+              </div>
+              
+              <table className="w-full text-sm text-left border-collapse border-b border-gray-200">
+                <thead>
+                  <tr className="bg-white border-b border-gray-200">
+                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Username</th>
+                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Type</th>
+                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Credit</th>
+                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Balance</th>
+                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Client (P/L)</th>
+                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Share</th>
+                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Accounts</th>
+                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Available Balance</th>
+                    <th className="px-4 py-2.5 font-bold text-gray-800">Options</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan="9" className="px-4 py-10 text-center text-gray-500 font-medium">
+                        Loading users...
+                      </td>
+                    </tr>
+                  ) : users.length === 0 ? (
+                    <tr>
+                      <td colSpan="9" className="px-4 py-10 text-center text-gray-500 font-medium">
+                        No users found. Click "New Player" to create one.
+                      </td>
+                    </tr>
+                  ) : (
+                    users.map((item) => (
+                      <tr key={item._id} className="bg-white border-b border-gray-200 hover:bg-gray-50">
+                        <td className="px-4 py-2 font-bold text-gray-800 border-r border-gray-200 flex items-center gap-1 whitespace-nowrap">
+                          {item.username} 
+                          <span className="w-4 h-4 bg-gray-800 text-white rounded-full inline-flex items-center justify-center text-[10px]">i</span>
+                        </td>
+                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200 uppercase font-black">{item.role === 'user' ? 'Bettor' : item.role}</td>
+                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
+                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold">{item.walletBalance?.toLocaleString()}</td>
+                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
+                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
+                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
+                        <td className="px-4 py-2 text-blue-600 border-r border-gray-200 font-bold">{item.downlineCount || 0}</td>
+                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold text-[#f39c12]">{item.walletBalance?.toLocaleString()}</td>
+                        <td className="px-4 py-2 flex items-center gap-1">
+                          {item.role === 'user' && (
+                            <button 
+                              onClick={() => { setSelectedUser(item); setActiveTab("cash"); setIsLoadModalOpen(true); }}
+                              className="bg-[#fbbf24] hover:bg-yellow-500 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center shadow-sm transition-all hover:scale-110 active:scale-90"
+                              title="Add/Reduce Cash"
+                            >
+                              C
+                            </button>
+                          )}
+                          <button 
+                            onClick={() => { setSelectedUser(item); setEditPassword(""); setIsEditModalOpen(true); }}
+                            className="bg-[#1abc9c] hover:bg-teal-700 text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all hover:scale-110 active:scale-90 shadow-sm"
+                            title="Edit Player Info"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button 
+                            onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }}
+                            className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center shadow-sm"
+                          >
+                            L
+                          </button>
+                          <button 
+                            onClick={() => { setUserToDelete(item); setIsDeleteModalOpen(true); }}
+                            className="border border-red-500 text-red-500 hover:bg-red-500 hover:text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all active:scale-90"
+                            title="Delete Player"
+                          >
+                            D
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile View (Cards Layout) */}
+            <div className="md:hidden flex flex-col divide-y divide-gray-200">
+              {isLoading ? (
+                <div className="p-10 text-center text-gray-500">Loading...</div>
+              ) : users.length === 0 ? (
+                <div className="p-10 text-center text-gray-500 font-medium">No users found.</div>
+              ) : (
+                users.map((item) => (
+                  <div key={item._id} className="p-4 flex flex-col gap-3 bg-white hover:bg-gray-50">
+                    <div className="flex justify-between items-start">
+                      <div className="flex flex-col gap-1">
+                        <div className={`font-bold text-base ${item.status === 'inactive' ? 'text-red-500' : 'text-blue-600'}`}>
+                          {item.username}
+                        </div>
+                        <div className="flex flex-wrap gap-2 items-center text-[11px]">
+                          <span className="bg-gray-100 px-1.5 py-0.5 rounded uppercase font-black text-gray-600 border border-gray-200">{item.role === 'user' ? 'Bettor' : item.role}</span>
+                          <span className="font-bold text-gray-800">Bal: {item.walletBalance?.toLocaleString()}</span>
+                          <span className="font-bold text-blue-600 border-l border-gray-300 pl-2">Acc: {item.downlineCount || 0}</span>
+                        </div>
+                      </div>
+                      <div className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${item.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {item.status || 'active'}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2 pt-2 border-t border-gray-100">
+                      <button onClick={() => { setSelectedUser(item); setActiveTab("cash"); setIsLoadModalOpen(true); }} className="w-full bg-[#fbbf24] text-white py-2 rounded shadow-sm flex items-center justify-center font-black text-xs gap-1">Credit</button>
+                      <button onClick={() => { setSelectedUser(item); setEditPassword(""); setIsEditModalOpen(true); }} className="w-full bg-[#1abc9c] text-white py-2 rounded shadow-sm flex items-center justify-center gap-1"><Edit2 size={14} /><span className="text-xs font-bold">Edit</span></button>
+                      <button onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }} className="w-full bg-[#3b82f6] text-white py-2 rounded shadow-sm flex items-center justify-center font-black text-xs gap-1">Ledger</button>
+                      <button onClick={() => { setUserToDelete(item); setIsDeleteModalOpen(true); }} className="w-full bg-white border border-red-500 text-red-500 py-2 rounded shadow-sm flex items-center justify-center font-black text-xs">Delete</button>
+                    </div>
+                  </div>
                 ))
               )}
-            </tbody>
-          </table>
-          {!isLoading && users.length > 0 && (
-            <div className="p-4 text-sm text-gray-600 border-b border-gray-200">
-              Showing 1 to {users.length} of {users.length} entries
             </div>
-          )}
-        </div>
-      </div>
-      <div className="text-gray-800 text-sm font-medium mt-2">
+          </div>
+        </>
+      ) : (
+        renderReportUI()
+      )}
+      <div className="text-gray-800 text-sm font-medium mt-2 italic">
         Welcome to Exchange.
       </div>
     </div>
