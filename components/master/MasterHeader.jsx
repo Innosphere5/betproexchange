@@ -79,8 +79,9 @@ export default function MasterHeader({ setIsSidebarOpen }) {
         </button>
 
         {/* Brand / Logo */}
-        <div className="text-base lg:text-xl font-extrabold text-[#f39c12] tracking-tighter">
-          MASTER_PANEL
+        <div className="text-base lg:text-xl font-extrabold text-gray-800 tracking-tighter flex items-center gap-2">
+          {getUsername()}
+          <span className="bg-[#f39c12] text-white text-[10px] px-2 py-0.5 rounded-full uppercase font-black shadow-sm">Master</span>
         </div>
 
         {/* Top Nav (hidden on mobile) */}
@@ -108,9 +109,6 @@ export default function MasterHeader({ setIsSidebarOpen }) {
 
       {/* Right Section */}
       <div className="flex items-center gap-3 text-xs lg:text-sm text-gray-600 font-medium">
-        <div className="mr-1 text-gray-500 hidden sm:block">
-          <span className="font-bold text-gray-700">{getUsername()}</span>
-        </div>
         
         {/* Balance Display */}
         <div className="flex items-center gap-1.5 bg-gray-50 px-2 lg:px-3 py-1.5 rounded-full border border-gray-100">

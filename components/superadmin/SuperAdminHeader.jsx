@@ -67,8 +67,11 @@ export default function SuperAdminHeader({ setIsSidebarOpen }) {
           <Menu size={24} />
         </button>
 
-        <div className="text-base lg:text-xl font-extrabold text-[#1abc9c] tracking-tighter">
-          Betproexchange <span className="text-gray-400 text-xs ml-1 font-normal uppercase">SuperAdmin</span>
+        <div className="text-base lg:text-xl font-extrabold text-gray-800 tracking-tighter flex items-center gap-2">
+          {typeof window !== 'undefined' 
+            ? JSON.parse(localStorage.getItem('user_session') || '{}').username || 'SuperAdmin'
+            : 'SuperAdmin'}
+          <span className="bg-[#1abc9c] text-white text-[10px] px-2 py-0.5 rounded-full uppercase font-black shadow-sm">SuperAdmin</span>
         </div>
 
         <div className="hidden lg:flex items-center h-full ml-4">
@@ -94,13 +97,6 @@ export default function SuperAdminHeader({ setIsSidebarOpen }) {
       </div>
 
       <div className="flex items-center gap-3 text-xs lg:text-sm text-gray-600 font-medium">
-        <div className="mr-1 text-gray-500 hidden sm:block">
-          <span className="font-bold text-[#1abc9c]">
-            {typeof window !== 'undefined' 
-              ? JSON.parse(localStorage.getItem('user_session') || '{}').username || 'SuperAdmin'
-              : 'SuperAdmin'}
-          </span>
-        </div>
         <div className="flex items-center gap-1.5 font-bold bg-gray-50 px-2 lg:px-3 py-1 rounded-full border border-gray-100">
           <Wallet size={14} className="text-[#1abc9c]" />
           <span className="text-gray-800">

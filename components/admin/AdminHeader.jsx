@@ -71,8 +71,11 @@ export default function AdminHeader({ setIsSidebarOpen }) {
         </button>
 
         {/* Brand / Logo */}
-        <div className="text-base lg:text-xl font-extrabold text-[#1abc9c] tracking-tighter">
-          Betproexchange
+        <div className="text-base lg:text-xl font-extrabold text-gray-800 tracking-tighter flex items-center gap-2">
+          {typeof window !== 'undefined' 
+            ? JSON.parse(localStorage.getItem('user_session') || '{}').username || 'Admin'
+            : 'Admin'}
+          <span className="bg-[#1abc9c] text-white text-[10px] px-2 py-0.5 rounded-full uppercase font-black shadow-sm">Admin</span>
         </div>
 
         {/* Top Nav (hidden on mobile) */}
@@ -100,13 +103,6 @@ export default function AdminHeader({ setIsSidebarOpen }) {
 
       {/* Right Section */}
       <div className="flex items-center gap-3 text-xs lg:text-sm text-gray-600 font-medium">
-        <div className="mr-1 text-gray-500 hidden sm:block">
-          <span className="font-bold text-[#1abc9c]">
-            {typeof window !== 'undefined' 
-              ? JSON.parse(localStorage.getItem('user_session') || '{}').username || 'Admin'
-              : 'Admin'}
-          </span>
-        </div>
         <div className="flex items-center gap-1.5 font-bold bg-gray-50 px-2 lg:px-3 py-1 rounded-full border border-gray-100">
           <Wallet size={14} className="text-[#1abc9c]" />
           <span className="text-gray-800">
