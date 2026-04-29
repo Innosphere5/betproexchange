@@ -54,30 +54,51 @@ export default function SuperAdminUsers() {
   const [hideZero, setHideZero] = useState(false);
   const [reportData, setReportData] = useState([]);
   const [reportLoading, setReportLoading] = useState(false);
+  const [finalSheetData, setFinalSheetData] = useState({ profit: [], loss: [] });
+  const [isFinalSheetLoading, setIsFinalSheetLoading] = useState(false);
 
-  const fetchReportData = async () => {
-    if (activeReportType !== "Commission Report") return;
-    setReportLoading(true);
+  const fetchFinalSheet = async () => {
+    setIsFinalSheetLoading(true);
     const token = getAuthToken();
     try {
-      const res = await fetch(`${getApiUrl()}/api/admin/commission-report`, {
+      const res = await fetch(`${getApiUrl()}/api/admin/final-sheet`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
-      if (Array.isArray(data)) {
-        setReportData(data);
+      if (res.ok) {
+        setFinalSheetData(data);
       }
     } catch (err) {
-      console.error("Report Fetch Error:", err);
+      console.error("Error fetching final sheet:", err);
     } finally {
-      setReportLoading(false);
+      setIsFinalSheetLoading(false);
+    }
+  };
+
+  const fetchReportData = async () => {
+    if (activeReportType === "Commission Report") {
+      setReportLoading(true);
+      const token = getAuthToken();
+      try {
+        const res = await fetch(`${getApiUrl()}/api/admin/commission-report`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setReportData(data);
+        }
+      } catch (err) {
+        console.error("Report Fetch Error:", err);
+      } finally {
+        setReportLoading(false);
+      }
+    } else if (activeReportType === "Final Sheet") {
+      fetchFinalSheet();
     }
   };
 
   useEffect(() => {
-    if (activeReportType === "Commission Report") {
-      fetchReportData();
-    }
+    fetchReportData();
   }, [activeReportType]);
 
   const fetchUsers = async () => {
@@ -157,6 +178,14 @@ export default function SuperAdminUsers() {
     setIsSaving(true);
     const token = getAuthToken();
     const endpoint = mode === "add" ? "/api/admin/load-balance" : "/api/admin/withdraw-balance";
+
+    console.log(`[DEBUG] SuperAdmin Balance Update Request:`, {
+      endpoint,
+      mode,
+      target: selectedUser.username,
+      amount: parseFloat(amount),
+      type: tab
+    });
 
     try {
       const res = await fetch(`${getApiUrl()}${endpoint}`, {
@@ -358,9 +387,14 @@ export default function SuperAdminUsers() {
           </div>
         );
       case "Final Sheet":
-        const filteredProfitUsers = users.filter(u => (!hideZero || u.walletBalance !== 0));
-        const totalProfit = filteredProfitUsers.reduce((sum, u) => sum + (u.walletBalance || 0), 0);
-        
+        if (isFinalSheetLoading) {
+          return <div className="p-10 text-center text-gray-500 italic bg-white border border-gray-300">Loading Final Sheet...</div>;
+        }
+
+        const filteredProfit = finalSheetData.profit.filter(u => !hideZero || u.amount !== 0);
+        const totalProfit = filteredProfit.reduce((sum, u) => sum + (u.amount || 0), 0);
+        const totalLoss = finalSheetData.loss.reduce((sum, u) => sum + (u.amount || 0), 0);
+
         return (
           <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden animate-in fade-in duration-300">
             <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px]">
@@ -374,6 +408,7 @@ export default function SuperAdminUsers() {
               </div>
             </div>
             <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Green Side (Profit/Income) */}
               <div className="border border-gray-200">
                 <table className="w-full text-[12px]">
                   <thead>
@@ -383,20 +418,18 @@ export default function SuperAdminUsers() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredProfitUsers.length === 0 ? (
-                      <tr><td colSpan="2" className="px-3 py-4 text-center text-gray-400 italic">No data available</td></tr>
-                    ) : (
-                      filteredProfitUsers.map((u, i) => (
-                        <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="px-3 py-2 border-r text-blue-600 font-medium">
-                            {u.username} 
-                            <span className="ml-1 text-[9px] bg-gray-100 text-gray-500 px-1 rounded uppercase">{u.role === 'user' ? 'Bettor' : u.role}</span>
-                          </td>
-                          <td className={`px-3 py-2 font-bold ${u.walletBalance > 0 ? 'text-green-600' : 'text-gray-600'}`}>
-                            {u.walletBalance?.toLocaleString()}
-                          </td>
-                        </tr>
-                      ))
+                    {filteredProfit.map((u, i) => (
+                      <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="px-3 py-2 border-r text-blue-600 font-medium">
+                          {u.name} {u.role && <span className="ml-1 text-[9px] bg-gray-100 text-gray-500 px-1 rounded uppercase">{u.role}</span>}
+                        </td>
+                        <td className={`px-3 py-2 font-bold ${u.amount > 0 ? 'text-green-600' : 'text-gray-600'}`}>
+                          {u.amount.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredProfit.length === 0 && (
+                      <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No data found</td></tr>
                     )}
                   </tbody>
                   <tfoot>
@@ -407,6 +440,7 @@ export default function SuperAdminUsers() {
                   </tfoot>
                 </table>
               </div>
+              {/* Red Side (Loss/Spent) */}
               <div className="border border-gray-200">
                 <table className="w-full text-[12px]">
                   <thead>
@@ -416,15 +450,20 @@ export default function SuperAdminUsers() {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="px-3 py-2 border-r text-green-600 font-bold">Cash</td>
-                      <td className="px-3 py-2 text-red-500 font-bold">-{totalProfit.toLocaleString()}</td>
-                    </tr>
+                    {finalSheetData.loss.map((u, i) => (
+                      <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="px-3 py-2 border-r text-red-500 font-bold">{u.name}</td>
+                        <td className="px-3 py-2 text-red-500 font-bold">{u.amount.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                    {finalSheetData.loss.length === 0 && (
+                      <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No data found</td></tr>
+                    )}
                   </tbody>
                   <tfoot>
                     <tr className="bg-[#e74c3c] text-white font-bold">
                       <td className="px-3 py-2 border-r border-red-400">Total</td>
-                      <td className="px-3 py-2">-{totalProfit.toLocaleString()}</td>
+                      <td className="px-3 py-2">{totalLoss.toLocaleString()}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -620,16 +659,26 @@ export default function SuperAdminUsers() {
               <h2 className="text-2xl font-bold text-gray-800">{selectedUser?.username}</h2>
               <div className="grid grid-cols-4 gap-0 border border-gray-200 bg-white text-center">
                 <div className="p-3 border-r border-gray-200">
-                  <p className="text-[12px] font-bold text-gray-700">Credit limit</p>
-                  <p className="text-[13px] font-bold text-gray-900 mt-1">100,000,000</p>
+                  <p className="text-[12px] font-bold text-gray-700">Total Balance</p>
+                  <p className="text-[13px] font-bold text-gray-900 mt-1">
+                    {((selectedUser?.walletBalance || 0) + (selectedUser?.credit || 0)).toLocaleString()} Rs.
+                  </p>
                 </div>
                 <div className="p-3 border-r border-gray-200">
-                  <p className="text-[12px] font-bold text-gray-700">Balance</p>
-                  <p className="text-[13px] font-bold text-gray-900 mt-1">{selectedUser?.walletBalance?.toLocaleString()}</p>
+                  <p className="text-[12px] font-bold text-gray-700">{activeTab === 'cash' ? 'Cash Balance' : 'Credit Balance'}</p>
+                  <p className="text-[13px] font-bold text-blue-600 mt-1">
+                    {activeTab === 'cash' 
+                      ? `${selectedUser?.walletBalance?.toLocaleString()} Rs.` 
+                      : `${selectedUser?.credit?.toLocaleString() || 0} Rs.`}
+                  </p>
                 </div>
                 <div className="p-3 border-r border-gray-200">
-                  <p className="text-[12px] font-bold text-gray-700">Available</p>
-                  <p className="text-[13px] font-bold text-[#1abc9c] mt-1">{selectedUser?.walletBalance?.toLocaleString()}</p>
+                  <p className="text-[12px] font-bold text-gray-700">{activeTab === 'cash' ? 'Credit Balance' : 'Cash Balance'}</p>
+                  <p className="text-[13px] font-bold text-gray-900 mt-1">
+                    {activeTab === 'cash' 
+                      ? `${selectedUser?.credit?.toLocaleString() || 0} Rs.` 
+                      : `${selectedUser?.walletBalance?.toLocaleString()} Rs.`}
+                  </p>
                 </div>
                 <div className="p-3">
                   <p className="text-[12px] font-bold text-gray-700">Accounts</p>
@@ -857,8 +906,8 @@ export default function SuperAdminUsers() {
                 </thead>
                 <tbody>
                   <tr>
-                    <td className="px-4 py-3 text-green-700">0</td>
-                    <td className="px-4 py-3 text-green-700">0</td>
+                    <td className="px-4 py-3 text-green-700">{users.reduce((sum, u) => sum + (u.credit || 0), 0).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-green-700">{users.reduce((sum, u) => sum + (u.walletBalance || 0), 0).toLocaleString()}</td>
                     <td className="px-4 py-3 text-green-700">0</td>
                     <td className="px-4 py-3 text-gray-800">{users.length}</td>
                   </tr>
@@ -923,14 +972,14 @@ export default function SuperAdminUsers() {
                           {item.username} <span className="text-[10px] bg-gray-800 text-white w-4 h-4 rounded-full inline-flex items-center justify-center ml-1">i</span>
                         </td>
                         <td className="px-4 py-2 border-r uppercase font-bold text-gray-600">{item.role === 'user' ? 'Bettor' : item.role}</td>
-                        <td className="px-4 py-2 border-r">-</td>
+                        <td className="px-4 py-2 border-r font-bold text-gray-600">{item.credit?.toLocaleString() || 0}</td>
                         <td className="px-4 py-2 border-r font-bold">{item.walletBalance?.toLocaleString()}</td>
                         <td className="px-4 py-2 border-r">-</td>
                         <td className="px-4 py-2 border-r font-bold text-orange-600">{(item.role === 'master' || item.role === 'admin') ? `${item.share}%` : '-'}</td>
                         <td className="px-4 py-2 border-r font-bold text-blue-600">{item.downlineCount || 0}</td>
                         <td className="px-4 py-2 border-r font-bold text-[#1abc9c]">{item.walletBalance?.toLocaleString()}</td>
                         <td className="px-4 py-2 flex gap-1">
-                          <button onClick={() => { setSelectedUser(item); setIsLoadModalOpen(true); }} className="bg-[#fbbf24] text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold hover:brightness-95 active:scale-95 transition-all">C</button>
+                          <button onClick={() => { setSelectedUser(item); setActiveTab("cash"); setIsLoadModalOpen(true); }} className="bg-[#fbbf24] text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold hover:brightness-95 active:scale-95 transition-all">C</button>
                           <button onClick={() => { setSelectedUser(item); setEditShare(item.share || "0"); setIsEditModalOpen(true); }} className="bg-[#1abc9c] text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center hover:brightness-95 active:scale-95 transition-all"><Edit2 size={14} /></button>
                           <button onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }} className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center shadow-sm">L</button>
                           <button onClick={() => handleToggleStatus(item.username, item.status)} className={`p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold text-white transition-all hover:brightness-95 active:scale-95 ${item.status === 'inactive' ? 'bg-gray-400' : 'bg-[#10b981]'}`}>A</button>
@@ -943,43 +992,74 @@ export default function SuperAdminUsers() {
               </table>
             </div>
 
-            {/* Mobile View (Cards Layout) */}
-            <div className="md:hidden flex flex-col divide-y divide-gray-200">
-              {isLoading ? (
-                <div className="p-10 text-center text-gray-500">Loading...</div>
-              ) : users.length === 0 ? (
-                <div className="p-10 text-center text-gray-500 font-medium">No users found.</div>
-              ) : (
-                users.map((item) => (
-                  <div key={item._id} className="p-4 flex flex-col gap-3 bg-white hover:bg-gray-50">
-                    <div className="flex justify-between items-start">
-                      <div className="flex flex-col gap-1">
-                        <div className={`font-bold text-base ${item.status === 'inactive' ? 'text-red-500' : 'text-blue-600'}`}>
-                          {item.username}
-                        </div>
-                        <div className="flex flex-wrap gap-2 items-center text-[11px]">
-                          <span className="bg-gray-100 px-1.5 py-0.5 rounded uppercase font-black text-gray-600 border border-gray-200">{item.role === 'user' ? 'Bettor' : item.role}</span>
-                          <span className="font-bold text-gray-800">Bal: {item.walletBalance?.toLocaleString()}</span>
-                          <span className="font-bold text-blue-600 border-l border-gray-300 pl-2">Acc: {item.downlineCount || 0}</span>
-                          {(item.role === 'master' || item.role === 'admin') && (
-                            <span className="text-orange-600 font-bold">Share: {item.share}%</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${item.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {item.status}
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-2 pt-2 border-t border-gray-100">
-                      <button onClick={() => { setSelectedUser(item); setIsLoadModalOpen(true); }} className="w-full bg-[#fbbf24] text-white py-2 rounded shadow-sm flex items-center justify-center font-black text-xs gap-1">Credit</button>
-                      <button onClick={() => { setSelectedUser(item); setEditShare(item.share || "0"); setIsEditModalOpen(true); }} className="w-full bg-[#1abc9c] text-white py-2 rounded shadow-sm flex items-center justify-center gap-1"><Edit2 size={14} /><span className="text-xs font-bold">Edit</span></button>
-                      <button onClick={() => handleToggleStatus(item.username, item.status)} className={`w-full py-2 rounded shadow-sm flex items-center justify-center font-black text-xs gap-1 text-white ${item.status === 'inactive' ? 'bg-gray-400' : 'bg-[#10b981]'}`}>{item.status === 'active' ? 'Deactivate' : 'Activate'}</button>
-                      <button onClick={() => { setUserToDelete(item); setIsDeleteModalOpen(true); }} className="w-full bg-white border border-red-500 text-red-500 py-2 rounded shadow-sm flex items-center justify-center font-black text-xs">Delete</button>
-                    </div>
-                  </div>
-                ))
-              )}
+            {/* Mobile View (Table Layout) */}
+            <div className="md:hidden overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-[#1abc9c] text-white">
+                    <th className="px-3 py-2 text-left font-bold border-r border-[#16a085]">Username</th>
+                    <th className="px-3 py-2 text-left font-bold">Credit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isLoading ? (
+                    <tr><td colSpan="2" className="p-10 text-center text-gray-500">Loading...</td></tr>
+                  ) : users.length === 0 ? (
+                    <tr><td colSpan="2" className="p-10 text-center text-gray-500 font-medium">No users found.</td></tr>
+                  ) : (
+                    users.map((item) => (
+                      <tr key={item._id} className="border-b border-gray-200">
+                        <td className="p-3 border-r border-gray-200 align-top">
+                          <div className={`font-bold text-[15px] mb-2 ${item.status === 'inactive' ? 'text-red-500 line-through opacity-50' : 'text-gray-900'}`}>
+                            {item.username}
+                          </div>
+                          <ul className="space-y-1.5 text-gray-700 text-[13px] font-medium">
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
+                              Type {item.role === 'user' ? 'Bettor' : item.role}
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
+                              Balance {item.walletBalance?.toLocaleString() || 0}
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
+                              Client (P/L) 0
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
+                              Share {item.share || 0}
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
+                              Exposure 0
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
+                              Available Balance {item.walletBalance?.toLocaleString() || 0}
+                            </li>
+                            <li className="flex items-center gap-2 mt-2">
+                              <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
+                              Options
+                              <div className="flex flex-wrap gap-1 ml-1">
+                                <button onClick={() => { setSelectedUser(item); setActiveTab("cash"); setIsLoadModalOpen(true); }} className="bg-[#fbbf24] hover:bg-yellow-500 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Cash/Credit">C</button>
+                                <button onClick={() => { setSelectedUser(item); setEditShare(item.share || "0"); setEditPassword(""); setIsEditModalOpen(true); }} className="bg-[#1abc9c] hover:bg-[#16a085] text-white w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Edit"><Edit2 size={13} /></button>
+                                <button onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }} className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Ledger">L</button>
+                                <button onClick={() => handleToggleStatus(item.username, item.status)} className={`font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm ${item.status === 'inactive' ? 'bg-gray-400 text-white' : 'bg-[#10b981] text-white hover:bg-green-600'}`} title={item.status === 'inactive' ? 'Activate' : 'Deactivate'}>A</button>
+                              </div>
+                            </li>
+                          </ul>
+                        </td>
+                        <td className="p-3 align-top text-gray-800 font-bold text-[15px] text-right">
+                          {item.credit?.toLocaleString() || '0'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
+
           </div>
         </>
       ) : (

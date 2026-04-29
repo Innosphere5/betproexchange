@@ -1,36 +1,83 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Filter, Calendar, Layout, List, CheckSquare } from "lucide-react";
+import { getApiUrl } from "@/lib/apiConfig";
 
 export default function MasterReports() {
   const [activeReport, setActiveReport] = useState("Daily Report");
   const [hideZero, setHideZero] = useState(false);
+  const [finalSheetData, setFinalSheetData] = useState({ profit: [], loss: [] });
+  const [isLoading, setIsLoading] = useState(false);
+  const [commissionData, setCommissionData] = useState([]);
 
   const reportTypes = [
     'Book Detail', 'Book Detail 2', 'Daily PL', 'Daily Report', 'Final Sheet', 'Accounts', 'Commission Report'
   ];
 
-  // Dummy Data for Demo
-  const finalSheetData = {
-    profit: [
-      { name: "Bhattisab886", amount: 41 },
-      { name: "Ghujar7", amount: 0 },
-      { name: "Gujar1sss", amount: 338.0 },
-      { name: "Hadier1Am", amount: 0 },
-      { name: "Hhadier1111", amount: 3 },
-      { name: "Hhamza222s", amount: 0 },
-      { name: "Hhmugdhal1", amount: 0 },
-      { name: "Pachama1s", amount: 0 },
-      { name: "Shjutt1s", amount: 0 },
-    ],
-    loss: [
-      { name: "Cash", amount: -338.11 },
-      { name: "Waqas40Sh", amount: -1 },
-    ]
+  const getAuthToken = () => {
+    const raw = localStorage.getItem("user_session");
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw).token;
+    } catch {
+      return null;
+    }
   };
 
+  const fetchFinalSheet = async () => {
+    setIsLoading(true);
+    const token = getAuthToken();
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/final-sheet`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setFinalSheetData(data);
+      }
+    } catch (err) {
+      console.error("Error fetching final sheet:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchCommissionReport = async () => {
+    setIsLoading(true);
+    const token = getAuthToken();
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/commission-report`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCommissionData(data);
+      }
+    } catch (err) {
+      console.error("Error fetching commission report:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeReport === "Final Sheet") {
+      fetchFinalSheet();
+    } else if (activeReport === "Commission Report") {
+      fetchCommissionReport();
+    }
+  }, [activeReport]);
+
   const renderReportContent = () => {
+    if (isLoading) {
+      return (
+        <div className="bg-white p-10 text-center border border-gray-300 text-gray-500 rounded-sm animate-pulse">
+          Loading report data...
+        </div>
+      );
+    }
+
     switch (activeReport) {
       case "Daily Report":
         return (
@@ -89,6 +136,10 @@ export default function MasterReports() {
         );
 
       case "Final Sheet":
+        const filteredProfit = finalSheetData.profit.filter(u => !hideZero || u.amount !== 0);
+        const totalProfit = filteredProfit.reduce((sum, u) => sum + (u.amount || 0), 0);
+        const totalLoss = finalSheetData.loss.reduce((sum, u) => sum + (u.amount || 0), 0);
+
         return (
           <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden">
             <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px]">
@@ -118,17 +169,24 @@ export default function MasterReports() {
                     </tr>
                   </thead>
                   <tbody>
-                    {finalSheetData.profit.filter(u => !hideZero || u.amount !== 0).map((u, i) => (
+                    {filteredProfit.map((u, i) => (
                       <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-3 py-2 border-r border-gray-100 text-blue-600 font-medium">{u.name}</td>
-                        <td className={`px-3 py-2 font-bold ${u.amount > 0 ? 'text-green-600' : 'text-gray-600'}`}>{u.amount.toLocaleString()}</td>
+                        <td className="px-3 py-2 border-r border-gray-100 text-blue-600 font-medium">
+                          {u.name} {u.role && <span className="ml-1 text-[9px] bg-gray-100 text-gray-500 px-1 rounded uppercase">{u.role}</span>}
+                        </td>
+                        <td className={`px-3 py-2 font-bold ${u.amount > 0 ? 'text-green-600' : 'text-gray-600'}`}>
+                          {u.amount.toLocaleString()}
+                        </td>
                       </tr>
                     ))}
+                    {filteredProfit.length === 0 && (
+                      <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No data found</td></tr>
+                    )}
                   </tbody>
                   <tfoot>
                     <tr className="bg-[#1abc9c] text-white font-bold">
                       <td className="px-3 py-2 border-r border-teal-600">Total</td>
-                      <td className="px-3 py-2">338,114</td>
+                      <td className="px-3 py-2">{totalProfit.toLocaleString()}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -145,15 +203,18 @@ export default function MasterReports() {
                   <tbody>
                     {finalSheetData.loss.map((u, i) => (
                       <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-3 py-2 border-r border-gray-100 text-green-600 font-bold">{u.name}</td>
+                        <td className="px-3 py-2 border-r border-gray-100 text-red-500 font-bold">{u.name}</td>
                         <td className="px-3 py-2 text-red-500 font-bold">{u.amount.toLocaleString()}</td>
                       </tr>
                     ))}
+                    {finalSheetData.loss.length === 0 && (
+                      <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No data found</td></tr>
+                    )}
                   </tbody>
                   <tfoot>
                     <tr className="bg-[#e74c3c] text-white font-bold">
                       <td className="px-3 py-2 border-r border-red-400">Total</td>
-                      <td className="px-3 py-2">-338,118</td>
+                      <td className="px-3 py-2">{totalLoss.toLocaleString()}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -183,14 +244,23 @@ export default function MasterReports() {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-b border-gray-100">
-                      <td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No commission data found for this period</td>
-                    </tr>
+                    {commissionData.length > 0 ? commissionData.map((c, i) => (
+                      <tr key={i} className="border-b border-gray-100">
+                        <td className="px-3 py-2 border-r border-gray-100 text-blue-600 font-medium">{c.name}</td>
+                        <td className="px-3 py-2 font-bold text-green-600">{c.amount.toLocaleString()}</td>
+                      </tr>
+                    )) : (
+                      <tr className="border-b border-gray-100">
+                        <td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No commission data found for this period</td>
+                      </tr>
+                    )}
                   </tbody>
                   <tfoot>
                     <tr className="bg-[#1abc9c] text-white font-black text-sm">
                       <td className="px-3 py-2.5 border-r border-teal-600 uppercase">Total</td>
-                      <td className="px-3 py-2.5">0</td>
+                      <td className="px-3 py-2.5">
+                        {commissionData.reduce((sum, c) => sum + c.amount, 0).toLocaleString()}
+                      </td>
                     </tr>
                   </tfoot>
                 </table>
