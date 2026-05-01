@@ -5,7 +5,7 @@ import { useDashboard } from "./DashboardLayout";
 
 export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMatch }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const { walletBalance } = useDashboard();
+  const { walletBalance, creditBalance } = useDashboard();
 
 
 
@@ -56,12 +56,28 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
 
         {/* Right Info */}
         <div className="flex items-center text-xs lg:text-sm font-bold tracking-wide gap-1.5 lg:gap-3">
-          <div className="flex items-center bg-[#1c3246] px-2 py-1 rounded border border-white/10 shadow-inner">
-            <span className="text-[#00c766]">B:</span> 
-            <span className="ml-1">{walletBalance ? walletBalance.toLocaleString() : "0"}</span>
-            <span className="mx-1 text-white/20">|</span>
-            <span className="text-gray-400">L:</span>
-            <span className="ml-1">0</span>
+          <div className="flex items-center bg-[#1c3246] px-2 py-1 rounded border border-white/10 shadow-inner gap-2">
+            <div className="flex items-center">
+              <span className="text-[#00c766] font-bold">B:</span> 
+              <span className="ml-1">{walletBalance ? walletBalance.toLocaleString() : "0"}</span>
+            </div>
+            <span className="text-white/20">|</span>
+            <div className="hidden md:flex items-center">
+              <span className="text-gray-400">Csh:</span>
+              <span className="ml-1">{(walletBalance - (creditBalance || 0)).toLocaleString()}</span>
+            </div>
+            <div className="hidden md:flex items-center">
+              <span className="text-gray-400 ml-1">Crd:</span>
+              <span className="ml-1">{(creditBalance || 0).toLocaleString()}</span>
+            </div>
+            <div className="flex md:hidden items-center text-[10px] text-gray-400">
+               ({(creditBalance || 0).toLocaleString()} C)
+            </div>
+            <span className="text-white/20">|</span>
+            <div className="flex items-center">
+              <span className="text-gray-400">L:</span>
+              <span className="ml-1">0</span>
+            </div>
           </div>
           <div className="hidden lg:block text-gray-400">|</div>
 

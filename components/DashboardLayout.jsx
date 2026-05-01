@@ -46,6 +46,7 @@ export default function DashboardLayout({ children }) {
   const [betSelection, setBetSelection] = useState(null);
   const [cricketMatches, setCricketMatches] = useState([]);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [creditBalance, setCreditBalance] = useState(0);
   const [socketInstance, setSocketInstance] = useState(null);
   const [notification, setNotification] = useState(null);
 
@@ -81,6 +82,7 @@ export default function DashboardLayout({ children }) {
       if (res.ok) {
         const data = await res.json();
         setWalletBalance(data.balance);
+        setCreditBalance(data.credit);
       } else if (res.status === 401) {
         router.push('/login');
       }
@@ -109,11 +111,52 @@ export default function DashboardLayout({ children }) {
         const session = JSON.parse(localStorage.getItem('user_session') || '{}');
         if (data.userId === session.username) {
             setWalletBalance(data.balance);
+            setCreditBalance(data.credit || 0);
         }
     });
 
     socket.on('matches_updated', (data) => {
         setCricketMatches(data);
+    });
+
+    socket.on('live_score_update', (data) => {
+        setCricketMatches(prev => prev.map(m => {
+            if (m.matchId === data.matchId) {
+                return {
+                    ...m,
+                    status: data.status || m.status,
+                    score: {
+                        ...m.score,
+                        teamA_runs: data.teamA_runs || m.score?.teamA_runs,
+                        teamB_runs: data.teamB_runs || m.score?.teamB_runs,
+                        overs: data.overs || m.score?.overs,
+                        wickets: data.wickets || m.score?.wickets,
+                        lastUpdated: new Date()
+                    }
+                };
+            }
+            return m;
+        }));
+    });
+
+    socket.on('match_result', (data) => {
+        setCricketMatches(prev => prev.map(m => {
+            if (m.matchId === data.matchId) {
+                return {
+                    ...m,
+                    status: 'completed',
+                    winner: data.winner,
+                    score: {
+                        ...m.score,
+                        teamA_runs: data.finalScore?.teamA || m.score?.teamA_runs,
+                        teamB_runs: data.finalScore?.teamB || m.score?.teamB_runs,
+                        overs: "Final",
+                        lastUpdated: new Date()
+                    }
+                };
+            }
+            return m;
+        }));
     });
 
     const fetchMatches = async () => {
@@ -206,6 +249,7 @@ export default function DashboardLayout({ children }) {
       betSelection, 
       cricketMatches,
       walletBalance,
+      creditBalance,
       socket: socketInstance,
       fetchWallet,
       handleSelectMatch, 

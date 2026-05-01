@@ -8,8 +8,10 @@ export default function MasterReports() {
   const [activeReport, setActiveReport] = useState("Daily Report");
   const [hideZero, setHideZero] = useState(false);
   const [finalSheetData, setFinalSheetData] = useState({ profit: [], loss: [] });
+  const [dailyReportData, setDailyReportData] = useState({ profit: [], loss: [] });
   const [isLoading, setIsLoading] = useState(false);
   const [commissionData, setCommissionData] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
   const reportTypes = [
     'Book Detail', 'Book Detail 2', 'Daily PL', 'Daily Report', 'Final Sheet', 'Accounts', 'Commission Report'
@@ -43,6 +45,24 @@ export default function MasterReports() {
     }
   };
 
+  const fetchDailyReport = async () => {
+    setIsLoading(true);
+    const token = getAuthToken();
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/daily-report?date=${selectedDate}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setDailyReportData(data);
+      }
+    } catch (err) {
+      console.error("Error fetching daily report:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const fetchCommissionReport = async () => {
     setIsLoading(true);
     const token = getAuthToken();
@@ -66,8 +86,10 @@ export default function MasterReports() {
       fetchFinalSheet();
     } else if (activeReport === "Commission Report") {
       fetchCommissionReport();
+    } else if (activeReport === "Daily Report") {
+      fetchDailyReport();
     }
-  }, [activeReport]);
+  }, [activeReport, selectedDate]);
 
   const renderReportContent = () => {
     if (isLoading) {
@@ -80,11 +102,39 @@ export default function MasterReports() {
 
     switch (activeReport) {
       case "Daily Report":
+        const filteredDailyProfit = dailyReportData.profit.filter(u => !hideZero || u.amount !== 0);
+        const totalDailyProfit = filteredDailyProfit.reduce((sum, u) => sum + (u.amount || 0), 0);
+        const totalDailyLoss = dailyReportData.loss.reduce((sum, u) => sum + (u.amount || 0), 0);
+
         return (
           <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden">
-            <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 flex items-center font-bold text-gray-800 text-[13px]">
-              <Layout size={16} className="mr-2 text-gray-700" />
-              Report
+            <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px]">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Layout size={16} className="text-gray-700" />
+                  Master - Daily Report
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-1 font-normal text-gray-600 text-[11px]">
+                    <input 
+                      type="date" 
+                      value={selectedDate} 
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      className="border border-gray-300 rounded px-1 py-0.5 outline-none focus:border-[#1abc9c]"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1 font-normal text-gray-600 text-[11px]">
+                    <input 
+                      type="checkbox" 
+                      id="hideZeroDaily" 
+                      checked={hideZero} 
+                      onChange={(e) => setHideZero(e.target.checked)} 
+                      className="w-3 h-3 accent-[#1abc9c]"
+                    />
+                    <label htmlFor="hideZeroDaily">Hide Zero</label>
+                  </div>
+                </div>
+              </div>
             </div>
             <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Profit Table */}
@@ -97,14 +147,22 @@ export default function MasterReports() {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td colSpan="2" className="px-3 py-4 text-center text-gray-500 font-medium italic">No data available in table</td>
-                    </tr>
+                    {filteredDailyProfit.map((u, i) => (
+                      <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="px-3 py-2 border-r border-gray-100 text-blue-600 font-medium">{u.name}</td>
+                        <td className={`px-3 py-2 font-bold ${u.amount > 0 ? 'text-green-600' : 'text-gray-600'}`}>
+                          {u.amount.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredDailyProfit.length === 0 && (
+                      <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No data found for this date</td></tr>
+                    )}
                   </tbody>
                   <tfoot>
                     <tr className="bg-[#1abc9c] text-white font-bold">
                       <td className="px-3 py-2 border-r border-teal-600">Total</td>
-                      <td className="px-3 py-2">0</td>
+                      <td className="px-3 py-2">{totalDailyProfit.toLocaleString()}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -119,14 +177,20 @@ export default function MasterReports() {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td colSpan="2" className="px-3 py-4 text-center text-gray-500 font-medium italic">No data available in table</td>
-                    </tr>
+                    {dailyReportData.loss.map((u, i) => (
+                      <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="px-3 py-2 border-r border-gray-100 text-red-500 font-bold">{u.name}</td>
+                        <td className="px-3 py-2 text-red-500 font-bold">{u.amount.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                    {dailyReportData.loss.length === 0 && (
+                      <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No data found for this date</td></tr>
+                    )}
                   </tbody>
                   <tfoot>
                     <tr className="bg-[#e74c3c] text-white font-bold">
                       <td className="px-3 py-2 border-r border-red-400">Total</td>
-                      <td className="px-3 py-2">0</td>
+                      <td className="px-3 py-2">{totalDailyLoss.toLocaleString()}</td>
                     </tr>
                   </tfoot>
                 </table>

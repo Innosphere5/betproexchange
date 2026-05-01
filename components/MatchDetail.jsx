@@ -107,7 +107,11 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                   <div className="text-2xl font-black">{actualMatch.score?.teamA_runs || "0/0"}</div>
                   <div className="text-[10px] text-gray-400 font-bold uppercase">{actualMatch.teamA}</div>
                 </div>
-                <div className="text-2xl font-light text-gray-600">VS</div>
+                <div className="flex flex-col items-center opacity-40">
+                  <div className="text-xs font-black text-gray-500 uppercase tracking-widest">{actualMatch.score?.overs === 'Final' ? 'FT' : (actualMatch.score?.overs || "OVR")}</div>
+                  <div className="w-8 h-[1px] bg-gray-500 my-1"></div>
+                  <div className="text-[8px] font-bold text-gray-600">SCORE</div>
+                </div>
                 <div className="flex flex-col items-center">
                   <div className="text-2xl font-black text-[#00c766]">{actualMatch.score?.teamB_runs || "0/0"}</div>
                   <div className="text-[10px] text-gray-400 font-bold uppercase">{actualMatch.teamB}</div>
@@ -143,7 +147,10 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                     <div className="text-3xl font-black text-white tabular-nums">{actualMatch.score?.teamA_runs ?? "0/0"}</div>
                     <div className="text-[10px] text-gray-400 font-bold tracking-widest uppercase">{actualMatch.teamA}</div>
                   </div>
-                  <div className="text-3xl text-gray-700 font-light opacity-50 px-2">-</div>
+                  <div className="flex flex-col items-center bg-white/10 px-3 py-1 rounded-sm">
+                    <div className="text-lg font-black text-[#00c766]">{actualMatch.score?.overs || "0.0"}</div>
+                    <div className="text-[8px] text-gray-400 font-bold uppercase tracking-tighter">OVERS</div>
+                  </div>
                   <div className="flex flex-col items-center min-w-[60px]">
                     <div className="text-3xl font-black text-[#00c766] tabular-nums">{actualMatch.score?.teamB_runs ?? "0/0"}</div>
                     <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{actualMatch.teamB}</div>

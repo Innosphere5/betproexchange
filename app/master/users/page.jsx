@@ -43,7 +43,9 @@ export default function MasterUsers() {
   const [reportData, setReportData] = useState([]);
   const [reportLoading, setReportLoading] = useState(false);
   const [finalSheetData, setFinalSheetData] = useState({ profit: [], loss: [] });
+  const [dailyReportData, setDailyReportData] = useState({ profit: [], loss: [] });
   const [isFinalSheetLoading, setIsFinalSheetLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
   const fetchFinalSheet = async () => {
     setIsFinalSheetLoading(true);
@@ -60,6 +62,24 @@ export default function MasterUsers() {
       console.error("Error fetching final sheet:", err);
     } finally {
       setIsFinalSheetLoading(false);
+    }
+  };
+
+  const fetchDailyReport = async () => {
+    setReportLoading(true);
+    const token = getAuthToken();
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/daily-report?date=${selectedDate}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setDailyReportData(data);
+      }
+    } catch (err) {
+      console.error("Error fetching daily report:", err);
+    } finally {
+      setReportLoading(false);
     }
   };
 
@@ -82,12 +102,14 @@ export default function MasterUsers() {
       }
     } else if (activeReportType === "Final Sheet") {
       fetchFinalSheet();
+    } else if (activeReportType === "Daily Report") {
+      fetchDailyReport();
     }
   };
 
   useEffect(() => {
     fetchReportData();
-  }, [activeReportType]);
+  }, [activeReportType, selectedDate]);
 
   const getAuthToken = () => {
     const raw = localStorage.getItem("user_session");
@@ -302,47 +324,95 @@ export default function MasterUsers() {
   const renderReportUI = () => {
     switch (activeReportType) {
       case "Daily Report":
+        const filteredDailyProfit = dailyReportData.profit.filter(u => !hideZero || u.amount !== 0);
+        const totalDailyProfit = filteredDailyProfit.reduce((sum, u) => sum + (u.amount || 0), 0);
+        const totalDailyLoss = dailyReportData.loss.reduce((sum, u) => sum + (u.amount || 0), 0);
+
         return (
           <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden animate-in fade-in duration-300">
-            <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 flex items-center font-bold text-gray-800 text-[13px]">
-              <Filter size={16} className="mr-2 text-gray-700" />
-              Report
+            <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px]">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Filter size={16} className="text-gray-700" />
+                  Master - Daily Report
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-1 font-normal text-gray-600 text-[11px]">
+                    <input 
+                      type="date" 
+                      value={selectedDate} 
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      className="border border-gray-300 rounded px-1 py-0.5 outline-none focus:border-[#f39c12]"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1 font-normal text-gray-600 text-[11px]">
+                    <input 
+                      type="checkbox" 
+                      id="hideZeroDaily" 
+                      checked={hideZero} 
+                      onChange={(e) => setHideZero(e.target.checked)} 
+                      className="w-3 h-3 accent-[#f39c12]"
+                    />
+                    <label htmlFor="hideZeroDaily">Hide Zero</label>
+                  </div>
+                </div>
+              </div>
             </div>
             <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Profit Table */}
               <div className="border border-gray-200">
                 <table className="w-full text-[12px]">
                   <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200 text-left">
-                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200">Name</th>
-                      <th className="px-3 py-2 font-bold text-gray-700">Amount</th>
+                    <tr className="bg-gray-50 border-b border-gray-200 text-left font-bold text-gray-700">
+                      <th className="px-3 py-2 border-r border-gray-200">Name</th>
+                      <th className="px-3 py-2">Amount</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr><td colSpan="2" className="px-3 py-4 text-center text-gray-500 font-medium italic">No data available in table</td></tr>
+                    {filteredDailyProfit.map((u, i) => (
+                      <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="px-3 py-2 border-r border-gray-100 text-blue-600 font-medium">{u.name}</td>
+                        <td className={`px-3 py-2 font-bold ${u.amount > 0 ? 'text-green-600' : 'text-gray-600'}`}>
+                          {u.amount.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredDailyProfit.length === 0 && (
+                      <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No data found for this date</td></tr>
+                    )}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-[#f39c12] text-white font-bold">
-                      <td className="px-3 py-2 border-r border-orange-600">Total</td>
-                      <td className="px-3 py-2">0</td>
+                    <tr className="bg-[#1abc9c] text-white font-bold">
+                      <td className="px-3 py-2 border-r border-teal-600">Total</td>
+                      <td className="px-3 py-2">{totalDailyProfit.toLocaleString()}</td>
                     </tr>
                   </tfoot>
                 </table>
               </div>
+              {/* Loss Table */}
               <div className="border border-gray-200">
                 <table className="w-full text-[12px]">
                   <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200 text-left">
-                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200">Name</th>
-                      <th className="px-3 py-2 font-bold text-gray-700">Amount</th>
+                    <tr className="bg-gray-50 border-b border-gray-200 text-left font-bold text-gray-700">
+                      <th className="px-3 py-2 border-r border-gray-200">Name</th>
+                      <th className="px-3 py-2">Amount</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr><td colSpan="2" className="px-3 py-4 text-center text-gray-500 font-medium italic">No data available in table</td></tr>
+                    {dailyReportData.loss.map((u, i) => (
+                      <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="px-3 py-2 border-r border-gray-100 text-red-500 font-bold">{u.name}</td>
+                        <td className="px-3 py-2 text-red-500 font-bold">{u.amount.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                    {dailyReportData.loss.length === 0 && (
+                      <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No data found for this date</td></tr>
+                    )}
                   </tbody>
                   <tfoot>
                     <tr className="bg-[#e74c3c] text-white font-bold">
                       <td className="px-3 py-2 border-r border-red-400">Total</td>
-                      <td className="px-3 py-2">0</td>
+                      <td className="px-3 py-2">{totalDailyLoss.toLocaleString()}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -647,16 +717,24 @@ export default function MasterUsers() {
               {/* Summary Boxes */}
               <div className="grid grid-cols-4 gap-0 border border-gray-200 bg-white">
                 <div className="p-3 border-r border-gray-200">
-                  <p className="text-[12px] font-bold text-gray-700">{activeTab === 'cash' ? 'Credit' : 'Credit limit'}</p>
-                  <p className="text-[13px] font-bold text-gray-900 mt-1">{activeTab === 'cash' ? '0 Rs.' : '50,000 Rs.'}</p>
+                  <p className="text-[12px] font-bold text-gray-700">Total Balance</p>
+                  <p className="text-[13px] font-bold text-gray-900 mt-1">{(selectedUser?.walletBalance || 0).toLocaleString()} Rs.</p>
                 </div>
                 <div className="p-3 border-r border-gray-200">
-                  <p className="text-[12px] font-bold text-gray-700">{activeTab === 'cash' ? 'Balance' : `${selectedUser?.username} Credit`}</p>
-                  <p className="text-[13px] font-bold text-gray-900 mt-1">{activeTab === 'cash' ? `${selectedUser?.walletBalance?.toLocaleString()} Rs.` : '0 Rs.'}</p>
+                  <p className="text-[12px] font-bold text-gray-700">{activeTab === 'cash' ? 'Cash Balance' : 'Credit Balance'}</p>
+                  <p className="text-[13px] font-bold text-blue-600 mt-1">
+                    {activeTab === 'cash' 
+                      ? `${((selectedUser?.walletBalance || 0) - (selectedUser?.credit || 0)).toLocaleString()} Rs.` 
+                      : `${selectedUser?.credit?.toLocaleString() || 0} Rs.`}
+                  </p>
                 </div>
                 <div className="p-3 border-r border-gray-200">
-                  <p className="text-[12px] font-bold text-gray-700">{activeTab === 'cash' ? 'Max Withdraw' : `${selectedUser?.username} Available Balance`}</p>
-                  <p className="text-[13px] font-bold text-gray-900 mt-1">{activeTab === 'cash' ? `${selectedUser?.walletBalance?.toLocaleString()} Rs.` : '0 Rs.'}</p>
+                  <p className="text-[12px] font-bold text-gray-700">{activeTab === 'cash' ? 'Credit Balance' : 'Cash Balance'}</p>
+                  <p className="text-[13px] font-bold text-gray-900 mt-1">
+                    {activeTab === 'cash' 
+                      ? `${selectedUser?.credit?.toLocaleString() || 0} Rs.` 
+                      : `${((selectedUser?.walletBalance || 0) - (selectedUser?.credit || 0)).toLocaleString()} Rs.`}
+                  </p>
                 </div>
                 <div className="p-3">
                   <p className="text-[12px] font-bold text-gray-700">Accounts</p>
@@ -872,17 +950,19 @@ export default function MasterUsers() {
               <table className="w-full text-sm font-bold text-left">
                 <thead>
                   <tr className="bg-white border-b border-gray-200">
-                    <th className="px-4 py-2 text-gray-800">Credit Remaining</th>
+                    <th className="px-4 py-2 text-gray-800">Credit</th>
                     <th className="px-4 py-2 text-gray-800">Cash</th>
+                    <th className="px-4 py-2 text-gray-800 text-orange-600">Total</th>
                     <th className="px-4 py-2 text-gray-800">P/L Downline</th>
                     <th className="px-4 py-2 text-gray-800">Users</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td className="px-4 py-3 text-green-700">0</td>
-                    <td className="px-4 py-3 text-green-700">0</td>
-                    <td className="px-4 py-3 text-green-700">0</td>
+                    <td className="px-4 py-3 text-blue-600">{users.reduce((sum, u) => sum + (u.credit || 0), 0).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-gray-800">{users.reduce((sum, u) => sum + ((u.walletBalance || 0) - (u.credit || 0)), 0).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-orange-600 font-bold">{users.reduce((sum, u) => sum + (u.walletBalance || 0), 0).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-red-600">0</td>
                     <td className="px-4 py-3 text-gray-800">{users.length}</td>
                   </tr>
                 </tbody>
@@ -926,11 +1006,11 @@ export default function MasterUsers() {
                     <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Username</th>
                     <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Type</th>
                     <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Credit</th>
-                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Balance</th>
+                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200 text-blue-600">Cash</th>
                     <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Client (P/L)</th>
                     <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Share</th>
                     <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Accounts</th>
-                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Available Balance</th>
+                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200 text-[#f39c12]">Total Bal.</th>
                     <th className="px-4 py-2.5 font-bold text-gray-800">Options</th>
                   </tr>
                 </thead>
@@ -955,8 +1035,8 @@ export default function MasterUsers() {
                           <span className="w-4 h-4 bg-gray-800 text-white rounded-full inline-flex items-center justify-center text-[10px]">i</span>
                         </td>
                         <td className="px-4 py-2 text-gray-600 border-r border-gray-200 uppercase font-black">{item.role === 'user' ? 'Bettor' : item.role}</td>
-                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
-                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold">{item.walletBalance?.toLocaleString()}</td>
+                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold">{item.credit?.toLocaleString() || 0}</td>
+                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold">{((item.walletBalance || 0) - (item.credit || 0)).toLocaleString()}</td>
                         <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
                         <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
                         <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
@@ -1028,7 +1108,7 @@ export default function MasterUsers() {
                             </li>
                             <li className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
-                              Balance {item.walletBalance?.toLocaleString() || 0}
+                              Cash {((item.walletBalance || 0) - (item.credit || 0)).toLocaleString()}
                             </li>
                             <li className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
@@ -1044,7 +1124,7 @@ export default function MasterUsers() {
                             </li>
                             <li className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
-                              Available Balance {item.walletBalance?.toLocaleString() || 0}
+                              Total Balance {item.walletBalance?.toLocaleString() || 0}
                             </li>
                             <li className="flex items-center gap-2 mt-2">
                               <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
