@@ -96,32 +96,42 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
       {/* 3. LIVE OR COMPLETED SCORECARD */}
       {actualMatch?.status === 'completed' ? (
         <div className="order-3 mt-auto shrink-0 animate-in zoom-in duration-500">
-          <div className="bg-[#243f55] m-2 rounded-md overflow-hidden shadow-xl border border-yellow-500/30">
-            <div className="px-5 py-8 bg-gradient-to-tr from-[#1a2e3e] to-[#243f55] text-white text-center relative">
-              <div className="absolute top-0 left-0 w-full h-1 bg-yellow-500"></div>
+          <div className="bg-[#0f172a] m-2 rounded-xl overflow-hidden shadow-2xl border-2 border-yellow-500/30">
+            <div className="px-5 py-10 bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] text-white text-center relative overflow-hidden">
+              {/* Decorative background element */}
+              <div className="absolute -top-20 -left-20 w-40 h-40 bg-yellow-500/10 rounded-full blur-3xl"></div>
+              <div className="absolute -bottom-20 -right-20 w-40 h-40 bg-green-500/10 rounded-full blur-3xl"></div>
 
-              <h3 className="text-yellow-500 text-xs font-black uppercase tracking-[0.3em] mb-4">Match Completed</h3>
+              <div className="flex flex-col items-center mb-6">
+                 <div className="bg-yellow-500 text-black text-[10px] font-black px-4 py-1 rounded-full mb-3 shadow-[0_0_15px_rgba(234,179,8,0.4)]">
+                   MATCH COMPLETED
+                 </div>
+                 <h2 className="text-3xl font-black text-white tracking-tighter uppercase mb-1">
+                   {actualMatch.winner === 'TIE' ? "MATCH TIED" : (actualMatch.winner === 'VOID' ? "MATCH VOIDED" : `${actualMatch.winner} WON`)}
+                 </h2>
+                 <div className="w-12 h-1 bg-yellow-500 rounded-full"></div>
+              </div>
 
-              <div className="flex items-center justify-center gap-8 mb-6">
+              <div className="flex items-center justify-center gap-10 mb-8">
                 <div className="flex flex-col items-center">
-                  <div className="text-2xl font-black">{actualMatch.score?.teamA_runs || "0/0"}</div>
-                  <div className="text-[10px] text-gray-400 font-bold uppercase">{actualMatch.teamA}</div>
+                  <div className={`text-4xl font-black mb-1 ${actualMatch.winner === actualMatch.teamA ? 'text-white' : 'text-gray-600'}`}>{actualMatch.score?.teamA_runs || "0/0"}</div>
+                  <div className="text-[11px] text-gray-400 font-black uppercase tracking-[0.2em]">{actualMatch.teamA}</div>
                 </div>
-                <div className="flex flex-col items-center opacity-40">
-                  <div className="text-xs font-black text-gray-500 uppercase tracking-widest">{actualMatch.score?.overs === 'Final' ? 'FT' : (actualMatch.score?.overs || "OVR")}</div>
-                  <div className="w-8 h-[1px] bg-gray-500 my-1"></div>
-                  <div className="text-[8px] font-bold text-gray-600">SCORE</div>
-                </div>
+                
                 <div className="flex flex-col items-center">
-                  <div className="text-2xl font-black text-[#00c766]">{actualMatch.score?.teamB_runs || "0/0"}</div>
-                  <div className="text-[10px] text-gray-400 font-bold uppercase">{actualMatch.teamB}</div>
+                  <div className="text-gray-700 font-black text-xl italic opacity-30">VS</div>
+                </div>
+
+                <div className="flex flex-col items-center">
+                  <div className={`text-4xl font-black mb-1 ${actualMatch.winner === actualMatch.teamB ? 'text-white' : 'text-gray-600'}`}>{actualMatch.score?.teamB_runs || "0/0"}</div>
+                  <div className="text-[11px] text-gray-400 font-black uppercase tracking-[0.2em]">{actualMatch.teamB}</div>
                 </div>
               </div>
 
-              <div className="inline-block px-6 py-2 bg-white/10 rounded-full border border-white/20 backdrop-blur-sm">
-                <span className="text-[13px] font-black uppercase tracking-widest text-[#00c766]">
-                  Final Result: Match Settled
-                </span>
+              <div className="bg-white/5 backdrop-blur-md rounded-lg p-4 border border-white/10 max-w-sm mx-auto">
+                <p className="text-[12px] font-bold text-gray-400 leading-relaxed">
+                  The match has concluded and all bets have been settled. Winning amounts have been credited to user wallets.
+                </p>
               </div>
             </div>
           </div>

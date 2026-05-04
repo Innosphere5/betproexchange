@@ -9,6 +9,7 @@ export default function AdminReports() {
   const [hideZero, setHideZero] = useState(false);
   const [finalSheetData, setFinalSheetData] = useState({ profit: [], loss: [] });
   const [dailyReportData, setDailyReportData] = useState({ profit: [], loss: [] });
+  const [showParentFor, setShowParentFor] = useState(null); // Track clicked user to keep parent visible
   const [isLoading, setIsLoading] = useState(false);
   const [commissionData, setCommissionData] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -149,7 +150,19 @@ export default function AdminReports() {
                   <tbody>
                     {filteredDailyProfit.map((u, i) => (
                       <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-3 py-2 border-r border-gray-100 text-blue-600 font-medium">{u.name}</td>
+                        <td 
+                          className="px-3 py-2 border-r border-gray-100 cursor-pointer group"
+                          onClick={() => setShowParentFor(showParentFor === u.name ? null : u.name)}
+                        >
+                          <div className="flex flex-col group">
+                            <span className="text-blue-600 font-medium group-hover:text-blue-800 transition-colors">{u.name}</span>
+                            {u.parent && u.parent !== 'None' && u.parent !== 'Legacy' && (
+                              <span className={`text-[10px] text-blue-500 font-bold italic transition-all duration-300 ${showParentFor === u.name ? 'opacity-100 block' : 'opacity-0 group-hover:opacity-100 hidden group-hover:block'}`}>
+                                Parent: {u.parent}
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className={`px-3 py-2 font-bold ${u.amount > 0 ? 'text-green-600' : 'text-gray-600'}`}>
                           {u.amount.toLocaleString()}
                         </td>
@@ -179,7 +192,19 @@ export default function AdminReports() {
                   <tbody>
                     {dailyReportData.loss.map((u, i) => (
                       <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-3 py-2 border-r border-gray-100 text-red-500 font-bold">{u.name}</td>
+                        <td 
+                          className="px-3 py-2 border-r border-gray-100 cursor-pointer group"
+                          onClick={() => setShowParentFor(showParentFor === u.name ? null : u.name)}
+                        >
+                          <div className="flex flex-col group">
+                            <span className="text-red-500 font-bold group-hover:text-red-700 transition-colors">{u.name}</span>
+                            {u.parent && u.parent !== 'None' && u.parent !== 'Legacy' && (
+                              <span className={`text-[10px] text-blue-500 font-bold italic transition-all duration-300 ${showParentFor === u.name ? 'opacity-100 block' : 'opacity-0 group-hover:opacity-100 hidden group-hover:block'}`}>
+                                Parent: {u.parent}
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-3 py-2 text-red-500 font-bold">{u.amount.toLocaleString()}</td>
                       </tr>
                     ))}

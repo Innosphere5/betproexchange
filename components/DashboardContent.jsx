@@ -139,6 +139,42 @@ export default function DashboardContent() {
                   </div>
                 </div>
               </div>
+            ) : row.status === 'completed' ? (
+              <div
+                onClick={() => handleSelectMatch(row.matchId)}
+                className="mx-3 my-3 bg-[#0f172a] rounded-xl overflow-hidden shadow-2xl border-2 border-yellow-500/20 cursor-pointer hover:border-yellow-500 transition-all relative group"
+              >
+                <div className="absolute top-0 right-0 p-2">
+                  <div className="bg-yellow-500 text-black text-[9px] font-black px-2 py-0.5 rounded-bl-lg uppercase tracking-tighter shadow-lg">COMPLETED</div>
+                </div>
+
+                <div className="bg-[#1e293b]/50 px-4 py-2 flex items-center">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{row.league}</span>
+                </div>
+
+                <div className="p-4 flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="text-gray-400 font-bold text-xs mb-1 uppercase opacity-60">{row.teamA}</div>
+                    <div className={`text-xl font-black ${row.winner === row.teamA ? 'text-white' : 'text-gray-500'}`}>{row.score?.teamA_runs || "0/0"}</div>
+                  </div>
+
+                  <div className="flex flex-col items-center px-4">
+                    <div className="text-[10px] font-black text-yellow-500 mb-1 uppercase tracking-tighter">WINNER</div>
+                    <div className="h-[1px] w-8 bg-yellow-500/30 mb-1"></div>
+                    <div className="text-white font-black text-[11px] italic uppercase truncate max-w-[80px]">{row.winner || "VOID"}</div>
+                  </div>
+
+                  <div className="flex-1 text-right">
+                    <div className="text-gray-400 font-bold text-xs mb-1 uppercase opacity-60">{row.teamB}</div>
+                    <div className={`text-xl font-black ${row.winner === row.teamB ? 'text-white' : 'text-gray-500'}`}>{row.score?.teamB_runs || "0/0"}</div>
+                  </div>
+                </div>
+
+                <div className="bg-white/5 px-4 py-2 flex justify-between items-center border-t border-white/5">
+                  <span className="text-[9px] text-gray-500 font-bold">MATCH ENDED • {row.lastUpdated ? new Date(row.lastUpdated).toLocaleDateString() : 'RECENTLY'}</span>
+                  <div className="text-[10px] font-black text-yellow-500 group-hover:underline">VIEW FULL SCORECARD →</div>
+                </div>
+              </div>
             ) : (
               <div
                 onClick={() => handleSelectMatch(row.matchId)}
