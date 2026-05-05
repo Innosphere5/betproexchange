@@ -15,8 +15,20 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   const formattedTime = startTimeObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
   const runners = [
-    { name: actualMatch.teamA, back: 1.61, backVol: "1.3M", lay: 1.62, layVol: "913.1K" },
-    { name: actualMatch.teamB, back: 2.6, backVol: "927.7K", lay: 2.62, layVol: "14.4K" }
+    { 
+      name: actualMatch.teamA, 
+      back: actualMatch.backOddsA || 1.61, 
+      backVol: actualMatch.backOddsA ? "Real" : "1.3M", 
+      lay: actualMatch.layOddsA || 1.62, 
+      layVol: actualMatch.layOddsA ? "Real" : "913.1K" 
+    },
+    { 
+      name: actualMatch.teamB, 
+      back: actualMatch.backOddsB || 2.6, 
+      backVol: actualMatch.backOddsB ? "Real" : "927.7K", 
+      lay: actualMatch.layOddsB || 2.62, 
+      layVol: actualMatch.layOddsB ? "Real" : "14.4K" 
+    }
   ];
 
   return (
@@ -40,58 +52,63 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
           </div>
 
           <div className="flex flex-col items-end gap-1">
-            <span className="text-[#00c766] font-black text-2xl italic tracking-tighter leading-none">OPEN</span>
+            <span className="text-[#00c766] font-black text-2xl italic tracking-tighter leading-none">
+                {actualMatch.status === 'completed' ? 'CLOSED' : 'OPEN'}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* 2. MATCH ODDS MARKET SECTION */}
-      <div className="order-2 flex flex-col px-2">
-        <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
-          {/* Market Header Tab */}
-          <div className="bg-[#5d7d9a] text-white h-9 flex items-center justify-between px-3">
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 bg-[#00c766] rounded-sm flex items-center justify-center shrink-0">
-                <Info size={12} color="white" strokeWidth={3} />
+      {/* 2. MATCH ODDS MARKET SECTION (Hidden if completed) */}
+      {actualMatch.status !== 'completed' && (
+        <div className="order-2 flex flex-col px-2">
+          <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
+            {/* Market Header Tab */}
+            <div className="bg-[#5d7d9a] text-white h-9 flex items-center justify-between px-3">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 bg-[#00c766] rounded-sm flex items-center justify-center shrink-0">
+                  <Info size={12} color="white" strokeWidth={3} />
+                </div>
+                <span className="text-[12px] font-black uppercase tracking-wide">
+                  MATCH ODDS <span className="text-white/60 font-medium ml-1">(Max: 5M)</span>
+                </span>
               </div>
-              <span className="text-[12px] font-black uppercase tracking-wide">
-                MATCH ODDS <span className="text-white/60 font-medium ml-1">(Max: 5M)</span>
-              </span>
+              <div className="flex items-center gap-4 text-[11px] font-black tracking-widest uppercase">
+                <div className="w-14 text-center">Back</div>
+                <div className="w-14 text-center">Lay</div>
+              </div>
             </div>
-            <div className="flex items-center gap-4 text-[11px] font-black tracking-widest uppercase">
-              <div className="w-14 text-center">Back</div>
-              <div className="w-14 text-center">Lay</div>
-            </div>
-          </div>
 
-          {/* Runners List */}
-          <div className="flex flex-col">
-            {runners.map((runner, ridx) => (
-              <div key={ridx} className="flex items-stretch border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
-                <div className="flex-1 flex items-center px-3 py-3 font-bold text-[#1c3246] text-[13px]">
-                  {runner.name}
+            {/* Runners List */}
+            <div className="flex flex-col">
+              {runners.map((runner, ridx) => (
+                <div key={ridx} className="flex items-stretch border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                  <div className="flex-1 flex items-center px-3 py-3 font-bold text-[#1c3246] text-[13px]">
+                    {runner.name}
+                  </div>
+                  <div className="flex w-32 shrink-0">
+                    <button
+                      onClick={() => onSelectOutcome(runner.name, runner.back, 'back', actualMatch.status === 'live')}
+                      className="flex-1 bg-[#bbd9f9] flex flex-col items-center justify-center py-2 active:scale-95 transition-transform border-r border-white/40"
+                    >
+                      <span className="text-[15px] font-black text-[#1c3246] leading-none">{runner.back}</span>
+                      <span className="text-[9px] font-bold text-gray-500 mt-1">{runner.backVol}</span>
+                    </button>
+                    <button
+                      onClick={() => onSelectOutcome(runner.name, runner.lay, 'lay', actualMatch.status === 'live')}
+                      className="flex-1 bg-[#f8c9d4] flex flex-col items-center justify-center py-2 active:scale-95 transition-transform"
+                    >
+                      <span className="text-[15px] font-black text-[#1c3246] leading-none">{runner.lay}</span>
+                      <span className="text-[9px] font-bold text-gray-500 mt-1">{runner.layVol}</span>
+                    </button>
+                  </div>
                 </div>
-                <div className="flex w-32 shrink-0">
-                  <button
-                    onClick={() => onSelectOutcome(runner.name, runner.back, 'back', actualMatch.status === 'live')}
-                    className="flex-1 bg-[#bbd9f9] flex flex-col items-center justify-center py-2 active:scale-95 transition-transform border-r border-white/40"
-                  >
-                    <span className="text-[15px] font-black text-[#1c3246] leading-none">{runner.back}</span>
-                    <span className="text-[9px] font-bold text-gray-500 mt-1">{runner.backVol}</span>
-                  </button>
-                  <button
-                    onClick={() => onSelectOutcome(runner.name, runner.lay, 'lay', actualMatch.status === 'live')}
-                    className="flex-1 bg-[#f8c9d4] flex flex-col items-center justify-center py-2 active:scale-95 transition-transform"
-                  >
-                    <span className="text-[15px] font-black text-[#1c3246] leading-none">{runner.lay}</span>
-                    <span className="text-[9px] font-bold text-gray-500 mt-1">{runner.layVol}</span>
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
 
       {/* 3. LIVE OR COMPLETED SCORECARD */}
       {actualMatch?.status === 'completed' ? (
