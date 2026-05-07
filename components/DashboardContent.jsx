@@ -205,8 +205,12 @@ export default function DashboardContent() {
                 <div className="flex items-center w-36 lg:w-48 shrink-0">
                   <div className="flex-1 text-center font-black text-[12px] text-[#ff6b00] opacity-80">{row.volume || "Matched"}</div>
                   <div className="flex gap-1">
-                    <div className="w-8 h-8 rounded-sm bg-gray-50 border border-gray-100 flex items-center justify-center text-[#1c3246] text-[11px] font-bold">-</div>
-                    <div className="w-8 h-8 rounded-sm bg-gray-50 border border-gray-100 flex items-center justify-center text-[#1c3246] text-[11px] font-bold">-</div>
+                    <div className="w-8 h-8 rounded-sm bg-[#bbd9f9] border border-[#bbd9f9]/20 flex items-center justify-center text-[#1c3246] text-[11px] font-black">
+                      {row.backOddsA || "-"}
+                    </div>
+                    <div className="w-8 h-8 rounded-sm bg-[#f8c9d4] border border-[#f8c9d4]/20 flex items-center justify-center text-[#1c3246] text-[11px] font-black">
+                      {row.layOddsA || "-"}
+                    </div>
                   </div>
                 </div>
               </div>

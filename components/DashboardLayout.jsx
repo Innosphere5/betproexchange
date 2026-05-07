@@ -139,6 +139,29 @@ export default function DashboardLayout({ children }) {
         }));
     });
 
+    socket.on('market_odds_update', (data) => {
+        setCricketMatches(prev => prev.map(m => {
+            if (m.matchId === data.matchId) {
+                if (data.marketStatus) {
+                    return { ...m, marketStatus: data.marketStatus };
+                }
+                const runners = data.runners || [];
+                const runnerA = runners[0];
+                const runnerB = runners[1];
+                return {
+                    ...m,
+                    marketStatus: 'OPEN',
+                    backOddsA: runnerA?.back || m.backOddsA,
+                    layOddsA: runnerA?.lay || m.layOddsA,
+                    backOddsB: runnerB?.back || m.backOddsB,
+                    layOddsB: runnerB?.lay || m.layOddsB,
+                    lastUpdated: data.updatedAt || new Date()
+                };
+            }
+            return m;
+        }));
+    });
+
     socket.on('match_result', (data) => {
         setCricketMatches(prev => prev.map(m => {
             if (m.matchId === data.matchId) {

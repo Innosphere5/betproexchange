@@ -17,17 +17,17 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   const runners = [
     { 
       name: actualMatch.teamA, 
-      back: actualMatch.backOddsA || 1.61, 
-      backVol: actualMatch.backOddsA ? "Real" : "1.3M", 
-      lay: actualMatch.layOddsA || 1.62, 
-      layVol: actualMatch.layOddsA ? "Real" : "913.1K" 
+      back: actualMatch.backOddsA || "N/A", 
+      backVol: actualMatch.backOddsA ? "Real" : "0", 
+      lay: actualMatch.layOddsA || "N/A", 
+      layVol: actualMatch.layOddsA ? "Real" : "0" 
     },
     { 
       name: actualMatch.teamB, 
-      back: actualMatch.backOddsB || 2.6, 
-      backVol: actualMatch.backOddsB ? "Real" : "927.7K", 
-      lay: actualMatch.layOddsB || 2.62, 
-      layVol: actualMatch.layOddsB ? "Real" : "14.4K" 
+      back: actualMatch.backOddsB || "N/A", 
+      backVol: actualMatch.backOddsB ? "Real" : "0", 
+      lay: actualMatch.layOddsB || "N/A", 
+      layVol: actualMatch.layOddsB ? "Real" : "0" 
     }
   ];
 
@@ -80,7 +80,14 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
             </div>
 
             {/* Runners List */}
-            <div className="flex flex-col">
+            <div className="relative flex flex-col">
+              {actualMatch.marketStatus && actualMatch.marketStatus !== 'OPEN' && (
+                <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                  <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
+                    MARKET SUSPENDED
+                  </div>
+                </div>
+              )}
               {runners.map((runner, ridx) => (
                 <div key={ridx} className="flex items-stretch border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
                   <div className="flex-1 flex items-center px-3 py-3 font-bold text-[#1c3246] text-[13px]">
@@ -88,15 +95,17 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                   </div>
                   <div className="flex w-32 shrink-0">
                     <button
+                      disabled={actualMatch.marketStatus && actualMatch.marketStatus !== 'OPEN'}
                       onClick={() => onSelectOutcome(runner.name, runner.back, 'back', actualMatch.status === 'live')}
-                      className="flex-1 bg-[#bbd9f9] flex flex-col items-center justify-center py-2 active:scale-95 transition-transform border-r border-white/40"
+                      className="flex-1 bg-[#bbd9f9] flex flex-col items-center justify-center py-2 active:scale-95 transition-transform border-r border-white/40 disabled:opacity-50"
                     >
                       <span className="text-[15px] font-black text-[#1c3246] leading-none">{runner.back}</span>
                       <span className="text-[9px] font-bold text-gray-500 mt-1">{runner.backVol}</span>
                     </button>
                     <button
+                      disabled={actualMatch.marketStatus && actualMatch.marketStatus !== 'OPEN'}
                       onClick={() => onSelectOutcome(runner.name, runner.lay, 'lay', actualMatch.status === 'live')}
-                      className="flex-1 bg-[#f8c9d4] flex flex-col items-center justify-center py-2 active:scale-95 transition-transform"
+                      className="flex-1 bg-[#f8c9d4] flex flex-col items-center justify-center py-2 active:scale-95 transition-transform disabled:opacity-50"
                     >
                       <span className="text-[15px] font-black text-[#1c3246] leading-none">{runner.lay}</span>
                       <span className="text-[9px] font-bold text-gray-500 mt-1">{runner.layVol}</span>
