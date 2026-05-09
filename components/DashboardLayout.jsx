@@ -129,8 +129,14 @@ export default function DashboardLayout({ children }) {
                         ...m.score,
                         teamA_runs: data.teamA_runs || m.score?.teamA_runs,
                         teamB_runs: data.teamB_runs || m.score?.teamB_runs,
-                        overs: data.overs || m.score?.overs,
-                        wickets: data.wickets || m.score?.wickets,
+                        overs:      data.overs || m.score?.overs,
+                        wickets:    data.wickets || m.score?.wickets,
+                        target:     data.target || m.score?.target,
+                        runRate:    data.runRate || m.score?.runRate,
+                        reqRunRate: data.reqRunRate || m.score?.reqRunRate,
+                        thisOver:   data.thisOver || m.score?.thisOver,
+                        remRuns:    data.remRuns || m.score?.remRuns,
+                        remBalls:   data.remBalls || m.score?.remBalls,
                         lastUpdated: new Date()
                     }
                 };

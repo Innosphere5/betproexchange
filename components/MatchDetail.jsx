@@ -1,10 +1,50 @@
-"use client";
-
-import { Info, Tv, Clock } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Info, Tv, Clock, Trophy, Users, ShieldCheck } from "lucide-react";
 import { useDashboard } from "./DashboardLayout";
+import { getApiUrl } from "../lib/apiConfig";
 
 export default function MatchDetail({ matchId, onSelectOutcome }) {
   const { cricketMatches } = useDashboard();
+  const [exposureData, setExposureData] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+
+  useEffect(() => {
+    const raw = localStorage.getItem("user_session");
+    if (raw) {
+      try {
+        const session = JSON.parse(raw);
+        setUserRole(session.role);
+      } catch (e) {}
+    }
+  }, []);
+
+  const isAdmin = ['superadmin', 'admin', 'master'].includes(userRole);
+
+  useEffect(() => {
+    const fetchExposure = async () => {
+      if (!isAdmin || !matchId) return;
+      
+      const raw = localStorage.getItem("user_session");
+      if (!raw) return;
+      const token = JSON.parse(raw).token;
+
+      try {
+        const res = await fetch(`${getApiUrl()}/api/admin/match-exposure/${matchId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setExposureData(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch exposure:", err);
+      }
+    };
+
+    fetchExposure();
+    const interval = setInterval(fetchExposure, 10000); // 10s refresh for exposure
+    return () => clearInterval(interval);
+  }, [matchId, isAdmin]);
 
   const actualMatch = cricketMatches?.find(m => m.matchId === matchId);
   if (!actualMatch) return <div className="p-10 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">Loading Match Data...</div>;
@@ -14,25 +54,34 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   const formattedDate = startTimeObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const formattedTime = startTimeObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
+  // Today check for odds visibility
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+  const isToday = startTimeObj >= todayStart && startTimeObj < todayEnd;
+  const isLive = actualMatch.status === 'live';
+
+  const showOdds = isLive || isToday;
+
   const runners = [
     { 
       name: actualMatch.teamA, 
-      back: actualMatch.backOddsA || "N/A", 
-      backVol: actualMatch.backOddsA ? "Real" : "0", 
-      lay: actualMatch.layOddsA || "N/A", 
-      layVol: actualMatch.layOddsA ? "Real" : "0" 
+      back: showOdds ? (actualMatch.backOddsA || "N/A") : "N/A", 
+      backVol: showOdds && actualMatch.backOddsA ? "Real" : "0", 
+      lay: showOdds ? (actualMatch.layOddsA || "N/A") : "N/A", 
+      layVol: showOdds && actualMatch.layOddsA ? "Real" : "0" 
     },
     { 
       name: actualMatch.teamB, 
-      back: actualMatch.backOddsB || "N/A", 
-      backVol: actualMatch.backOddsB ? "Real" : "0", 
-      lay: actualMatch.layOddsB || "N/A", 
-      layVol: actualMatch.layOddsB ? "Real" : "0" 
+      back: showOdds ? (actualMatch.backOddsB || "N/A") : "N/A", 
+      backVol: showOdds && actualMatch.backOddsB ? "Real" : "0", 
+      lay: showOdds ? (actualMatch.layOddsB || "N/A") : "N/A", 
+      layVol: showOdds && actualMatch.layOddsB ? "Real" : "0" 
     }
   ];
 
   return (
-    <div className="flex flex-col bg-[#eaedf1] h-full pb-6 lg:pb-0">
+    <div className="flex flex-col bg-[#eaedf1] h-full pb-6 lg:pb-0 font-sans">
 
       {/* 1. PREMIUM HEADER SECTION */}
       <div className="order-1 shrink-0 bg-[#243f55] m-2 rounded-sm overflow-hidden shadow-md">
@@ -40,7 +89,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-2 text-[10px] text-[#00c766] font-black uppercase tracking-widest">
               <Clock size={12} strokeWidth={3} />
-              <span>In 4 Hours | {formattedDate} {formattedTime} | Winners: 1</span>
+              <span>{actualMatch.status === 'live' ? 'LIVE NOW' : `Starts at ${formattedTime}`} | {formattedDate} | Winners: 1</span>
             </div>
             <h1 className="text-xl md:text-2xl font-black text-white tracking-tight leading-tight">
               {matchName}
@@ -90,8 +139,15 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
               )}
               {runners.map((runner, ridx) => (
                 <div key={ridx} className="flex items-stretch border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
-                  <div className="flex-1 flex items-center px-3 py-3 font-bold text-[#1c3246] text-[13px]">
-                    {runner.name}
+                  <div className="flex-1 flex flex-col justify-center px-3 py-3">
+                    <div className="font-bold text-[#1c3246] text-[13px] leading-tight">
+                      {runner.name}
+                    </div>
+                    {isAdmin && exposureData?.exposure && (
+                      <div className={`text-[12px] font-black mt-0.5 ${exposureData.exposure[runner.name] < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        {exposureData.exposure[runner.name]?.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) || 0}
+                      </div>
+                    )}
                   </div>
                   <div className="flex w-32 shrink-0">
                     <button
@@ -162,37 +218,140 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
             </div>
           </div>
         </div>
-      ) : actualMatch?.status === 'live' && (
+      ) : actualMatch?.status === 'live' ? (
         <div className="order-3 mt-auto shrink-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="bg-black m-2 rounded-md overflow-hidden shadow-lg border border-gray-800">
-            <div className="px-5 py-6 bg-gradient-to-b from-[#111] to-black text-white relative">
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-[1px] bg-gradient-to-r from-transparent via-[#00c766] to-transparent opacity-50"></div>
-
-              <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className="flex flex-col items-center md:items-start w-full md:w-1/2">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="px-2 py-0.5 bg-red-600 rounded text-[10px] font-black uppercase flex items-center gap-1 animate-pulse tracking-widest shadow-[0_0_8px_rgba(220,38,38,0.8)]">
-                      <span className="w-1.5 h-1.5 bg-white rounded-full"></span> LIVE
-                    </div>
-                  </div>
-                  <h2 className="text-xl font-black text-white">{matchName}</h2>
-                </div>
-
-                <div className="flex items-center gap-6">
-                  <div className="flex flex-col items-center min-w-[60px]">
-                    <div className="text-3xl font-black text-white tabular-nums">{actualMatch.score?.teamA_runs ?? "0/0"}</div>
-                    <div className="text-[10px] text-gray-400 font-bold tracking-widest uppercase">{actualMatch.teamA}</div>
-                  </div>
-                  <div className="flex flex-col items-center bg-white/10 px-3 py-1 rounded-sm">
-                    <div className="text-lg font-black text-[#00c766]">{actualMatch.score?.overs || "0.0"}</div>
-                    <div className="text-[8px] text-gray-400 font-bold uppercase tracking-tighter">OVERS</div>
-                  </div>
-                  <div className="flex flex-col items-center min-w-[60px]">
-                    <div className="text-3xl font-black text-[#00c766] tabular-nums">{actualMatch.score?.teamB_runs ?? "0/0"}</div>
-                    <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{actualMatch.teamB}</div>
-                  </div>
+          <div className="bg-[#f1f4f8] m-2 rounded-sm overflow-hidden shadow-sm border border-gray-200">
+            <div className="px-4 py-3 bg-white text-[#1c3246]">
+              {/* Header: Team Name and Status */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                   <h2 className="text-xl font-black text-[#243f55] uppercase tracking-tight">
+                    {actualMatch.teamA} v {actualMatch.teamB} - Match Odds
+                   </h2>
+                   <span className="text-pink-500 font-black text-sm uppercase italic">InPlay</span>
+                   <div className="w-5 h-5 bg-[#243f55] rounded-sm flex items-center justify-center">
+                     <Info size={12} color="white" strokeWidth={3} />
+                   </div>
                 </div>
               </div>
+
+              {/* Score Line */}
+              <div className="flex items-center gap-4 mb-3">
+                 <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-black text-[#1c3246]">
+                      {actualMatch.teamA.substring(0, 3).toUpperCase()} {actualMatch.score?.teamA_runs?.split('/')[0] || 0}-{actualMatch.score?.teamA_runs?.split('/')[1] || 0}
+                    </span>
+                    <span className="text-gray-500 font-bold text-sm">
+                      ({actualMatch.score?.overs || "0.0"} Over)
+                    </span>
+                 </div>
+
+                 {/* Badges */}
+                 <div className="flex gap-2">
+                    <div className="bg-gray-100 px-3 py-0.5 rounded flex items-center gap-1.5 border border-gray-200">
+                       <span className="text-[10px] font-black text-gray-600">CRR:</span>
+                       <span className="text-[12px] font-black text-green-600">{actualMatch.score?.runRate || "0.00"}</span>
+                    </div>
+                    <div className="bg-orange-50 px-3 py-0.5 rounded flex items-center gap-1.5 border border-orange-100">
+                       <span className="text-[10px] font-black text-gray-600">RRR:</span>
+                       <span className="text-[12px] font-black text-orange-600">{actualMatch.score?.reqRunRate || "0.00"}</span>
+                    </div>
+                    <div className="bg-blue-50 px-3 py-0.5 rounded flex items-center gap-1.5 border border-blue-100">
+                       <span className="text-[10px] font-black text-gray-600">T:</span>
+                       <span className="text-[12px] font-black text-blue-700">{actualMatch.score?.target || 0}</span>
+                    </div>
+                 </div>
+              </div>
+
+              {/* This Over and Remaining Stats */}
+              <div className="flex items-center justify-between border-t border-gray-100 pt-3">
+                 <div className="flex items-center gap-2">
+                    <span className="text-[12px] font-bold text-gray-400">This Over:</span>
+                    <div className="flex gap-1.5">
+                       {actualMatch.score?.thisOver && actualMatch.score.thisOver.length > 0 ? (
+                         actualMatch.score.thisOver.map((ball, bidx) => (
+                           <span key={bidx} className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-black ${
+                             ball === 'W' ? 'bg-red-500 text-white' : 
+                             ['4', '6'].includes(ball) ? 'bg-green-500 text-white' : 'text-gray-700'
+                           }`}>
+                             {ball}
+                           </span>
+                         ))
+                       ) : (
+                         <span className="text-[10px] text-gray-300 italic font-medium">Waiting...</span>
+                       )}
+                    </div>
+                 </div>
+
+                 <div className="text-[13px] font-black text-green-700">
+                    {actualMatch.score?.remRuns > 0 ? (
+                      `${actualMatch.score.remRuns} of ${actualMatch.score.remBalls} balls`
+                    ) : (
+                      "Match in progress"
+                    )}
+                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="order-3 mt-auto shrink-0 animate-in fade-in duration-500">
+           <div className="bg-white/60 backdrop-blur-md m-2 rounded-sm p-8 border border-white flex flex-col items-center text-center shadow-inner">
+              <div className="w-12 h-12 bg-[#243f55]/10 rounded-full flex items-center justify-center mb-4">
+                 <Clock size={24} className="text-[#243f55]" strokeWidth={2.5} />
+              </div>
+              <h3 className="text-[#1c3246] font-black text-base uppercase tracking-tight mb-1">Match Scheduled</h3>
+              <p className="text-gray-500 text-xs font-medium max-w-[200px]">
+                Scoreboard will become live once the match starts on {formattedDate} at {formattedTime}
+              </p>
+           </div>
+        </div>
+      )}
+
+      {/* 4. ADMIN ONLY: MATCHED BETS TABLE */}
+      {isAdmin && (
+        <div className="order-4 px-2 mt-4 pb-10">
+          <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
+            <div className="bg-[#5d7d9a] text-white h-9 flex items-center justify-between px-3">
+              <div className="flex items-center gap-2">
+                <Users size={14} color="white" strokeWidth={3} />
+                <span className="text-[12px] font-black uppercase tracking-wide">
+                  Matched Bets ({exposureData?.matchedBets?.length || 0})
+                </span>
+              </div>
+            </div>
+            <div className="overflow-x-auto max-h-[400px] overflow-y-auto no-scrollbar">
+              <table className="w-full text-[12px] text-left border-collapse">
+                <thead className="bg-[#f9f9f9] border-b border-gray-200 sticky top-0 z-10">
+                  <tr>
+                    <th className="px-3 py-2 font-bold text-gray-700 uppercase tracking-wider">Runner</th>
+                    <th className="px-3 py-2 font-bold text-gray-700 uppercase tracking-wider text-center">Price</th>
+                    <th className="px-3 py-2 font-bold text-gray-700 uppercase tracking-wider text-center">Stake</th>
+                    <th className="px-3 py-2 font-bold text-gray-700 uppercase tracking-wider">Bettor</th>
+                    <th className="px-3 py-2 font-bold text-gray-700 uppercase tracking-wider">Master/Admin</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {!exposureData?.matchedBets || exposureData.matchedBets.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="px-3 py-8 text-center text-gray-400 italic">No matched bets for this match.</td>
+                    </tr>
+                  ) : (
+                    exposureData.matchedBets.map((bet, bidx) => (
+                      <tr 
+                        key={bidx} 
+                        className={`hover:bg-gray-50 transition-colors ${bet.type === 'back' ? 'bg-[#e3f2fd]/30' : 'bg-[#ffebee]/40'}`}
+                      >
+                        <td className="px-3 py-2 font-black text-[#243f55]">{bet.runner}</td>
+                        <td className="px-3 py-2 font-black text-center text-gray-800">{bet.price}</td>
+                        <td className="px-3 py-2 font-black text-center text-gray-800">{bet.size}</td>
+                        <td className="px-3 py-2 font-bold text-gray-600">{bet.better}</td>
+                        <td className="px-3 py-2 font-bold text-gray-600">{bet.master}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

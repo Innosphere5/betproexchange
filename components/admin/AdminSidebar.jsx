@@ -33,7 +33,7 @@ const HorseIcon = () => (
 const navItems = [
   { label: "Dashboard", href: "/admin/dashboard", icon: <LayoutDashboard size={18} className="opacity-80" /> },
   { label: "Users", href: "/admin/users", icon: <Users size={18} className="opacity-80" /> },
-  { label: "Current Position", href: "#", icon: <Filter size={18} className="opacity-80" /> },
+  { label: "Current Position", href: "/admin/current-position", icon: <Filter size={18} className="opacity-80" /> },
   { label: "Reports", href: "/admin/reports", icon: <FileText size={18} className="opacity-80" /> },
   { label: "Bet Lock", href: "/admin/betlock", icon: <Lock size={18} className="opacity-80" /> }
 ];

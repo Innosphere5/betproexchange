@@ -8,7 +8,7 @@ import { useState } from "react";
 const navItems = [
   { label: "Dashboard", href: "/superadmin/dashboard", icon: <LayoutDashboard size={18} className="opacity-80" /> },
   { label: "Users", href: "/superadmin/users", icon: <Users size={18} className="opacity-80" /> },
-  { label: "Current Position", href: "#", icon: <Filter size={18} className="opacity-80" /> },
+  { label: "Current Position", href: "/superadmin/current-position", icon: <Filter size={18} className="opacity-80" /> },
   { label: "Reports", href: "/superadmin/reports", icon: <FileText size={18} className="opacity-80" /> },
   { label: "Bet Lock", href: "/superadmin/betlock", icon: <Lock size={18} className="opacity-80" /> }
 ];

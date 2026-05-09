@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Filter, Search } from "lucide-react";
+import Link from "next/link";
 import { getApiUrl } from "@/lib/apiConfig";
 
 export default function MasterDashboard() {
@@ -96,7 +97,12 @@ export default function MasterDashboard() {
                     className={`border-b border-gray-200 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-[#fafafa]'}`}
                   >
                     <td className="px-4 py-2.5 text-[#f39c12] font-medium flex items-center gap-2">
-                      {item.name}
+                      <Link 
+                        href={`/master/match-exposure/${item.matchId}`}
+                        className="hover:underline cursor-pointer"
+                      >
+                        {item.name}
+                      </Link>
                     </td>
                     <td className="px-4 py-2.5 text-gray-700 font-medium">
                       {item.amount?.toLocaleString()}
