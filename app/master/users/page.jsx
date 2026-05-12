@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Filter, Search, BookOpen, Edit2, X, DollarSign } from "lucide-react";
+import { Filter, Search, BookOpen, Edit2, X, DollarSign, Calendar, Layout, List } from "lucide-react";
 import { getApiUrl } from "@/lib/apiConfig";
 
 export default function MasterUsers() {
@@ -46,6 +46,11 @@ export default function MasterUsers() {
   const [dailyReportData, setDailyReportData] = useState({ profit: [], loss: [] });
   const [isFinalSheetLoading, setIsFinalSheetLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [reportPeriod, setReportPeriod] = useState("daily"); // daily, monthly, yearly, range
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
 
   const fetchFinalSheet = async () => {
     setIsFinalSheetLoading(true);
@@ -69,7 +74,13 @@ export default function MasterUsers() {
     setReportLoading(true);
     const token = getAuthToken();
     try {
-      const res = await fetch(`${getApiUrl()}/api/admin/daily-report?date=${selectedDate}`, {
+      let url = `${getApiUrl()}/api/admin/daily-report?reportType=${reportPeriod}`;
+      if (reportPeriod === 'daily') url += `&date=${selectedDate}`;
+      else if (reportPeriod === 'monthly') url += `&month=${selectedMonth}`;
+      else if (reportPeriod === 'yearly') url += `&year=${selectedYear}`;
+      else if (reportPeriod === 'range') url += `&startDate=${startDate}&endDate=${endDate}`;
+
+      const res = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -109,7 +120,7 @@ export default function MasterUsers() {
 
   useEffect(() => {
     fetchReportData();
-  }, [activeReportType, selectedDate]);
+  }, [activeReportType, selectedDate, selectedMonth, selectedYear, reportPeriod, startDate, endDate]);
 
   const getAuthToken = () => {
     const raw = localStorage.getItem("user_session");
@@ -329,36 +340,106 @@ export default function MasterUsers() {
         const totalDailyLoss = dailyReportData.loss.reduce((sum, u) => sum + (u.amount || 0), 0);
 
         return (
-          <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden animate-in fade-in duration-300">
-            <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px]">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Filter size={16} className="text-gray-700" />
-                  Master - Daily Report
+          <div className="flex flex-col gap-4 animate-in fade-in duration-300">
+            {/* Report Filter Section */}
+            <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden">
+              <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px] flex items-center gap-2">
+                <Filter size={16} className="text-gray-700" />
+                Report Filter
+              </div>
+              <div className="p-4 flex flex-wrap items-center gap-4">
+                {/* Period Selector Buttons */}
+                <div className="flex bg-white border border-gray-300 rounded overflow-hidden">
+                  {['daily', 'monthly', 'yearly', 'range'].map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setReportPeriod(p)}
+                      className={`px-3 py-1.5 text-[11px] font-bold uppercase transition-colors border-r last:border-r-0 ${
+                        reportPeriod === p ? 'bg-[#1abc9c] text-white border-[#1abc9c]' : 'hover:bg-gray-100 text-gray-600 border-gray-300'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex items-center gap-1 font-normal text-gray-600 text-[11px]">
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {reportPeriod === 'daily' && (
                     <input 
                       type="date" 
                       value={selectedDate} 
                       onChange={(e) => setSelectedDate(e.target.value)}
-                      className="border border-gray-300 rounded px-1 py-0.5 outline-none focus:border-[#f39c12]"
+                      className="border border-gray-300 rounded px-2 py-1 text-[12px] outline-none focus:border-[#1abc9c]"
                     />
-                  </div>
-                  <div className="flex items-center gap-1 font-normal text-gray-600 text-[11px]">
+                  )}
+                  {reportPeriod === 'monthly' && (
                     <input 
-                      type="checkbox" 
-                      id="hideZeroDaily" 
-                      checked={hideZero} 
-                      onChange={(e) => setHideZero(e.target.checked)} 
-                      className="w-3 h-3 accent-[#f39c12]"
+                      type="month" 
+                      value={selectedMonth} 
+                      onChange={(e) => setSelectedMonth(e.target.value)}
+                      className="border border-gray-300 rounded px-2 py-1 text-[12px] outline-none focus:border-[#1abc9c]"
                     />
-                    <label htmlFor="hideZeroDaily">Hide Zero</label>
-                  </div>
+                  )}
+                  {reportPeriod === 'yearly' && (
+                    <select 
+                      value={selectedYear} 
+                      onChange={(e) => setSelectedYear(e.target.value)}
+                      className="border border-gray-300 rounded px-2 py-1 text-[12px] outline-none focus:border-[#1abc9c]"
+                    >
+                      {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  )}
+                  {reportPeriod === 'range' && (
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="date" 
+                        value={startDate} 
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="border border-gray-300 rounded px-2 py-1 text-[12px] outline-none focus:border-[#1abc9c]"
+                      />
+                      <span className="text-gray-400 text-[12px]">-</span>
+                      <input 
+                        type="date" 
+                        value={endDate} 
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="border border-gray-300 rounded px-2 py-1 text-[12px] outline-none focus:border-[#1abc9c]"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <button 
+                  onClick={fetchDailyReport}
+                  className="bg-[#1abc9c] hover:bg-[#16a085] text-white text-[12px] font-bold px-4 py-1 rounded shadow-sm transition-colors"
+                >
+                  Submit
+                </button>
+
+                <div className="flex items-center gap-1 ml-auto font-normal text-gray-600 text-[11px]">
+                  <input 
+                    type="checkbox" 
+                    id="hideZeroDaily" 
+                    checked={hideZero} 
+                    onChange={(e) => setHideZero(e.target.checked)} 
+                    className="w-3 h-3 accent-[#1abc9c]"
+                  />
+                  <label htmlFor="hideZeroDaily" className="cursor-pointer">Hide Zero</label>
                 </div>
               </div>
             </div>
-            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {/* Report Table Section */}
+            <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden">
+              <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px] flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Layout size={16} className="text-gray-700" />
+                  Report
+                </div>
+              </div>
+              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+ burial
               {/* Profit Table */}
               <div className="border border-gray-200">
                 <table className="w-full text-[12px]">
@@ -419,7 +500,8 @@ export default function MasterUsers() {
               </div>
             </div>
           </div>
-        );
+        </div>
+      );
       case "Final Sheet":
         if (isFinalSheetLoading) {
           return <div className="p-10 text-center text-gray-500 italic bg-white border border-gray-300">Loading Final Sheet...</div>;

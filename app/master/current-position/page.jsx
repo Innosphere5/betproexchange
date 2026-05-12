@@ -126,7 +126,7 @@ export default function MasterCurrentPosition() {
                     <div className="flex flex-col gap-1">
                       <div className="text-gray-900 font-bold text-[15px] leading-tight flex items-center gap-2">
                         {item.name}
-                        {item.amount !== 0 && (
+                        {item.isResulted && item.amount !== 0 && (
                           <span className={`text-[12px] font-black ${item.amount < 0 ? 'text-red-600' : 'text-green-600'}`}>
                             ({item.amount > 0 ? '+' : ''}{item.amount?.toLocaleString(undefined, { maximumFractionDigits: 0 })})
                           </span>
@@ -134,8 +134,8 @@ export default function MasterCurrentPosition() {
                       </div>
                       <div className="text-[10px] text-gray-400 uppercase font-bold tracking-tighter">
                         {item.matchName}
+                        {item.isResulted && <span className="ml-2 text-[#f39c12]">[RESULTED]</span>}
                       </div>
-
                     </div>
                   </td>
                   <td className="px-1 py-3 text-center align-top">
@@ -150,8 +150,8 @@ export default function MasterCurrentPosition() {
                       <span className="text-[9px] font-bold text-red-500">{item.layStake || '0.0'}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-700 font-black text-right text-[15px] align-top">
-                    {item.amount?.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  <td className={`px-4 py-3 font-black text-right text-[15px] align-top ${item.isResulted ? (item.amount < 0 ? 'text-red-600' : 'text-green-600') : 'text-gray-700'}`}>
+                    {(item.isResulted ? item.amount : item.totalStake)?.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                   </td>
                 </tr>
               ))}

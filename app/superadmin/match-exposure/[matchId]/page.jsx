@@ -151,10 +151,13 @@ export default function MatchExposurePage() {
                 return (
                     <div key={runner} className="flex items-center justify-between p-3 hover:bg-gray-50 transition-colors">
                         <div className="flex flex-col">
-                            <span className="text-[15px] font-bold text-gray-800">{runner}</span>
-                            <span className={`text-[14px] font-bold mt-0.5 ${isLoss ? 'text-red-600' : 'text-green-600'}`}>
-                                {amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                            </span>
+                            <span className="text-[15px] font-bold text-gray-800 uppercase tracking-tight">{runner}</span>
+                            <div className="flex flex-col mt-0.5">
+                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Current Position</span>
+                                <span className={`text-[15px] font-black leading-none ${isLoss ? 'text-red-600' : 'text-green-600'}`}>
+                                    {amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                </span>
+                            </div>
                         </div>
                         <div className="flex gap-1">
                             {/* Back Stake Box */}
@@ -231,11 +234,12 @@ export default function MatchExposurePage() {
         </div>
         <div className="p-0 overflow-x-auto max-h-[600px] overflow-y-auto">
           <table className="w-full text-[13px] text-left border-collapse">
-            <thead className="bg-white border-b border-gray-200 sticky top-0 z-10">
+            <thead>
               <tr className="bg-gray-50/50">
                 <th className="px-3 py-2 font-bold text-black border-r border-gray-100">Runner</th>
                 <th className="px-3 py-2 font-bold text-black text-center border-r border-gray-100">Price</th>
                 <th className="px-3 py-2 font-bold text-black text-center border-r border-gray-100">Size</th>
+                <th className="px-3 py-2 font-bold text-black text-center border-r border-gray-100">Stake</th>
                 <th className="px-3 py-2 font-bold text-black border-r border-gray-100">Better</th>
                 <th className="px-3 py-2 font-bold text-black">Master</th>
               </tr>
@@ -243,7 +247,7 @@ export default function MatchExposurePage() {
             <tbody className="divide-y divide-gray-200">
               {data.matchedBets?.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="px-4 py-10 text-center text-gray-400 italic">No matched bets found.</td>
+                  <td colSpan="6" className="px-4 py-10 text-center text-gray-400 italic">No matched bets found.</td>
                 </tr>
               ) : (
                 data.matchedBets.map((bet, index) => (
@@ -254,6 +258,7 @@ export default function MatchExposurePage() {
                     <td className="px-3 py-2.5 font-bold text-gray-900 leading-tight border-r border-gray-200/50 whitespace-pre-wrap">{bet.runner}</td>
                     <td className="px-3 py-2.5 text-center font-bold text-gray-800 border-r border-gray-200/50">{bet.price}</td>
                     <td className="px-3 py-2.5 text-center font-bold text-gray-800 border-r border-gray-200/50">{bet.size}</td>
+                    <td className="px-3 py-2.5 text-center font-bold text-[#1abc9c] border-r border-gray-200/50">{bet.parentStake}</td>
                     <td className="px-3 py-2.5 font-bold text-gray-800 border-r border-gray-200/50">{bet.better}</td>
                     <td className="px-3 py-2.5 font-bold text-gray-800">{bet.master}</td>
                   </tr>

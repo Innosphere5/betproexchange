@@ -7,6 +7,8 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   const { cricketMatches } = useDashboard();
   const [exposureData, setExposureData] = useState(null);
   const [userRole, setUserRole] = useState(null);
+  const [prevOdds, setPrevOdds] = useState({});
+  const [flash, setFlash] = useState({});
 
   useEffect(() => {
     const raw = localStorage.getItem("user_session");
@@ -47,21 +49,47 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   }, [matchId, isAdmin]);
 
   const actualMatch = cricketMatches?.find(m => m.matchId === matchId);
-  if (!actualMatch) return <div className="p-10 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">Loading Match Data...</div>;
-
-  const matchName = `${actualMatch.teamA} v ${actualMatch.teamB}`;
-  const startTimeObj = new Date(actualMatch.startTime);
-  const formattedDate = startTimeObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const formattedTime = startTimeObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const startTimeObj = actualMatch ? new Date(actualMatch.startTime) : new Date();
+  const formattedDate = actualMatch ? startTimeObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : "";
+  const formattedTime = actualMatch ? startTimeObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : "";
 
   // Today check for odds visibility
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
-  const isToday = startTimeObj >= todayStart && startTimeObj < todayEnd;
-  const isLive = actualMatch.status === 'live';
+  const isToday = actualMatch ? (startTimeObj >= todayStart && startTimeObj < todayEnd) : false;
+  const isLive = actualMatch ? (actualMatch.status === 'live') : false;
 
   const showOdds = isLive || isToday;
+
+  useEffect(() => {
+    if (actualMatch) {
+      const currentOdds = {
+        backA: actualMatch.backOddsA,
+        layA: actualMatch.layOddsA,
+        backB: actualMatch.backOddsB,
+        layB: actualMatch.layOddsB,
+      };
+
+      const newFlash = {};
+      Object.keys(currentOdds).forEach(key => {
+        if (prevOdds[key] !== undefined) {
+           newFlash[key] = true;
+        }
+      });
+
+      if (Object.keys(newFlash).length > 0) {
+        setFlash(prev => ({ ...prev, ...newFlash }));
+        setTimeout(() => setFlash({}), 300); // Very quick pulse
+      }
+      setPrevOdds(currentOdds);
+    }
+    // We use a fallback to ensure the array length is consistent
+  }, [actualMatch?.lastUpdated || "", actualMatch?.backOddsA, actualMatch?.backOddsB, actualMatch?.layOddsA, actualMatch?.layOddsB]);
+
+  if (!actualMatch) return <div className="p-10 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">Loading Match Data...</div>;
+
+  const matchName = `${actualMatch.teamA} v ${actualMatch.teamB}`;
 
   const runners = [
     { 
@@ -69,14 +97,16 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
       back: showOdds ? (actualMatch.backOddsA || "N/A") : "N/A", 
       backVol: showOdds && actualMatch.backOddsA ? "Real" : "0", 
       lay: showOdds ? (actualMatch.layOddsA || "N/A") : "N/A", 
-      layVol: showOdds && actualMatch.layOddsA ? "Real" : "0" 
+      layVol: showOdds && actualMatch.layOddsA ? "Real" : "0",
+      flash: { back: flash.backA, lay: flash.layA }
     },
     { 
       name: actualMatch.teamB, 
       back: showOdds ? (actualMatch.backOddsB || "N/A") : "N/A", 
       backVol: showOdds && actualMatch.backOddsB ? "Real" : "0", 
       lay: showOdds ? (actualMatch.layOddsB || "N/A") : "N/A", 
-      layVol: showOdds && actualMatch.layOddsB ? "Real" : "0" 
+      layVol: showOdds && actualMatch.layOddsB ? "Real" : "0",
+      flash: { back: flash.backB, lay: flash.layB }
     }
   ];
 
@@ -113,18 +143,18 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
         <div className="order-2 flex flex-col px-2">
           <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
             {/* Market Header Tab */}
-            <div className="bg-[#5d7d9a] text-white h-9 flex items-center justify-between px-3">
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 bg-[#00c766] rounded-sm flex items-center justify-center shrink-0">
-                  <Info size={12} color="white" strokeWidth={3} />
+            <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-4">
+              <div className="flex items-center gap-3">
+                <div className="w-6 h-6 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                  <div className="w-2 h-2 bg-white rounded-full"></div>
                 </div>
-                <span className="text-[12px] font-black uppercase tracking-wide">
-                  MATCH ODDS <span className="text-white/60 font-medium ml-1">(Max: 5M)</span>
+                <span className="text-[13px] font-black uppercase tracking-wider">
+                  MATCH ODDS <span className="text-white/60 font-bold ml-1 text-[11px]">(MAX: 5M)</span>
                 </span>
               </div>
-              <div className="flex items-center gap-4 text-[11px] font-black tracking-widest uppercase">
-                <div className="w-14 text-center">Back</div>
-                <div className="w-14 text-center">Lay</div>
+              <div className="flex items-center gap-6 text-[11px] font-black tracking-widest uppercase">
+                <div className="w-14 text-center border-b-2 border-[#bbd9f9]">Back</div>
+                <div className="w-14 text-center border-b-2 border-[#f8c9d4]">Lay</div>
               </div>
             </div>
 
@@ -153,18 +183,18 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                     <button
                       disabled={actualMatch.marketStatus && actualMatch.marketStatus !== 'OPEN'}
                       onClick={() => onSelectOutcome(runner.name, runner.back, 'back', actualMatch.status === 'live')}
-                      className="flex-1 bg-[#bbd9f9] flex flex-col items-center justify-center py-2 active:scale-95 transition-transform border-r border-white/40 disabled:opacity-50"
+                      className={`flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all border-r border-white/40 disabled:opacity-50 relative overflow-hidden ${runner.flash?.back ? 'bg-[#5d99d6]' : 'bg-[#bbd9f9]'}`}
                     >
-                      <span className="text-[15px] font-black text-[#1c3246] leading-none">{runner.back}</span>
-                      <span className="text-[9px] font-bold text-gray-500 mt-1">{runner.backVol}</span>
+                      <span className={`text-[15px] font-black leading-none z-10 transition-colors ${runner.flash?.back ? 'text-white' : 'text-[#1c3246]'}`}>{runner.back}</span>
+                      <span className={`text-[9px] font-bold mt-1 z-10 transition-colors ${runner.flash?.back ? 'text-white/80' : 'text-gray-500'}`}>{runner.backVol}</span>
                     </button>
                     <button
                       disabled={actualMatch.marketStatus && actualMatch.marketStatus !== 'OPEN'}
                       onClick={() => onSelectOutcome(runner.name, runner.lay, 'lay', actualMatch.status === 'live')}
-                      className="flex-1 bg-[#f8c9d4] flex flex-col items-center justify-center py-2 active:scale-95 transition-transform disabled:opacity-50"
+                      className={`flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all disabled:opacity-50 relative overflow-hidden ${runner.flash?.lay ? 'bg-[#d65d7a]' : 'bg-[#f8c9d4]'}`}
                     >
-                      <span className="text-[15px] font-black text-[#1c3246] leading-none">{runner.lay}</span>
-                      <span className="text-[9px] font-bold text-gray-500 mt-1">{runner.layVol}</span>
+                      <span className={`text-[15px] font-black leading-none z-10 transition-colors ${runner.flash?.lay ? 'text-white' : 'text-[#1c3246]'}`}>{runner.lay}</span>
+                      <span className={`text-[9px] font-bold mt-1 z-10 transition-colors ${runner.flash?.lay ? 'text-white/80' : 'text-gray-500'}`}>{runner.layVol}</span>
                     </button>
                   </div>
                 </div>
@@ -235,30 +265,43 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                 </div>
               </div>
 
-              {/* Score Line */}
-              <div className="flex items-center gap-4 mb-3">
-                 <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-black text-[#1c3246]">
-                      {actualMatch.teamA.substring(0, 3).toUpperCase()} {actualMatch.score?.teamA_runs?.split('/')[0] || 0}-{actualMatch.score?.teamA_runs?.split('/')[1] || 0}
-                    </span>
-                    <span className="text-gray-500 font-bold text-sm">
-                      ({actualMatch.score?.overs || "0.0"} Over)
-                    </span>
+              {/* Premium Score Line */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                 <div className="flex items-baseline gap-3">
+                    <div className="flex flex-col">
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{actualMatch.teamA}</span>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-4xl font-black text-[#1c3246] tracking-tighter">
+                            {actualMatch.score?.teamA_runs?.split('/')[0] || 0}
+                            <span className="text-2xl text-gray-300 mx-0.5">/</span>
+                            {actualMatch.score?.teamA_runs?.split('/')[1] || 0}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div className="h-10 w-[1px] bg-gray-200 mx-2 self-center"></div>
+
+                    <div className="flex flex-col">
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Overs</span>
+                        <span className="text-2xl font-black text-[#243f55]">
+                           {actualMatch.score?.overs || "0.0"}
+                        </span>
+                    </div>
                  </div>
 
-                 {/* Badges */}
-                 <div className="flex gap-2">
-                    <div className="bg-gray-100 px-3 py-0.5 rounded flex items-center gap-1.5 border border-gray-200">
-                       <span className="text-[10px] font-black text-gray-600">CRR:</span>
-                       <span className="text-[12px] font-black text-green-600">{actualMatch.score?.runRate || "0.00"}</span>
+                 {/* Granular Stats Grid */}
+                 <div className="grid grid-cols-3 gap-2 flex-1 max-w-xs">
+                    <div className="bg-white p-2 rounded border border-gray-200 flex flex-col items-center justify-center shadow-sm">
+                       <span className="text-[9px] font-black text-gray-400 uppercase">CRR</span>
+                       <span className="text-[14px] font-black text-green-600">{actualMatch.score?.runRate || "0.00"}</span>
                     </div>
-                    <div className="bg-orange-50 px-3 py-0.5 rounded flex items-center gap-1.5 border border-orange-100">
-                       <span className="text-[10px] font-black text-gray-600">RRR:</span>
-                       <span className="text-[12px] font-black text-orange-600">{actualMatch.score?.reqRunRate || "0.00"}</span>
+                    <div className="bg-white p-2 rounded border border-gray-200 flex flex-col items-center justify-center shadow-sm">
+                       <span className="text-[9px] font-black text-gray-400 uppercase">RRR</span>
+                       <span className="text-[14px] font-black text-orange-600">{actualMatch.score?.reqRunRate || "0.00"}</span>
                     </div>
-                    <div className="bg-blue-50 px-3 py-0.5 rounded flex items-center gap-1.5 border border-blue-100">
-                       <span className="text-[10px] font-black text-gray-600">T:</span>
-                       <span className="text-[12px] font-black text-blue-700">{actualMatch.score?.target || 0}</span>
+                    <div className="bg-white p-2 rounded border border-gray-200 flex flex-col items-center justify-center shadow-sm">
+                       <span className="text-[9px] font-black text-gray-400 uppercase">Target</span>
+                       <span className="text-[14px] font-black text-blue-700">{actualMatch.score?.target || 0}</span>
                     </div>
                  </div>
               </div>

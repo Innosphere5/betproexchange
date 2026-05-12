@@ -168,6 +168,26 @@ export default function DashboardLayout({ children }) {
         }));
     });
 
+    socket.on('odds_updated', (data) => {
+        setCricketMatches(prev => prev.map(m => {
+            if (m.matchId === data.matchId) {
+                if (data.marketStatus) {
+                    return { ...m, marketStatus: data.marketStatus };
+                }
+                return {
+                    ...m,
+                    marketStatus: 'OPEN',
+                    backOddsA: data.teamABack ?? m.backOddsA,
+                    layOddsA: data.teamALay ?? m.layOddsA,
+                    backOddsB: data.teamBBack ?? m.backOddsB,
+                    layOddsB: data.teamBLay ?? m.layOddsB,
+                    lastUpdated: data.updatedAt || new Date()
+                };
+            }
+            return m;
+        }));
+    });
+
     socket.on('match_result', (data) => {
         setCricketMatches(prev => prev.map(m => {
             if (m.matchId === data.matchId) {
@@ -189,6 +209,7 @@ export default function DashboardLayout({ children }) {
     });
 
     const fetchMatches = async () => {
+      console.log("[Dashboard] 🔍 Fetching from:", `${getApiUrl()}/api/matches`);
       try {
         const res = await fetch(`${getApiUrl()}/api/matches`);
         if (res.ok) {
@@ -214,16 +235,22 @@ export default function DashboardLayout({ children }) {
           });
         }
       } catch (err) {
-        console.error("Failed to fetch live scores:", err);
+        console.error("❌ Failed to fetch live scores:", err.message, err);
       }
     };
 
+    let pollTimeout;
+    const poll = async () => {
+        await fetchLiveScores();
+        pollTimeout = setTimeout(poll, 1000);
+    };
+
     fetchMatches();
-    const interval = setInterval(fetchLiveScores, 20000); // 20s polling
+    poll(); 
 
     return () => {
       socket.disconnect();
-      clearInterval(interval);
+      clearTimeout(pollTimeout);
     };
   }, []);
 

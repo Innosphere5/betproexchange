@@ -42,3 +42,22 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Odds Flash Animations */
+@keyframes flash-green {
+  0% { background-color: rgba(0, 199, 102, 0.5); }
+  100% { background-color: transparent; }
+}
+
+@keyframes flash-red {
+  0% { background-color: rgba(255, 59, 59, 0.5); }
+  100% { background-color: transparent; }
+}
+
+.flash-up {
+  animation: flash-green 0.8s ease-out;
+}
+
+.flash-down {
+  animation: flash-red 0.8s ease-out;
+}
