@@ -60,7 +60,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   const isToday = actualMatch ? (startTimeObj >= todayStart && startTimeObj < todayEnd) : false;
   const isLive = actualMatch ? (actualMatch.status === 'live') : false;
 
-  const showOdds = isLive || isToday;
+  const showOdds = isLive || isToday || (actualMatch && actualMatch.backOddsA);
 
   useEffect(() => {
     if (actualMatch) {
@@ -95,17 +95,17 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
     { 
       name: actualMatch.teamA, 
       back: showOdds ? (actualMatch.backOddsA || "N/A") : "N/A", 
-      backVol: showOdds && actualMatch.backOddsA ? "Real" : "0", 
+      backVol: showOdds ? (actualMatch.depthBackA || "0") : "0", 
       lay: showOdds ? (actualMatch.layOddsA || "N/A") : "N/A", 
-      layVol: showOdds && actualMatch.layOddsA ? "Real" : "0",
+      layVol: showOdds ? (actualMatch.depthLayA || "0") : "0",
       flash: { back: flash.backA, lay: flash.layA }
     },
     { 
       name: actualMatch.teamB, 
       back: showOdds ? (actualMatch.backOddsB || "N/A") : "N/A", 
-      backVol: showOdds && actualMatch.backOddsB ? "Real" : "0", 
+      backVol: showOdds ? (actualMatch.depthBackB || "0") : "0", 
       lay: showOdds ? (actualMatch.layOddsB || "N/A") : "N/A", 
-      layVol: showOdds && actualMatch.layOddsB ? "Real" : "0",
+      layVol: showOdds ? (actualMatch.depthLayB || "0") : "0",
       flash: { back: flash.backB, lay: flash.layB }
     }
   ];

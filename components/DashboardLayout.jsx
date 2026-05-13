@@ -161,6 +161,10 @@ export default function DashboardLayout({ children }) {
                     layOddsA: runnerA?.lay || m.layOddsA,
                     backOddsB: runnerB?.back || m.backOddsB,
                     layOddsB: runnerB?.lay || m.layOddsB,
+                    depthBackA: runnerA?.depthBack || m.depthBackA,
+                    depthLayA: runnerA?.depthLay || m.depthLayA,
+                    depthBackB: runnerB?.depthBack || m.depthBackB,
+                    depthLayB: runnerB?.depthLay || m.depthLayB,
                     lastUpdated: data.updatedAt || new Date()
                 };
             }
@@ -181,6 +185,10 @@ export default function DashboardLayout({ children }) {
                     layOddsA: data.teamALay ?? m.layOddsA,
                     backOddsB: data.teamBBack ?? m.backOddsB,
                     layOddsB: data.teamBLay ?? m.layOddsB,
+                    depthBackA: data.depthBackA ?? m.depthBackA,
+                    depthLayA: data.depthLayA ?? m.depthLayA,
+                    depthBackB: data.depthBackB ?? m.depthBackB,
+                    depthLayB: data.depthLayB ?? m.depthLayB,
                     lastUpdated: data.updatedAt || new Date()
                 };
             }
