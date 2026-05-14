@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Filter, Search, BookOpen, Edit2, X, DollarSign, Calendar, Layout, List } from "lucide-react";
 import { getApiUrl } from "@/lib/apiConfig";
 
@@ -8,7 +8,7 @@ export default function MasterUsers() {
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
+
   // Form State
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -51,6 +51,10 @@ export default function MasterUsers() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [expandedUser, setExpandedUser] = useState(null);
+  const [detailsView, setDetailsView] = useState(null); // { bettor, type }
+  const [transactionDetails, setTransactionDetails] = useState([]);
+  const [isDetailsLoading, setIsDetailsLoading] = useState(false);
 
   const fetchFinalSheet = async () => {
     setIsFinalSheetLoading(true);
@@ -93,6 +97,32 @@ export default function MasterUsers() {
       setReportLoading(false);
     }
   };
+
+  const fetchDailyReportDetails = async (bettor, type = 'all') => {
+    setIsDetailsLoading(true);
+    const token = getAuthToken();
+    try {
+      let url = `${getApiUrl()}/api/admin/daily-report-details?bettor=${bettor}&type=${type}&reportType=${reportPeriod}`;
+      if (reportPeriod === 'daily') url += `&date=${selectedDate}`;
+      else if (reportPeriod === 'monthly') url += `&month=${selectedMonth}`;
+      else if (reportPeriod === 'yearly') url += `&year=${selectedYear}`;
+      else if (reportPeriod === 'range') url += `&startDate=${startDate}&endDate=${endDate}`;
+
+      const res = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTransactionDetails(data);
+        setDetailsView({ bettor, type });
+      }
+    } catch (err) {
+      console.error("Error fetching details:", err);
+    } finally {
+      setIsDetailsLoading(false);
+    }
+  };
+
 
   const fetchReportData = async () => {
     if (activeReportType === "Commission Report") {
@@ -168,18 +198,18 @@ export default function MasterUsers() {
     try {
       const res = await fetch(`${getApiUrl()}/api/admin/create-user`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ 
-          username: newUsername, 
-          password: newPassword, 
+        body: JSON.stringify({
+          username: newUsername,
+          password: newPassword,
           role: newType,
           initialBalance: parseFloat(initialBalance)
         })
       });
-      
+
       const data = await res.json();
       if (res.ok) {
         setIsModalOpen(false);
@@ -212,18 +242,18 @@ export default function MasterUsers() {
     try {
       const res = await fetch(`${getApiUrl()}${endpoint}`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ 
-          targetUsername: selectedUser.username, 
+        body: JSON.stringify({
+          targetUsername: selectedUser.username,
           amount: parseFloat(amount),
           description: desc,
           type: tab // cash or credit
         })
       });
-      
+
       const data = await res.json();
       if (res.ok) {
         setIsLoadModalOpen(false);
@@ -336,8 +366,9 @@ export default function MasterUsers() {
     switch (activeReportType) {
       case "Daily Report":
         const filteredDailyProfit = dailyReportData.profit.filter(u => !hideZero || u.amount !== 0);
+        const filteredDailyLoss = dailyReportData.loss.filter(u => !hideZero || u.amount !== 0);
         const totalDailyProfit = filteredDailyProfit.reduce((sum, u) => sum + (u.amount || 0), 0);
-        const totalDailyLoss = dailyReportData.loss.reduce((sum, u) => sum + (u.amount || 0), 0);
+        const totalDailyLoss = filteredDailyLoss.reduce((sum, u) => sum + (u.amount || 0), 0);
 
         return (
           <div className="flex flex-col gap-4 animate-in fade-in duration-300">
@@ -354,9 +385,8 @@ export default function MasterUsers() {
                     <button
                       key={p}
                       onClick={() => setReportPeriod(p)}
-                      className={`px-3 py-1.5 text-[11px] font-bold uppercase transition-colors border-r last:border-r-0 ${
-                        reportPeriod === p ? 'bg-[#1abc9c] text-white border-[#1abc9c]' : 'hover:bg-gray-100 text-gray-600 border-gray-300'
-                      }`}
+                      className={`px-3 py-1.5 text-[11px] font-bold uppercase transition-colors border-r last:border-r-0 ${reportPeriod === p ? 'bg-[#1abc9c] text-white border-[#1abc9c]' : 'hover:bg-gray-100 text-gray-600 border-gray-300'
+                        }`}
                     >
                       {p}
                     </button>
@@ -365,24 +395,24 @@ export default function MasterUsers() {
 
                 <div className="flex flex-wrap items-center gap-2">
                   {reportPeriod === 'daily' && (
-                    <input 
-                      type="date" 
-                      value={selectedDate} 
+                    <input
+                      type="date"
+                      value={selectedDate}
                       onChange={(e) => setSelectedDate(e.target.value)}
                       className="border border-gray-300 rounded px-2 py-1 text-[12px] outline-none focus:border-[#1abc9c]"
                     />
                   )}
                   {reportPeriod === 'monthly' && (
-                    <input 
-                      type="month" 
-                      value={selectedMonth} 
+                    <input
+                      type="month"
+                      value={selectedMonth}
                       onChange={(e) => setSelectedMonth(e.target.value)}
                       className="border border-gray-300 rounded px-2 py-1 text-[12px] outline-none focus:border-[#1abc9c]"
                     />
                   )}
                   {reportPeriod === 'yearly' && (
-                    <select 
-                      value={selectedYear} 
+                    <select
+                      value={selectedYear}
                       onChange={(e) => setSelectedYear(e.target.value)}
                       className="border border-gray-300 rounded px-2 py-1 text-[12px] outline-none focus:border-[#1abc9c]"
                     >
@@ -393,16 +423,16 @@ export default function MasterUsers() {
                   )}
                   {reportPeriod === 'range' && (
                     <div className="flex items-center gap-2">
-                      <input 
-                        type="date" 
-                        value={startDate} 
+                      <input
+                        type="date"
+                        value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
                         className="border border-gray-300 rounded px-2 py-1 text-[12px] outline-none focus:border-[#1abc9c]"
                       />
                       <span className="text-gray-400 text-[12px]">-</span>
-                      <input 
-                        type="date" 
-                        value={endDate} 
+                      <input
+                        type="date"
+                        value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
                         className="border border-gray-300 rounded px-2 py-1 text-[12px] outline-none focus:border-[#1abc9c]"
                       />
@@ -410,7 +440,7 @@ export default function MasterUsers() {
                   )}
                 </div>
 
-                <button 
+                <button
                   onClick={fetchDailyReport}
                   className="bg-[#1abc9c] hover:bg-[#16a085] text-white text-[12px] font-bold px-4 py-1 rounded shadow-sm transition-colors"
                 >
@@ -418,11 +448,11 @@ export default function MasterUsers() {
                 </button>
 
                 <div className="flex items-center gap-1 ml-auto font-normal text-gray-600 text-[11px]">
-                  <input 
-                    type="checkbox" 
-                    id="hideZeroDaily" 
-                    checked={hideZero} 
-                    onChange={(e) => setHideZero(e.target.checked)} 
+                  <input
+                    type="checkbox"
+                    id="hideZeroDaily"
+                    checked={hideZero}
+                    onChange={(e) => setHideZero(e.target.checked)}
                     className="w-3 h-3 accent-[#1abc9c]"
                   />
                   <label htmlFor="hideZeroDaily" className="cursor-pointer">Hide Zero</label>
@@ -439,77 +469,187 @@ export default function MasterUsers() {
                 </div>
               </div>
               <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
- burial
-              {/* Profit Table */}
-              <div className="border border-gray-200">
-                <table className="w-full text-[12px]">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200 text-left font-bold text-gray-700">
-                      <th className="px-3 py-2 border-r border-gray-200">Name</th>
-                      <th className="px-3 py-2">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredDailyProfit.map((u, i) => (
-                      <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-3 py-2 border-r border-gray-100 text-blue-600 font-medium">{u.name}</td>
-                        <td className={`px-3 py-2 font-bold ${u.amount > 0 ? 'text-green-600' : 'text-gray-600'}`}>
-                          {u.amount.toLocaleString()}
-                        </td>
+                {/* Profit Table */}
+                <div className="border border-gray-200">
+                  <table className="w-full text-[12px]">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200 text-left font-bold text-gray-700">
+                        <th className="px-3 py-2 border-r border-gray-200">Name <span className="text-[10px] ml-1">▲▼</span></th>
+                        <th className="px-3 py-2">Amount <span className="text-[10px] ml-1">▲▼</span></th>
                       </tr>
-                    ))}
-                    {filteredDailyProfit.length === 0 && (
-                      <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No data found for this date</td></tr>
-                    )}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-[#1abc9c] text-white font-bold">
-                      <td className="px-3 py-2 border-r border-teal-600">Total</td>
-                      <td className="px-3 py-2">{totalDailyProfit.toLocaleString()}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-              {/* Loss Table */}
-              <div className="border border-gray-200">
-                <table className="w-full text-[12px]">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200 text-left font-bold text-gray-700">
-                      <th className="px-3 py-2 border-r border-gray-200">Name</th>
-                      <th className="px-3 py-2">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dailyReportData.loss.map((u, i) => (
-                      <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-3 py-2 border-r border-gray-100 text-red-500 font-bold">{u.name}</td>
-                        <td className="px-3 py-2 text-red-500 font-bold">{u.amount.toLocaleString()}</td>
+                    </thead>
+                    <tbody>
+                      {filteredDailyProfit.map((u, i) => (
+                        <React.Fragment key={`profit-${i}`}>
+                          <tr className="border-b border-gray-100 hover:bg-gray-50">
+                            <td className="px-3 py-2 border-r border-gray-100 text-blue-600 font-medium">{u.name}</td>
+                            <td
+                              className={`px-3 py-2 font-bold cursor-pointer hover:bg-green-50 transition-all duration-200 border-l border-gray-100 ${u.amount > 0 ? 'text-green-600' : 'text-gray-600'}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedUser(expandedUser === u.name ? null : u.name);
+                              }}
+                            >
+                              <div className="flex items-center justify-between pointer-events-none">
+                                <span>{u.amount.toLocaleString()}</span>
+                                <span className={`text-[10px] transition-transform duration-300 ${expandedUser === u.name ? 'rotate-180 text-[#1abc9c]' : 'text-gray-400'}`}>
+                                  ▼
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                          {expandedUser === u.name && (
+                            <tr className="bg-gray-50 border-b border-gray-200">
+                              <td colSpan="2" className="p-2">
+                                <div className="bg-white border border-gray-200 rounded shadow-inner p-2 text-[11px]">
+                                  <table className="w-full">
+                                    <thead>
+                                      <tr className="border-b border-gray-100 text-gray-500">
+                                        <th className="text-left py-1">Type</th>
+                                        <th className="text-right py-1">P/L</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      <tr className="border-b border-gray-50 hover:bg-blue-50 cursor-pointer" onClick={() => fetchDailyReportDetails(u.name, 'cricket')}>
+                                        <td className="py-1.5 font-medium">Cricket</td>
+                                        <td className={`text-right font-bold ${u.breakdown?.cricket?.net >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                          {u.breakdown?.cricket?.net?.toLocaleString() || '0'}
+                                        </td>
+                                      </tr>
+                                      <tr className="border-b border-gray-50 hover:bg-blue-50 cursor-pointer" onClick={() => fetchDailyReportDetails(u.name, 'casino')}>
+                                        <td className="py-1.5 font-medium">Casino</td>
+                                        <td className={`text-right font-bold ${u.breakdown?.casino?.net >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                          {u.breakdown?.casino?.net?.toLocaleString() || '0'}
+                                        </td>
+                                      </tr>
+                                    </tbody>
+                                    <tfoot>
+                                      <tr className="font-bold bg-gray-50">
+                                        <td className="py-1">Total</td>
+                                        <td className={`text-right ${u.breakdown?.totalNet >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                          {u.breakdown?.totalNet?.toLocaleString() || '0'}
+                                        </td>
+                                      </tr>
+                                    </tfoot>
+                                  </table>
+                                  <div className="text-[9px] text-gray-400 mt-1 italic text-center">Click on Cricket or Casino for full history</div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      ))}
+                      {filteredDailyProfit.length === 0 && (
+                        <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No data found for this date</td></tr>
+                      )}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-[#1abc9c] text-white font-bold">
+                        <td className="px-3 py-2 border-r border-teal-600">Total</td>
+                        <td className="px-3 py-2">{totalDailyProfit.toLocaleString()}</td>
                       </tr>
-                    ))}
-                    {dailyReportData.loss.length === 0 && (
-                      <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No data found for this date</td></tr>
-                    )}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-[#e74c3c] text-white font-bold">
-                      <td className="px-3 py-2 border-r border-red-400">Total</td>
-                      <td className="px-3 py-2">{totalDailyLoss.toLocaleString()}</td>
-                    </tr>
-                  </tfoot>
-                </table>
+                    </tfoot>
+                  </table>
+                </div>
+                {/* Loss Table */}
+                <div className="border border-gray-200">
+                  <table className="w-full text-[12px]">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200 text-left font-bold text-gray-700">
+                        <th className="px-3 py-2 border-r border-gray-200">Name <span className="text-[10px] ml-1">▲▼</span></th>
+                        <th className="px-3 py-2">Amount <span className="text-[10px] ml-1">▲▼</span></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredDailyLoss.map((u, i) => (
+                        <React.Fragment key={`loss-${i}`}>
+                          <tr className="border-b border-gray-100 hover:bg-gray-50">
+                            <td className="px-3 py-2 border-r border-gray-100 text-red-500 font-bold">{u.name}</td>
+                            <td
+                              className="px-3 py-2 text-red-500 font-bold cursor-pointer hover:bg-red-50 transition-all duration-200 border-l border-gray-100"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedUser(expandedUser === u.name ? null : u.name);
+                              }}
+                            >
+                              <div className="flex items-center justify-between pointer-events-none">
+                                <span>{u.amount.toLocaleString()}</span>
+                                <span className={`text-[10px] transition-transform duration-300 ${expandedUser === u.name ? 'rotate-180 text-red-500' : 'text-gray-400'}`}>
+                                  ▼
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                          {expandedUser === u.name && (
+                            <tr className="bg-gray-50 border-b border-gray-200">
+                              <td colSpan="2" className="p-2">
+                                <div className="bg-white border border-gray-200 rounded shadow-inner p-2 text-[11px]">
+                                  <table className="w-full">
+                                    <thead>
+                                      <tr className="border-b border-gray-100 text-gray-500">
+                                        <th className="text-left py-1">Type</th>
+                                        <th className="text-right py-1">P/L</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      <tr className="border-b border-gray-50 hover:bg-blue-50 cursor-pointer" onClick={() => fetchDailyReportDetails(u.name, 'cricket')}>
+                                        <td className="py-1.5 font-medium">Cricket</td>
+                                        <td className={`text-right font-bold ${u.breakdown?.cricket?.net >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                          {u.breakdown?.cricket?.net?.toLocaleString() || '0'}
+                                        </td>
+                                      </tr>
+                                      <tr className="border-b border-gray-50 hover:bg-blue-50 cursor-pointer" onClick={() => fetchDailyReportDetails(u.name, 'casino')}>
+                                        <td className="py-1.5 font-medium">Casino</td>
+                                        <td className={`text-right font-bold ${u.breakdown?.casino?.net >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                          {u.breakdown?.casino?.net?.toLocaleString() || '0'}
+                                        </td>
+                                      </tr>
+                                    </tbody>
+                                    <tfoot>
+                                      <tr className="font-bold bg-gray-50">
+                                        <td className="py-1">Total</td>
+                                        <td className={`text-right ${u.breakdown?.totalNet >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                          {u.breakdown?.totalNet?.toLocaleString() || '0'}
+                                        </td>
+                                      </tr>
+                                    </tfoot>
+                                  </table>
+                                  <div className="text-[9px] text-gray-400 mt-1 italic text-center">Click on Cricket or Casino for full history</div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      ))}
+                      {filteredDailyLoss.length === 0 && (
+                        <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No data found for this date</td></tr>
+                      )}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-[#e74c3c] text-white font-bold">
+                        <td className="px-3 py-2 border-r border-red-400">Total</td>
+                        <td className="px-3 py-2">{totalDailyLoss.toLocaleString()}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
               </div>
             </div>
+            <div className={`mt-2 p-3 rounded-sm text-white font-bold flex justify-between items-center shadow-md ${totalDailyLoss - totalDailyProfit >= 0 ? 'bg-gradient-to-r from-green-600 to-green-500' : 'bg-gradient-to-r from-red-600 to-red-500'}`}>
+              <span className="text-sm uppercase tracking-wider">Master Net Total P/L</span>
+              <span className="text-xl font-black">{(totalDailyLoss - totalDailyProfit).toLocaleString()}</span>
+            </div>
           </div>
-        </div>
-      );
+        );
       case "Final Sheet":
         if (isFinalSheetLoading) {
           return <div className="p-10 text-center text-gray-500 italic bg-white border border-gray-300">Loading Final Sheet...</div>;
         }
 
-        const filteredProfit = finalSheetData.profit.filter(u => !hideZero || u.amount !== 0);
+        const filteredProfit = finalSheetData.profit.filter(u => (!hideZero || u.amount !== 0) && u.role !== 'user');
+        const filteredLoss = finalSheetData.loss.filter(u => u.role !== 'user');
         const totalProfit = filteredProfit.reduce((sum, u) => sum + (u.amount || 0), 0);
-        const totalLoss = finalSheetData.loss.reduce((sum, u) => sum + (u.amount || 0), 0);
+        const totalLoss = filteredLoss.reduce((sum, u) => sum + (u.amount || 0), 0);
 
         return (
           <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden animate-in fade-in duration-300">
@@ -566,13 +706,13 @@ export default function MasterUsers() {
                     </tr>
                   </thead>
                   <tbody>
-                    {finalSheetData.loss.map((u, i) => (
+                    {filteredLoss.map((u, i) => (
                       <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="px-3 py-2 border-r text-red-500 font-bold">{u.name}</td>
                         <td className="px-3 py-2 text-red-500 font-bold">{u.amount.toLocaleString()}</td>
                       </tr>
                     ))}
-                    {finalSheetData.loss.length === 0 && (
+                    {filteredLoss.length === 0 && (
                       <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No data found</td></tr>
                     )}
                   </tbody>
@@ -584,6 +724,10 @@ export default function MasterUsers() {
                   </tfoot>
                 </table>
               </div>
+            </div>
+            <div className={`mt-2 p-3 rounded-sm text-white font-bold flex justify-between items-center shadow-md ${totalLoss - totalProfit >= 0 ? 'bg-gradient-to-r from-green-600 to-green-500' : 'bg-gradient-to-r from-red-600 to-red-500'}`}>
+              <span className="text-sm uppercase tracking-wider">Final Net Position</span>
+              <span className="text-xl font-black">{(totalLoss - totalProfit).toLocaleString()}</span>
             </div>
           </div>
         );
@@ -723,7 +867,7 @@ export default function MasterUsers() {
           </div>
         </div>
       )}
-      
+
       {/* Edit User Modal (Pencil) */}
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -736,7 +880,7 @@ export default function MasterUsers() {
                 <X size={20} />
               </button>
             </div>
-            
+
             <form onSubmit={handleUpdateUser} className="p-6 space-y-5 font-sans">
               <div className="bg-teal-50 p-3 rounded border border-teal-100 mb-2">
                 <p className="text-[11px] text-teal-700 font-bold uppercase tracking-widest">Account Status</p>
@@ -778,13 +922,13 @@ export default function MasterUsers() {
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in duration-200 border border-gray-300">
             {/* Tabs */}
             <div className="flex bg-white border-b border-gray-200">
-              <button 
+              <button
                 onClick={() => { setActiveTab("cash"); setDepositAmount(""); setWithdrawAmount(""); setDepositDescription(""); setWithdrawDescription(""); }}
                 className={`flex-1 py-3 text-[14px] font-bold transition-all ${activeTab === 'cash' ? 'bg-[#007bff] text-white' : 'bg-white text-[#28a745] hover:bg-gray-50'}`}
               >
                 Cash
               </button>
-              <button 
+              <button
                 onClick={() => { setActiveTab("credit"); setDepositAmount(""); setWithdrawAmount(""); setDepositDescription(""); setWithdrawDescription(""); }}
                 className={`flex-1 py-3 text-[14px] font-bold transition-all ${activeTab === 'credit' ? 'bg-[#007bff] text-white' : 'bg-white text-[#28a745] hover:bg-gray-50'}`}
               >
@@ -805,16 +949,16 @@ export default function MasterUsers() {
                 <div className="p-3 border-r border-gray-200">
                   <p className="text-[12px] font-bold text-gray-700">{activeTab === 'cash' ? 'Cash Balance' : 'Credit Balance'}</p>
                   <p className="text-[13px] font-bold text-blue-600 mt-1">
-                    {activeTab === 'cash' 
-                      ? `${((selectedUser?.walletBalance || 0) - (selectedUser?.credit || 0)).toLocaleString()} Rs.` 
+                    {activeTab === 'cash'
+                      ? `${((selectedUser?.walletBalance || 0) - (selectedUser?.credit || 0)).toLocaleString()} Rs.`
                       : `${selectedUser?.credit?.toLocaleString() || 0} Rs.`}
                   </p>
                 </div>
                 <div className="p-3 border-r border-gray-200">
                   <p className="text-[12px] font-bold text-gray-700">{activeTab === 'cash' ? 'Credit Balance' : 'Cash Balance'}</p>
                   <p className="text-[13px] font-bold text-gray-900 mt-1">
-                    {activeTab === 'cash' 
-                      ? `${selectedUser?.credit?.toLocaleString() || 0} Rs.` 
+                    {activeTab === 'cash'
+                      ? `${selectedUser?.credit?.toLocaleString() || 0} Rs.`
                       : `${((selectedUser?.walletBalance || 0) - (selectedUser?.credit || 0)).toLocaleString()} Rs.`}
                   </p>
                 </div>
@@ -832,7 +976,7 @@ export default function MasterUsers() {
                 <div className="p-4 space-y-3">
                   <div className="flex items-center">
                     <label className="w-32 text-sm font-bold text-gray-700">Description</label>
-                    <input 
+                    <input
                       type="text"
                       value={depositDescription}
                       onChange={(e) => setDepositDescription(e.target.value)}
@@ -844,7 +988,7 @@ export default function MasterUsers() {
                     <label className="w-32 text-sm font-bold text-gray-700">Amount</label>
                     <div className="flex-1 flex items-center">
                       <span className="bg-gray-100 border border-r-0 border-gray-300 px-3 py-1.5 text-sm text-gray-600 rounded-l-sm">Rs.</span>
-                      <input 
+                      <input
                         type="number"
                         value={depositAmount}
                         onChange={(e) => setDepositAmount(e.target.value)}
@@ -853,7 +997,7 @@ export default function MasterUsers() {
                     </div>
                   </div>
                   <div className="flex justify-start pl-32">
-                    <button 
+                    <button
                       onClick={(e) => handleBalanceUpdate(e, "add", activeTab)}
                       disabled={isSaving}
                       className="bg-[#1abc9c] hover:bg-[#16a085] text-white px-6 py-2 rounded-sm font-bold text-sm shadow-sm transition-all disabled:opacity-50"
@@ -872,7 +1016,7 @@ export default function MasterUsers() {
                 <div className="p-4 space-y-3">
                   <div className="flex items-center">
                     <label className="w-32 text-sm font-bold text-gray-700">Description</label>
-                    <input 
+                    <input
                       type="text"
                       value={withdrawDescription}
                       onChange={(e) => setWithdrawDescription(e.target.value)}
@@ -884,7 +1028,7 @@ export default function MasterUsers() {
                     <label className="w-32 text-sm font-bold text-gray-700">Amount</label>
                     <div className="flex-1 flex items-center">
                       <span className="bg-gray-100 border border-r-0 border-gray-300 px-3 py-1.5 text-sm text-gray-600 rounded-l-sm">Rs.</span>
-                      <input 
+                      <input
                         type="number"
                         value={withdrawAmount}
                         onChange={(e) => setWithdrawAmount(e.target.value)}
@@ -893,7 +1037,7 @@ export default function MasterUsers() {
                     </div>
                   </div>
                   <div className="flex justify-start pl-32">
-                    <button 
+                    <button
                       onClick={(e) => handleBalanceUpdate(e, "reduce", activeTab)}
                       disabled={isSaving}
                       className="bg-[#e74c3c] hover:bg-[#c0392b] text-white px-6 py-2 rounded-sm font-bold text-sm shadow-sm transition-all disabled:opacity-50"
@@ -906,7 +1050,7 @@ export default function MasterUsers() {
 
               {/* Close Button */}
               <div className="flex justify-end pt-2">
-                <button 
+                <button
                   onClick={() => setIsLoadModalOpen(false)}
                   className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-sm font-bold text-sm transition-all"
                 >
@@ -945,33 +1089,35 @@ export default function MasterUsers() {
                   ) : ledgerTransactions.length === 0 ? (
                     <tr><td colSpan="4" className="px-4 py-8 text-center text-gray-400">No transactions found</td></tr>
                   ) : (
-                    ledgerTransactions.map((tx, idx) => (
-                      <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-4 py-2.5 text-[12px] text-gray-600">
-                          {new Date(tx.createdAt).toLocaleString()}
-                        </td>
-                        <td className="px-4 py-2.5 font-bold uppercase text-[11px] text-gray-600">
-                          {tx.type}
-                        </td>
-                        <td className={`px-4 py-2.5 font-extrabold text-right ${tx.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString()}
-                        </td>
-                        <td className="px-4 py-2.5 text-gray-500 text-[12px]">
-                          {tx.description}
-                        </td>
-                      </tr>
-                    ))
+                    <>
+                      {ledgerTransactions.map((tx, idx) => (
+                        <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="px-4 py-2.5 text-[12px] text-gray-600">
+                            {new Date(tx.createdAt).toLocaleString()}
+                          </td>
+                          <td className="px-4 py-2.5 font-bold uppercase text-[11px] text-gray-600">
+                            {tx.type}
+                          </td>
+                          <td className={`px-4 py-2.5 font-extrabold text-right ${tx.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-2.5 text-gray-500 text-[12px]">
+                            {tx.description}
+                          </td>
+                        </tr>
+                      ))}
+                    </>
                   )}
                 </tbody>
               </table>
             </div>
             <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
-                <button 
-                  onClick={() => setIsLedgerModalOpen(false)} 
-                  className="bg-gray-800 hover:bg-black text-white px-6 py-2 rounded-sm font-bold text-[12px] transition-colors"
-                >
-                  CLOSE
-                </button>
+              <button
+                onClick={() => setIsLedgerModalOpen(false)}
+                className="bg-gray-800 hover:bg-black text-white px-6 py-2 rounded-sm font-bold text-[12px] transition-colors"
+              >
+                CLOSE
+              </button>
             </div>
           </div>
         </div>
@@ -985,14 +1131,13 @@ export default function MasterUsers() {
         </div>
         <div className="p-4 flex flex-wrap gap-2">
           {['Book Detail', 'Book Detail 2', 'Daily PL', 'Daily Report', 'Final Sheet', 'Accounts', 'Commission Report'].map(btn => (
-            <button 
-              key={btn} 
+            <button
+              key={btn}
               onClick={() => setActiveReportType(btn)}
-              className={`px-3 py-1.5 text-sm font-bold rounded-sm shadow-sm transition-all border ${
-                activeReportType === btn 
-                ? 'bg-[#f39c12] border-[#f39c12] text-white' 
+              className={`px-3 py-1.5 text-sm font-bold rounded-sm shadow-sm transition-all border ${activeReportType === btn
+                ? 'bg-[#f39c12] border-[#f39c12] text-white'
                 : 'bg-white border-gray-300 text-[#f39c12] hover:bg-orange-50'
-              }`}
+                }`}
             >
               {btn}
             </button>
@@ -1009,9 +1154,9 @@ export default function MasterUsers() {
               Search-Users
             </div>
             <div className="p-4 flex items-center gap-0 w-full max-w-lg">
-              <input 
-                type="text" 
-                placeholder="Username" 
+              <input
+                type="text"
+                placeholder="Username"
                 className="border border-gray-300 px-3 py-1.5 focus:outline-none focus:border-[#f39c12] w-64 text-sm"
               />
               <button className="bg-[#f39c12] hover:bg-orange-600 text-white px-3 py-1.5 flex items-center gap-1 text-sm font-semibold">
@@ -1026,7 +1171,7 @@ export default function MasterUsers() {
             <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px]">
               Master - Clients List | Default
             </div>
-            
+
             {/* Summary Table */}
             <div className="border-b border-gray-200">
               <table className="w-full text-sm font-bold text-left">
@@ -1054,7 +1199,7 @@ export default function MasterUsers() {
             {/* Toolbar */}
             <div className="px-4 py-3 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
               <div className="flex items-center gap-2">
-                <button 
+                <button
                   onClick={() => setIsModalOpen(true)}
                   className="bg-[#f39c12] hover:bg-orange-600 text-white px-3 py-1.5 text-sm font-semibold rounded-sm shadow-sm transition-all"
                 >
@@ -1081,7 +1226,7 @@ export default function MasterUsers() {
                   Load Player Balance
                 </div>
               </div>
-              
+
               <table className="w-full text-sm text-left border-collapse border-b border-gray-200">
                 <thead>
                   <tr className="bg-white border-b border-gray-200">
@@ -1113,7 +1258,7 @@ export default function MasterUsers() {
                     users.map((item) => (
                       <tr key={item._id} className="bg-white border-b border-gray-200 hover:bg-gray-50">
                         <td className="px-4 py-2 font-bold text-gray-800 border-r border-gray-200 flex items-center gap-1 whitespace-nowrap">
-                          {item.username} 
+                          {item.username}
                           <span className="w-4 h-4 bg-gray-800 text-white rounded-full inline-flex items-center justify-center text-[10px]">i</span>
                         </td>
                         <td className="px-4 py-2 text-gray-600 border-r border-gray-200 uppercase font-black">{item.role === 'user' ? 'Bettor' : item.role}</td>
@@ -1126,7 +1271,7 @@ export default function MasterUsers() {
                         <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold text-[#f39c12]">{item.walletBalance?.toLocaleString()}</td>
                         <td className="px-4 py-2 flex items-center gap-1">
                           {item.role === 'user' && (
-                            <button 
+                            <button
                               onClick={() => { setSelectedUser(item); setActiveTab("cash"); setIsLoadModalOpen(true); }}
                               className="bg-[#fbbf24] hover:bg-yellow-500 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center shadow-sm transition-all hover:scale-110 active:scale-90"
                               title="Add/Reduce Cash"
@@ -1134,20 +1279,20 @@ export default function MasterUsers() {
                               C
                             </button>
                           )}
-                          <button 
+                          <button
                             onClick={() => { setSelectedUser(item); setEditPassword(""); setIsEditModalOpen(true); }}
                             className="bg-[#1abc9c] hover:bg-teal-700 text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all hover:scale-110 active:scale-90 shadow-sm"
                             title="Edit Player Info"
                           >
                             <Edit2 size={14} />
                           </button>
-                          <button 
+                          <button
                             onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }}
                             className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center shadow-sm"
                           >
                             L
                           </button>
-                          <button 
+                          <button
                             onClick={() => { setUserToDelete(item); setIsDeleteModalOpen(true); }}
                             className="border border-red-500 text-red-500 hover:bg-red-500 hover:text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all active:scale-90"
                             title="Delete Player"
@@ -1234,9 +1379,91 @@ export default function MasterUsers() {
 
           </div>
         </>
-      ) : (
-        renderReportUI()
+      ) : null}
+      {activeReportType !== "Accounts" && renderReportUI()}
+
+      {detailsView && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in duration-200">
+            <div className="bg-white border-b border-gray-300 px-4 py-3 flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <div className="bg-[#1abc9c] w-1 h-6 rounded-full"></div>
+                <h3 className="font-bold text-gray-800 text-[14px]">
+                  {detailsView.bettor} / {detailsView.type === 'cricket' ? 'Cricket-Markets Reports' : 'Casino-Markets Reports'}
+                </h3>
+              </div>
+              <button onClick={() => setDetailsView(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-4">
+              {isDetailsLoading ? (
+                <div className="flex flex-col items-center justify-center h-40 gap-2 text-gray-400">
+                  <div className="w-8 h-8 border-4 border-[#1abc9c] border-t-transparent rounded-full animate-spin"></div>
+                  <p className="animate-pulse">Fetching transaction records...</p>
+                </div>
+              ) : transactionDetails.length > 0 ? (
+                <div className="border border-gray-300 rounded-sm overflow-hidden shadow-sm">
+                  <table className="w-full text-left text-[11px] border-collapse">
+                    <thead className="bg-white border-b border-gray-300">
+                      <tr>
+                        <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-300 w-[140px]">Date</th>
+                        <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-300">Event</th>
+                        <th className="px-3 py-2 font-bold text-gray-700 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {transactionDetails.map((tx, idx) => {
+                        const netAmount = tx.amount; // Positive = Master Profit
+                        return (
+                          <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-3 py-2 text-gray-500 border-r border-gray-100">
+                              {new Date(tx.createdAt || tx.timestamp).toLocaleString('en-GB', {
+                                day: '2-digit', month: '2-digit', year: 'numeric',
+                                hour: '2-digit', minute: '2-digit', hour12: true
+                              })}
+                            </td>
+                            <td className="px-3 py-2 text-[#1abc9c] font-medium border-r border-gray-100">
+                              {tx.matchName ? (
+                                `${tx.matchName}${tx.selection ? ` (${tx.selection})` : ''}`
+                              ) : (
+                                (tx.event || tx.description || '').split('|')[0].trim().includes('Share from')
+                                  ? ((tx.event || tx.description || '').includes('Casino') ? 'Casino Game' : 'Cricket Match')
+                                  : (tx.event || tx.description || '').split('|')[0].trim()
+                              )}
+                            </td>
+                            <td className={`px-3 py-2 text-right font-bold ${netAmount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                              {netAmount.toLocaleString()}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-[#1abc9c] text-white font-bold">
+                        <td colSpan="2" className="px-3 py-2 border-r border-[#16a085] uppercase text-[10px]">Total</td>
+                        <td className="px-3 py-2 text-right">
+                          {transactionDetails.reduce((sum, t) => sum + t.amount, 0).toLocaleString()}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-20 text-gray-400 italic font-bold">No transactions found for this period.</div>
+              )}
+            </div>
+
+            <div className="bg-gray-50 p-4 border-t border-gray-200 flex justify-end">
+              <button onClick={() => setDetailsView(null)} className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold px-6 py-2 rounded-lg transition-all active:scale-95 text-xs uppercase tracking-widest">
+                Close View
+              </button>
+            </div>
+          </div>
+        </div>
       )}
+
       <div className="text-gray-800 text-sm font-medium mt-2 italic">
         Welcome to Exchange.
       </div>

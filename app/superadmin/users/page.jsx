@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Filter, Search, BookOpen, Edit2, X, DollarSign, AlertTriangle, Trash2, Calendar, Layout, List } from "lucide-react";
 import { getApiUrl } from "@/lib/apiConfig";
 
@@ -64,6 +64,10 @@ export default function SuperAdminUsers() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [expandedUser, setExpandedUser] = useState(null);
+  const [detailsView, setDetailsView] = useState(null); // { bettor, type }
+  const [transactionDetails, setTransactionDetails] = useState([]);
+  const [isDetailsLoading, setIsDetailsLoading] = useState(false);
 
   const fetchFinalSheet = async () => {
     setIsFinalSheetLoading(true);
@@ -104,6 +108,31 @@ export default function SuperAdminUsers() {
       console.error("Error fetching daily report:", err);
     } finally {
       setReportLoading(false);
+    }
+  };
+
+  const fetchDailyReportDetails = async (bettor, type = 'all') => {
+    setIsDetailsLoading(true);
+    const token = getAuthToken();
+    try {
+      let url = `${getApiUrl()}/api/admin/daily-report-details?bettor=${bettor}&type=${type}&reportType=${reportPeriod}`;
+      if (reportPeriod === 'daily') url += `&date=${selectedDate}`;
+      else if (reportPeriod === 'monthly') url += `&month=${selectedMonth}`;
+      else if (reportPeriod === 'yearly') url += `&year=${selectedYear}`;
+      else if (reportPeriod === 'range') url += `&startDate=${startDate}&endDate=${endDate}`;
+
+      const res = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTransactionDetails(data);
+        setDetailsView({ bettor, type });
+      }
+    } catch (err) {
+      console.error("Error fetching details:", err);
+    } finally {
+      setIsDetailsLoading(false);
     }
   };
 
@@ -412,8 +441,9 @@ export default function SuperAdminUsers() {
     switch (activeReportType) {
       case "Daily Report":
         const filteredDailyProfit = dailyReportData.profit.filter(u => !hideZero || u.amount !== 0);
+        const filteredDailyLoss = dailyReportData.loss.filter(u => !hideZero || u.amount !== 0);
         const totalDailyProfit = filteredDailyProfit.reduce((sum, u) => sum + (u.amount || 0), 0);
-        const totalDailyLoss = dailyReportData.loss.reduce((sum, u) => sum + (u.amount || 0), 0);
+        const totalDailyLoss = filteredDailyLoss.reduce((sum, u) => sum + (u.amount || 0), 0);
 
         return (
           <div className="flex flex-col gap-4 animate-in fade-in duration-300">
@@ -526,30 +556,90 @@ export default function SuperAdminUsers() {
                 <table className="w-full text-[12px]">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-200 text-left font-bold text-gray-700">
-                      <th className="px-3 py-2 border-r border-gray-200">Name</th>
-                      <th className="px-3 py-2">Amount</th>
+                      <th className="px-3 py-2 border-r border-gray-200">Name <span className="text-[10px] ml-1">▲▼</span></th>
+                      <th className="px-3 py-2">Amount <span className="text-[10px] ml-1">▲▼</span></th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredDailyProfit.map((u, i) => (
-                      <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td 
-                          className="px-3 py-2 border-r border-gray-100 cursor-pointer group"
-                          onClick={() => setShowParentFor(showParentFor === u.name ? null : u.name)}
-                        >
-                          <div className="flex flex-col group">
-                            <span className="text-blue-600 font-medium group-hover:text-blue-800 transition-colors">{u.name}</span>
-                            {u.parent && u.parent !== 'None' && u.parent !== 'Legacy' && (
-                              <span className={`text-[10px] text-blue-500 font-bold italic transition-all duration-300 ${showParentFor === u.name ? 'opacity-100 block' : 'opacity-0 group-hover:opacity-100 hidden group-hover:block'}`}>
-                                Parent: {u.parent}
+                      <React.Fragment key={`profit-${i}`}>
+                        <tr className="border-b border-gray-100 hover:bg-gray-50">
+                          <td 
+                            className="px-3 py-2 border-r border-gray-100 cursor-pointer group"
+                            onClick={() => setShowParentFor(showParentFor === u.name ? null : u.name)}
+                          >
+                            <div className="flex flex-col group">
+                              <span className="text-blue-600 font-medium group-hover:text-blue-800 transition-colors">{u.name}</span>
+                              {u.parent && u.parent !== 'None' && u.parent !== 'Legacy' && (
+                                <span className={`text-[10px] text-blue-500 font-bold italic transition-all duration-300 ${showParentFor === u.name ? 'opacity-100 block' : 'opacity-0 group-hover:opacity-100 hidden group-hover:block'}`}>
+                                  Parent: {u.parent}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td 
+                            className={`px-3 py-2 font-bold cursor-pointer hover:bg-green-50 transition-all duration-200 border-l border-gray-100 ${u.amount > 0 ? 'text-green-600' : 'text-gray-600'}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedUser(expandedUser === u.name ? null : u.name);
+                            }}
+                          >
+                            <div className="flex items-center justify-between pointer-events-none">
+                              <span>{u.amount.toLocaleString()}</span>
+                              <span className={`text-[10px] transition-transform duration-300 ${expandedUser === u.name ? 'rotate-180 text-[#1abc9c]' : 'text-gray-400'}`}>
+                                ▼
                               </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className={`px-3 py-2 font-bold ${u.amount > 0 ? 'text-green-600' : 'text-gray-600'}`}>
-                          {u.amount.toLocaleString()}
-                        </td>
-                      </tr>
+                            </div>
+                          </td>
+                        </tr>
+                        {expandedUser === u.name && (
+                          <tr className="bg-gray-50 border-b border-gray-200">
+                            <td colSpan="2" className="p-2">
+                              <div className="bg-white border border-gray-200 rounded shadow-inner p-2 text-[11px]">
+                                <table className="w-full">
+                                  <thead>
+                                    <tr className="border-b border-gray-100 text-gray-500 text-[10px] uppercase">
+                                      <th className="text-left py-1">Category</th>
+                                      <th className="text-center py-1 text-green-600">Green</th>
+                                      <th className="text-center py-1 text-red-600">Red</th>
+                                      <th className="text-right py-1">Net P/L</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    <tr className="border-b border-gray-50 hover:bg-blue-50 cursor-pointer group" onClick={() => fetchDailyReportDetails(u.name, 'cricket')}>
+                                      <td className="py-1.5 font-medium">Cricket</td>
+                                      <td className="text-center font-bold text-green-600">{u.breakdown?.cricket?.wins?.toLocaleString() || '0'}</td>
+                                      <td className="text-center font-bold text-red-600">{u.breakdown?.cricket?.losses?.toLocaleString() || '0'}</td>
+                                      <td className={`text-right font-black ${u.breakdown?.cricket?.net >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                        {u.breakdown?.cricket?.net >= 0 ? '+' : ''}{u.breakdown?.cricket?.net?.toLocaleString() || '0'}
+                                      </td>
+                                    </tr>
+                                    <tr className="border-b border-gray-50 hover:bg-blue-50 cursor-pointer group" onClick={() => fetchDailyReportDetails(u.name, 'casino')}>
+                                      <td className="py-1.5 font-medium">Casino</td>
+                                      <td className="text-center font-bold text-green-600">{u.breakdown?.casino?.wins?.toLocaleString() || '0'}</td>
+                                      <td className="text-center font-bold text-red-600">{u.breakdown?.casino?.losses?.toLocaleString() || '0'}</td>
+                                      <td className={`text-right font-black ${u.breakdown?.casino?.net >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                        {u.breakdown?.casino?.net >= 0 ? '+' : ''}{u.breakdown?.casino?.net?.toLocaleString() || '0'}
+                                      </td>
+                                    </tr>
+                                  </tbody>
+                                  <tfoot>
+                                    <tr className="font-black bg-gray-50 text-[11px]">
+                                      <td className="py-1 uppercase">Total</td>
+                                      <td className="text-center text-green-600">{( (u.breakdown?.cricket?.wins || 0) + (u.breakdown?.casino?.wins || 0) ).toLocaleString()}</td>
+                                      <td className="text-center text-red-600">{( (u.breakdown?.cricket?.losses || 0) + (u.breakdown?.casino?.losses || 0) ).toLocaleString()}</td>
+                                      <td className={`text-right ${u.breakdown?.totalNet >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                        {u.breakdown?.totalNet >= 0 ? '+' : ''}{u.breakdown?.totalNet?.toLocaleString() || '0'}
+                                      </td>
+                                    </tr>
+                                  </tfoot>
+                                </table>
+                                <div className="text-[9px] text-gray-400 mt-1 italic text-center">Click on Cricket or Casino for full history</div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
                     {filteredDailyProfit.length === 0 && (
                       <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No data found for this date</td></tr>
@@ -568,30 +658,84 @@ export default function SuperAdminUsers() {
                 <table className="w-full text-[12px]">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-200 text-left font-bold text-gray-700">
-                      <th className="px-3 py-2 border-r border-gray-200">Name</th>
-                      <th className="px-3 py-2">Amount</th>
+                      <th className="px-3 py-2 border-r border-gray-200">Name <span className="text-[10px] ml-1">▲▼</span></th>
+                      <th className="px-3 py-2">Amount <span className="text-[10px] ml-1">▲▼</span></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {dailyReportData.loss.map((u, i) => (
-                      <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td 
-                          className="px-3 py-2 border-r border-gray-100 cursor-pointer group"
-                          onClick={() => setShowParentFor(showParentFor === u.name ? null : u.name)}
-                        >
-                          <div className="flex flex-col group">
-                            <span className="text-red-500 font-bold group-hover:text-red-700 transition-colors">{u.name}</span>
-                            {u.parent && u.parent !== 'None' && u.parent !== 'Legacy' && (
-                              <span className={`text-[10px] text-blue-500 font-bold italic transition-all duration-300 ${showParentFor === u.name ? 'opacity-100 block' : 'opacity-0 group-hover:opacity-100 hidden group-hover:block'}`}>
-                                Parent: {u.parent}
+                    {filteredDailyLoss.map((u, i) => (
+                      <React.Fragment key={`loss-${i}`}>
+                        <tr className="border-b border-gray-100 hover:bg-gray-50">
+                          <td 
+                            className="px-3 py-2 border-r border-gray-100 cursor-pointer group"
+                            onClick={() => setShowParentFor(showParentFor === u.name ? null : u.name)}
+                          >
+                            <div className="flex flex-col group">
+                              <span className="text-red-500 font-bold group-hover:text-red-700 transition-colors">{u.name}</span>
+                              {u.parent && u.parent !== 'None' && u.parent !== 'Legacy' && (
+                                <span className={`text-[10px] text-blue-500 font-bold italic transition-all duration-300 ${showParentFor === u.name ? 'opacity-100 block' : 'opacity-0 group-hover:opacity-100 hidden group-hover:block'}`}>
+                                  Parent: {u.parent}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td 
+                            className="px-3 py-2 text-red-500 font-bold cursor-pointer hover:bg-red-50 transition-all duration-200 border-l border-gray-100"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedUser(expandedUser === u.name ? null : u.name);
+                            }}
+                          >
+                            <div className="flex items-center justify-between pointer-events-none">
+                              <span>{u.amount.toLocaleString()}</span>
+                              <span className={`text-[10px] transition-transform duration-300 ${expandedUser === u.name ? 'rotate-180 text-red-500' : 'text-gray-400'}`}>
+                                ▼
                               </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 text-red-500 font-bold">{u.amount.toLocaleString()}</td>
-                      </tr>
+                            </div>
+                          </td>
+                        </tr>
+                        {expandedUser === u.name && (
+                          <tr className="bg-gray-50 border-b border-gray-200">
+                            <td colSpan="2" className="p-2">
+                              <div className="bg-white border border-gray-200 rounded shadow-inner p-2 text-[11px]">
+                                <table className="w-full">
+                                  <thead>
+                                    <tr className="border-b border-gray-100 text-gray-500">
+                                      <th className="text-left py-1">Type</th>
+                                      <th className="text-right py-1">P/L</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    <tr className="border-b border-gray-50 hover:bg-blue-50 cursor-pointer" onClick={() => fetchDailyReportDetails(u.name, 'cricket')}>
+                                      <td className="py-1.5 font-medium">Cricket</td>
+                                      <td className={`text-right font-bold ${u.breakdown?.cricket?.net >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                        {u.breakdown?.cricket?.net?.toLocaleString() || '0'}
+                                      </td>
+                                    </tr>
+                                    <tr className="border-b border-gray-50 hover:bg-blue-50 cursor-pointer" onClick={() => fetchDailyReportDetails(u.name, 'casino')}>
+                                      <td className="py-1.5 font-medium">Casino</td>
+                                      <td className={`text-right font-bold ${u.breakdown?.casino?.net >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                        {u.breakdown?.casino?.net?.toLocaleString() || '0'}
+                                      </td>
+                                    </tr>
+                                  </tbody>
+                                  <tfoot>
+                                    <tr className="font-bold bg-gray-50">
+                                      <td className="py-1">Total</td>
+                                      <td className={`text-right ${u.breakdown?.totalNet >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                        {u.breakdown?.totalNet?.toLocaleString() || '0'}
+                                      </td>
+                                    </tr>
+                                  </tfoot>
+                                </table>
+                                <div className="text-[9px] text-gray-400 mt-1 italic text-center">Click on Cricket or Casino for full history</div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
-                    {dailyReportData.loss.length === 0 && (
+                    {filteredDailyLoss.length === 0 && (
                       <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No data found for this date</td></tr>
                     )}
                   </tbody>
@@ -604,6 +748,10 @@ export default function SuperAdminUsers() {
                 </table>
               </div>
             </div>
+            <div className={`mt-4 p-3 rounded-sm text-white font-bold flex justify-between items-center shadow-md ${totalDailyProfit - totalDailyLoss >= 0 ? 'bg-gradient-to-r from-green-600 to-green-500' : 'bg-gradient-to-r from-red-600 to-red-500'}`}>
+              <span className="text-sm uppercase tracking-wider">Net Total P/L</span>
+              <span className="text-xl font-black">{(totalDailyProfit - totalDailyLoss).toLocaleString()}</span>
+            </div>
           </div>
         </div>
       );
@@ -612,9 +760,10 @@ export default function SuperAdminUsers() {
           return <div className="p-10 text-center text-gray-500 italic bg-white border border-gray-300">Loading Final Sheet...</div>;
         }
 
-        const filteredProfit = finalSheetData.profit.filter(u => !hideZero || u.amount !== 0);
+        const filteredProfit = finalSheetData.profit.filter(u => (!hideZero || u.amount !== 0) && u.role !== 'user');
+        const filteredLoss = finalSheetData.loss.filter(u => u.role !== 'user');
         const totalProfit = filteredProfit.reduce((sum, u) => sum + (u.amount || 0), 0);
-        const totalLoss = finalSheetData.loss.reduce((sum, u) => sum + (u.amount || 0), 0);
+        const totalLoss = filteredLoss.reduce((sum, u) => sum + (u.amount || 0), 0);
 
         return (
           <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden animate-in fade-in duration-300">
@@ -671,13 +820,13 @@ export default function SuperAdminUsers() {
                     </tr>
                   </thead>
                   <tbody>
-                    {finalSheetData.loss.map((u, i) => (
+                    {filteredLoss.map((u, i) => (
                       <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="px-3 py-2 border-r text-red-500 font-bold">{u.name}</td>
                         <td className="px-3 py-2 text-red-500 font-bold">{u.amount.toLocaleString()}</td>
                       </tr>
                     ))}
-                    {finalSheetData.loss.length === 0 && (
+                    {filteredLoss.length === 0 && (
                       <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No data found</td></tr>
                     )}
                   </tbody>
@@ -689,6 +838,10 @@ export default function SuperAdminUsers() {
                   </tfoot>
                 </table>
               </div>
+            </div>
+            <div className={`m-4 p-3 rounded-sm text-white font-bold flex justify-between items-center shadow-md ${totalProfit - totalLoss >= 0 ? 'bg-gradient-to-r from-green-600 to-green-500' : 'bg-gradient-to-r from-red-600 to-red-500'}`}>
+              <span className="text-sm uppercase tracking-wider">Net Total P/L</span>
+              <span className="text-xl font-black">{(totalProfit - totalLoss).toLocaleString()}</span>
             </div>
           </div>
         );
@@ -1289,9 +1442,87 @@ export default function SuperAdminUsers() {
         renderReportUI()
       )}
 
-      <div className="text-gray-800 text-xs font-medium mt-2 italic">
-        Welcome to Betproexchange SuperAdmin Portal.
-      </div>
+      {detailsView && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in duration-200">
+            <div className="bg-white border-b border-gray-300 px-4 py-3 flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <div className="bg-[#1abc9c] w-1 h-6 rounded-full"></div>
+                <h3 className="font-bold text-gray-800 text-[14px]">
+                  {detailsView.bettor} / {detailsView.type === 'cricket' ? 'Cricket-Markets Reports' : 'Casino-Markets Reports'}
+                </h3>
+              </div>
+              <button onClick={() => setDetailsView(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-auto p-4">
+              {isDetailsLoading ? (
+                <div className="flex flex-col items-center justify-center h-40 gap-2 text-gray-400">
+                  <div className="w-8 h-8 border-4 border-[#1abc9c] border-t-transparent rounded-full animate-spin"></div>
+                  <p className="animate-pulse">Fetching transaction records...</p>
+                </div>
+              ) : transactionDetails.length > 0 ? (
+                <div className="border border-gray-300 rounded-sm overflow-hidden shadow-sm">
+                  <table className="w-full text-left text-[11px] border-collapse">
+                    <thead className="bg-white border-b border-gray-300">
+                      <tr>
+                        <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-300 w-[140px]">Date</th>
+                        <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-300">Event</th>
+                        <th className="px-3 py-2 font-bold text-gray-700 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {transactionDetails.map((tx, idx) => {
+                        const netAmount = tx.amount; // Positive = Master Profit
+                        return (
+                          <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-3 py-2 text-gray-500 border-r border-gray-100">
+                              {new Date(tx.createdAt || tx.timestamp).toLocaleString('en-GB', { 
+                                day: '2-digit', month: '2-digit', year: 'numeric', 
+                                hour: '2-digit', minute: '2-digit', hour12: true 
+                              })}
+                            </td>
+                            <td className="px-3 py-2 text-[#1abc9c] font-medium border-r border-gray-100">
+                              {tx.matchName ? (
+                                `${tx.matchName}${tx.selection ? ` (${tx.selection})` : ''}`
+                              ) : (
+                                (tx.event || tx.description || '').split('|')[0].trim().includes('Share from') 
+                                ? ((tx.event || tx.description || '').includes('Casino') ? 'Casino Game' : 'Cricket Match')
+                                : (tx.event || tx.description || '').split('|')[0].trim()
+                              )}
+                            </td>
+                            <td className={`px-3 py-2 text-right font-bold ${netAmount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                              {netAmount.toLocaleString()}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-[#1abc9c] text-white font-bold">
+                        <td colSpan="2" className="px-3 py-2 border-r border-[#16a085] uppercase text-[10px]">Total</td>
+                        <td className="px-3 py-2 text-right">
+                          {transactionDetails.reduce((sum, t) => sum + t.amount, 0).toLocaleString()}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-20 text-gray-400 italic font-bold">No transactions found for this period.</div>
+              )}
+            </div>
+            
+            <div className="bg-gray-50 p-4 border-t border-gray-200 flex justify-end">
+              <button onClick={() => setDetailsView(null)} className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold px-6 py-2 rounded-lg transition-all active:scale-95 text-xs uppercase tracking-widest">
+                Close View
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
