@@ -442,7 +442,6 @@ export default function MasterReports() {
               <span className="text-xl font-black">{(totalDailyLoss - totalDailyProfit).toLocaleString()}</span>
             </div>
           </div>
-        </div>
       );
 
     case "Final Sheet":
