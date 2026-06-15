@@ -681,6 +681,7 @@ export default function AdminUsers() {
               <span className="text-xl font-black">{(totalDailyProfit - totalDailyLoss).toLocaleString()}</span>
             </div>
           </div>
+        </div>
         );
       case "Final Sheet":
         if (isFinalSheetLoading) {
