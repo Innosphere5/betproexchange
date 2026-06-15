@@ -442,7 +442,8 @@ export default function MasterReports() {
               <span className="text-xl font-black">{(totalDailyLoss - totalDailyProfit).toLocaleString()}</span>
             </div>
           </div>
-        );
+        </div>
+      );
 
     case "Final Sheet":
         const filteredProfit = finalSheetData.profit.filter(u => (!hideZero || u.amount !== 0) && u.role !== 'user');

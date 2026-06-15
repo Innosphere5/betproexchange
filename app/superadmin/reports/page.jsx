@@ -400,10 +400,6 @@ export default function SuperAdminReports() {
                 )}
               </div>
             </div>
-            <div className={`mt-2 p-3 rounded-sm text-white font-bold flex justify-between items-center shadow-md ${totalDailyProfit - totalDailyLoss >= 0 ? 'bg-gradient-to-r from-green-600 to-green-500' : 'bg-gradient-to-r from-red-600 to-red-500'}`}>
-              <span className="text-sm uppercase tracking-wider">Net Total P/L</span>
-              <span className="text-xl font-black">{(totalDailyProfit - totalDailyLoss).toLocaleString()}</span>
-            </div>
           </div>
         );
 

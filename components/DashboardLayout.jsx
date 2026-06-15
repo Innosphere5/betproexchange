@@ -247,18 +247,10 @@ export default function DashboardLayout({ children }) {
       }
     };
 
-    let pollTimeout;
-    const poll = async () => {
-        await fetchLiveScores();
-        pollTimeout = setTimeout(poll, 1000);
-    };
-
     fetchMatches();
-    poll(); 
 
     return () => {
       socket.disconnect();
-      clearTimeout(pollTimeout);
     };
   }, []);
 
