@@ -55,8 +55,9 @@ export default function AdminUsers() {
   const [hideZero, setHideZero] = useState(false);
   const [reportData, setReportData] = useState([]);
   const [reportLoading, setReportLoading] = useState(false);
-  const [finalSheetData, setFinalSheetData] = useState({ profit: [], loss: [] });
+  const [finalSheetData, setFinalSheetData] = useState({ accounts: [] });
   const [dailyReportData, setDailyReportData] = useState({ profit: [], loss: [] });
+  const [adminShare, setAdminShare] = useState(85);
   const [isFinalSheetLoading, setIsFinalSheetLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [reportPeriod, setReportPeriod] = useState("daily"); // daily, monthly, yearly, range
@@ -187,8 +188,25 @@ export default function AdminUsers() {
     }
   };
 
+  const fetchUserProfile = async () => {
+    const token = getAuthToken();
+    if (!token) return;
+    try {
+      const res = await fetch(`${getApiUrl()}/api/auth/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok && data.share !== undefined) {
+        setAdminShare(data.share);
+      }
+    } catch (err) {
+      console.error("Error fetching user profile:", err);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
+    fetchUserProfile();
   }, []);
 
   const handleCreateUser = async (e) => {
@@ -330,8 +348,7 @@ export default function AdminUsers() {
         },
         body: JSON.stringify({
           targetUsername: selectedUser.username,
-          newPassword: editPassword,
-          share: parseFloat(editShare) || 0
+          newPassword: editPassword
         })
       });
 
@@ -688,10 +705,14 @@ export default function AdminUsers() {
           return <div className="p-10 text-center text-gray-500 italic bg-white border border-gray-300">Loading Final Sheet...</div>;
         }
 
-        const filteredProfit = finalSheetData.profit.filter(u => (!hideZero || u.amount !== 0) && u.role !== 'user');
-        const filteredLoss = finalSheetData.loss.filter(u => u.role !== 'user');
-        const totalProfit = filteredProfit.reduce((sum, u) => sum + (u.amount || 0), 0);
-        const totalLoss = filteredLoss.reduce((sum, u) => sum + (u.amount || 0), 0);
+        const finalAccounts = finalSheetData.accounts || [];
+        const filteredFinalAccounts = finalAccounts.filter(u => (!hideZero || u.net !== 0) && u.role !== 'user');
+        
+        const positiveAccounts = filteredFinalAccounts.filter(u => u.net >= 0);
+        const negativeAccounts = filteredFinalAccounts.filter(u => u.net < 0);
+        
+        const totalPositiveNet = positiveAccounts.reduce((sum, u) => sum + u.net, 0);
+        const totalNegativeNet = negativeAccounts.reduce((sum, u) => sum + u.net, 0);
 
         return (
           <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden animate-in fade-in duration-300">
@@ -706,70 +727,70 @@ export default function AdminUsers() {
               </div>
             </div>
             <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Green Side (Profit/Income) */}
+              {/* Positive Net Table */}
               <div className="border border-gray-200">
-                <table className="w-full text-[12px]">
+                <table className="w-full text-[12px] border-collapse text-left">
                   <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200 text-left font-bold text-gray-700">
-                      <th className="px-3 py-2 border-r">Name</th>
-                      <th className="px-3 py-2">Amount</th>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200">Name <span className="text-[10px] ml-1 text-blue-500">▲▼</span></th>
+                      <th className="px-3 py-2 font-bold text-gray-700">Amount <span className="text-[10px] ml-1 text-blue-500">▲▼</span></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredProfit.map((u, i) => (
+                    {positiveAccounts.map((u, i) => (
                       <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-3 py-2 border-r text-blue-600 font-medium">
-                          {u.name} {u.role && <span className="ml-1 text-[9px] bg-gray-100 text-gray-500 px-1 rounded uppercase">{u.role}</span>}
+                        <td className="px-3 py-2 border-r border-gray-100 text-[#1abc9c] font-medium">
+                          {u.name} {u.role && <span className="ml-1 text-[9px] bg-gray-100 text-gray-500 px-1 rounded uppercase font-bold">{u.role}</span>}
                         </td>
-                        <td className={`px-3 py-2 font-bold ${u.amount > 0 ? 'text-green-600' : 'text-gray-600'}`}>
-                          {u.amount.toLocaleString()}
+                        <td className="px-3 py-2 font-bold text-gray-700">
+                          {u.net.toLocaleString()}
                         </td>
                       </tr>
                     ))}
-                    {filteredProfit.length === 0 && (
+                    {positiveAccounts.length === 0 && (
                       <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No data found</td></tr>
                     )}
                   </tbody>
                   <tfoot>
                     <tr className="bg-[#1abc9c] text-white font-bold">
                       <td className="px-3 py-2 border-r border-teal-600">Total</td>
-                      <td className="px-3 py-2">{totalProfit.toLocaleString()}</td>
+                      <td className="px-3 py-2">{totalPositiveNet.toLocaleString()}</td>
                     </tr>
                   </tfoot>
                 </table>
               </div>
-              {/* Red Side (Loss/Spent) */}
+              {/* Negative Net Table */}
               <div className="border border-gray-200">
-                <table className="w-full text-[12px]">
+                <table className="w-full text-[12px] border-collapse text-left">
                   <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200 text-left font-bold text-gray-700">
-                      <th className="px-3 py-2 border-r">Name</th>
-                      <th className="px-3 py-2">Amount</th>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200">Name <span className="text-[10px] ml-1 text-blue-500">▲▼</span></th>
+                      <th className="px-3 py-2 font-bold text-gray-700">Amount <span className="text-[10px] ml-1 text-blue-500">▲▼</span></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredLoss.map((u, i) => (
+                    {negativeAccounts.map((u, i) => (
                       <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-3 py-2 border-r text-red-500 font-bold">{u.name}</td>
-                        <td className="px-3 py-2 text-red-500 font-bold">{u.amount.toLocaleString()}</td>
+                        <td className="px-3 py-2 border-r border-gray-100 text-[#1abc9c] font-medium">
+                          {u.name} {u.role && <span className="ml-1 text-[9px] bg-gray-100 text-gray-500 px-1 rounded uppercase font-bold">{u.role}</span>}
+                        </td>
+                        <td className="px-3 py-2 font-bold text-red-500">
+                          {u.net.toLocaleString()}
+                        </td>
                       </tr>
                     ))}
-                    {filteredLoss.length === 0 && (
+                    {negativeAccounts.length === 0 && (
                       <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No data found</td></tr>
                     )}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-[#e74c3c] text-white font-bold">
-                      <td className="px-3 py-2 border-r border-red-400">Total</td>
-                      <td className="px-3 py-2">{totalLoss.toLocaleString()}</td>
+                    <tr className="bg-[#f25c54] text-white font-bold">
+                      <td className="px-3 py-2 border-r border-[#e04a43]">Total</td>
+                      <td className="px-3 py-2">{totalNegativeNet.toLocaleString()}</td>
                     </tr>
                   </tfoot>
                 </table>
               </div>
-            </div>
-            <div className={`mt-2 p-3 rounded-sm text-white font-bold flex justify-between items-center shadow-md ${totalProfit - totalLoss >= 0 ? 'bg-gradient-to-r from-green-600 to-green-500' : 'bg-gradient-to-r from-red-600 to-red-500'}`}>
-              <span className="text-sm uppercase tracking-wider">Net Total P/L</span>
-              <span className="text-xl font-black">{(totalProfit - totalLoss).toLocaleString()}</span>
             </div>
           </div>
         );
@@ -919,11 +940,11 @@ export default function AdminUsers() {
               </div>
               {newType === "master" && (
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Share (%) (0-85)</label>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Share (%) (0-{adminShare > 0 ? adminShare - 1 : 0})</label>
                   <input
                     type="number"
                     min="0"
-                    max="85"
+                    max={adminShare > 0 ? adminShare - 1 : 0}
                     value={newShare}
                     onChange={(e) => setNewShare(e.target.value)}
                     placeholder="Enter share percentage"
@@ -1162,16 +1183,11 @@ export default function AdminUsers() {
             <form onSubmit={handleUpdateUser} className="p-6 space-y-4 font-sans">
               {selectedUser?.role === 'master' && (
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Company Share (%) (0-85)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="85"
-                    required
-                    value={editShare}
-                    onChange={(e) => setEditShare(e.target.value)}
-                    className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#1abc9c] font-bold"
-                  />
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Company Share (%)</label>
+                  <div className="w-full border border-gray-200 bg-gray-50 px-3 py-2 rounded font-bold text-gray-500 flex justify-between items-center text-sm">
+                    <span>{editShare}%</span>
+                    <span className="text-[10px] text-gray-400 font-normal italic">Locked after creation</span>
+                  </div>
                 </div>
               )}
               <div>

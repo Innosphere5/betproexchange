@@ -7,8 +7,8 @@ import { getApiUrl } from "@/lib/apiConfig";
 export default function SuperAdminReports() {
   const [activeReport, setActiveReport] = useState("Daily Report");
   const [hideZero, setHideZero] = useState(false);
-  const [finalSheetData, setFinalSheetData] = useState({ profit: [], loss: [] });
-  const [dailyReportData, setDailyReportData] = useState({ profit: [], loss: [] });
+  const [finalSheetData, setFinalSheetData] = useState({ accounts: [] });
+  const [dailyReportData, setDailyReportData] = useState({ accounts: [] });
   const [showParentFor, setShowParentFor] = useState(null); // Track clicked user to keep parent visible
   const [isLoading, setIsLoading] = useState(false);
   const [commissionData, setCommissionData] = useState([]);
@@ -180,10 +180,11 @@ export default function SuperAdminReports() {
 
     switch (activeReport) {
       case "Daily Report":
-        const filteredDailyProfit = dailyReportData.profit.filter(u => !hideZero || u.amount !== 0);
-        const filteredDailyLoss = dailyReportData.loss.filter(u => !hideZero || u.amount !== 0);
-        const totalDailyProfit = filteredDailyProfit.reduce((sum, u) => sum + (u.amount || 0), 0);
-        const totalDailyLoss = filteredDailyLoss.reduce((sum, u) => sum + (u.amount || 0), 0);
+        const dailyAccounts = dailyReportData.accounts || [];
+        const filteredDailyAccounts = dailyAccounts.filter(u => !hideZero || u.green !== 0 || u.red !== 0 || u.net !== 0);
+        const totalDailyGreen = filteredDailyAccounts.reduce((sum, u) => sum + (u.green || 0), 0);
+        const totalDailyRed = filteredDailyAccounts.reduce((sum, u) => sum + (u.red || 0), 0);
+        const totalDailyNet = filteredDailyAccounts.reduce((sum, u) => sum + (u.net || 0), 0);
 
         return (
           <div className="flex flex-col gap-4">
@@ -259,57 +260,55 @@ export default function SuperAdminReports() {
                   <div className="flex items-center gap-2 uppercase tracking-tight"><Layout size={16} /> Report</div>
                   <button onClick={handleClearReport} className="bg-red-500 hover:bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">Clear Data</button>
                 </div>
-                <div className="p-3 grid grid-cols-2 gap-3">
-                  {/* Profit Table */}
-                  <div className="border border-gray-300">
-                    <table className="w-full text-[11px]">
-                      <thead>
-                        <tr className="bg-white border-b border-gray-300 text-left">
-                          <th className="px-2 py-1.5 font-bold border-r border-gray-300">Name <span className="text-[9px] ml-1 text-blue-400">▲▼</span></th>
-                          <th className="px-2 py-1.5 font-bold">Amount <span className="text-[9px] ml-1 text-gray-400">▲▼</span></th>
+                <div className="p-3 overflow-x-auto">
+                  <table className="w-full text-[11px] border-collapse text-left">
+                    <thead>
+                      <tr className="bg-white border-b border-gray-300">
+                        <th className="px-2 py-1.5 font-bold border-r border-gray-300">Name</th>
+                        <th className="px-2 py-1.5 font-bold border-r border-gray-300 text-right">Green</th>
+                        <th className="px-2 py-1.5 font-bold border-r border-gray-300 text-right">Red</th>
+                        <th className="px-2 py-1.5 font-bold text-right">Net</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredDailyAccounts.map((u, i) => (
+                        <tr key={i} className={`border-b border-gray-100 ${expandedUser === u.name ? 'bg-blue-50' : ''}`}>
+                          <td className="px-2 py-1.5 border-r border-gray-100 text-blue-600 font-medium">{u.name}</td>
+                          <td className="px-2 py-1.5 text-right border-r border-gray-100 text-green-600 font-bold">{u.green.toLocaleString()}</td>
+                          <td className="px-2 py-1.5 text-right border-r border-gray-100 text-red-500 font-bold">{u.red.toLocaleString()}</td>
+                          <td 
+                            className={`px-3 py-2 border-r border-gray-100 text-right font-bold cursor-pointer hover:bg-gray-50 ${u.net >= 0 ? 'text-green-600' : 'text-red-500'}`}
+                            onClick={() => { setExpandedUser(expandedUser === u.name ? null : u.name); if(expandedUser !== u.name) fetchDailyReportDetails(u.name); }}
+                          >
+                            <span>{u.net >= 0 ? `+${u.net.toLocaleString()}` : u.net.toLocaleString()}</span>
+                          </td>
+                          <td 
+                            className={`px-3 py-2 text-right font-bold cursor-pointer hover:bg-gray-50 ${u.myProfit >= 0 ? 'text-[#1abc9c]' : 'text-red-500'}`}
+                            onClick={() => { setExpandedUser(expandedUser === u.name ? null : u.name); if(expandedUser !== u.name) fetchDailyReportDetails(u.name); }}
+                          >
+                            <div className="flex items-center justify-end gap-1">
+                              <span>{u.myProfit >= 0 ? `+${u.myProfit?.toLocaleString()}` : u.myProfit?.toLocaleString()}</span>
+                              <span className={`text-[10px] transition-transform duration-300 ${expandedUser === u.name ? 'rotate-180 text-[#1abc9c]' : 'text-gray-400'}`}>
+                                ▼
+                              </span>
+                            </div>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {filteredDailyProfit.map((u, i) => (
-                          <tr key={i} className={`border-b border-gray-100 cursor-pointer hover:bg-gray-100 ${expandedUser === u.name ? 'bg-blue-50' : ''}`} onClick={() => { setExpandedUser(u.name); fetchDailyReportDetails(u.name); }}>
-                            <td className="px-2 py-1.5 border-r border-gray-100 text-blue-600 font-medium">{u.name}</td>
-                            <td className="px-2 py-1.5 text-green-600 font-bold">{u.amount.toLocaleString()}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        <tr className="bg-[#1abc9c] text-white font-bold">
-                          <td className="px-2 py-1.5 border-r border-[#16a085]">Total</td>
-                          <td className="px-2 py-1.5">{totalDailyProfit.toLocaleString()}</td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                  {/* Loss Table */}
-                  <div className="border border-gray-300">
-                    <table className="w-full text-[11px]">
-                      <thead>
-                        <tr className="bg-white border-b border-gray-300 text-left">
-                          <th className="px-2 py-1.5 font-bold border-r border-gray-300">Name <span className="text-[9px] ml-1 text-blue-400">▲▼</span></th>
-                          <th className="px-2 py-1.5 font-bold">Amount <span className="text-[9px] ml-1 text-gray-400">▲▼</span></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredDailyLoss.map((u, i) => (
-                          <tr key={i} className={`border-b border-gray-100 cursor-pointer hover:bg-gray-100 ${expandedUser === u.name ? 'bg-red-50' : ''}`} onClick={() => { setExpandedUser(u.name); fetchDailyReportDetails(u.name); }}>
-                            <td className="px-2 py-1.5 border-r border-gray-100 text-blue-600 font-medium">{u.name}</td>
-                            <td className="px-2 py-1.5 text-red-500 font-bold">{u.amount.toLocaleString()}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        <tr className="bg-[#e74c3c] text-white font-bold">
-                          <td className="px-2 py-1.5 border-r border-[#c0392b]">Total</td>
-                          <td className="px-2 py-1.5">{totalDailyLoss.toLocaleString()}</td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
+                      ))}
+                      {filteredDailyAccounts.length === 0 && (
+                        <tr><td colSpan="5" className="px-2 py-10 text-center text-gray-400 italic">No data found</td></tr>
+                      )}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-[#1abc9c] text-white font-bold">
+                        <td className="px-2 py-1.5 border-r border-[#16a085]">Total</td>
+                        <td className="px-2 py-1.5 text-right border-r border-[#16a085]">{totalDailyGreen.toLocaleString()}</td>
+                        <td className="px-2 py-1.5 text-right border-r border-[#16a085]">{totalDailyRed.toLocaleString()}</td>
+                        <td className="px-2 py-1.5 text-right border-r border-[#16a085]">{totalDailyNet >= 0 ? `+${totalDailyNet.toLocaleString()}` : totalDailyNet.toLocaleString()}</td>
+                        <td className="px-2 py-1.5 text-right">{filteredDailyAccounts.reduce((sum, u) => sum + (u.myProfit || 0), 0) >= 0 ? `+${filteredDailyAccounts.reduce((sum, u) => sum + (u.myProfit || 0), 0).toLocaleString()}` : filteredDailyAccounts.reduce((sum, u) => sum + (u.myProfit || 0), 0).toLocaleString()}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
                 </div>
               </div>
 
@@ -322,25 +321,31 @@ export default function SuperAdminReports() {
                         <Layout size={16} /> {expandedUser} - Sportwise Report
                       </div>
                       <div className="p-3">
-                        <table className="w-full text-[12px] border border-gray-300">
+                        <table className="w-full text-[12px] border border-gray-300 text-left border-collapse">
                           <thead>
-                            <tr className="bg-white border-b border-gray-300 text-left">
+                            <tr className="bg-white border-b border-gray-300">
                               <th className="px-3 py-1.5 font-bold border-r border-gray-300">Event</th>
-                              <th className="px-3 py-1.5 font-bold text-right">Amount</th>
+                              <th className="px-3 py-1.5 font-bold text-right border-r border-gray-300">Green</th>
+                              <th className="px-3 py-1.5 font-bold text-right border-r border-gray-300">Red</th>
+                              <th className="px-3 py-1.5 font-bold text-right">Net</th>
                             </tr>
                           </thead>
                           <tbody>
                             {(() => {
-                              const userObj = [...dailyReportData.profit, ...dailyReportData.loss].find(u => u.name === expandedUser);
+                              const userObj = dailyReportData.accounts?.find(u => u.name === expandedUser);
                               return (
                                 <>
-                                  <tr className="border-b border-gray-100">
-                                    <td className="px-3 py-1.5 border-r border-gray-100 text-green-600 font-medium">Cricket</td>
-                                    <td className="px-3 py-1.5 text-right font-bold text-gray-700">{userObj?.breakdown?.cricket?.net?.toLocaleString() || '0'}</td>
+                                  <tr className="border-b border-gray-100 hover:bg-blue-50 cursor-pointer" onClick={() => fetchDailyReportDetails(expandedUser, 'cricket')}>
+                                    <td className="px-3 py-1.5 border-r border-gray-100 text-blue-600 font-medium hover:underline">Cricket</td>
+                                    <td className="px-3 py-1.5 text-right border-r border-gray-100 font-bold text-green-600">{userObj?.breakdown?.cricket?.green?.toLocaleString() || '0'}</td>
+                                    <td className="px-3 py-1.5 text-right border-r border-gray-100 font-bold text-red-500">{userObj?.breakdown?.cricket?.red?.toLocaleString() || '0'}</td>
+                                    <td className={`px-3 py-1.5 text-right font-bold ${userObj?.breakdown?.cricket?.net >= 0 ? 'text-green-600' : 'text-red-500'}`}>{userObj?.breakdown?.cricket?.net >= 0 ? `+${userObj?.breakdown?.cricket?.net?.toLocaleString()}` : userObj?.breakdown?.cricket?.net?.toLocaleString()}</td>
                                   </tr>
-                                  <tr className="border-b border-gray-100">
-                                    <td className="px-3 py-1.5 border-r border-gray-100 text-green-600 font-medium text-opacity-80">Casino</td>
-                                    <td className="px-3 py-1.5 text-right font-bold text-gray-700">{userObj?.breakdown?.casino?.net?.toLocaleString() || '0'}</td>
+                                  <tr className="border-b border-gray-100 hover:bg-blue-50 cursor-pointer" onClick={() => fetchDailyReportDetails(expandedUser, 'casino')}>
+                                    <td className="px-3 py-1.5 border-r border-gray-100 text-blue-600 font-medium hover:underline">Casino</td>
+                                    <td className="px-3 py-1.5 text-right border-r border-gray-100 font-bold text-green-600">{userObj?.breakdown?.casino?.green?.toLocaleString() || '0'}</td>
+                                    <td className="px-3 py-1.5 text-right border-r border-gray-100 font-bold text-red-500">{userObj?.breakdown?.casino?.red?.toLocaleString() || '0'}</td>
+                                    <td className={`px-3 py-1.5 text-right font-bold ${userObj?.breakdown?.casino?.net >= 0 ? 'text-green-600' : 'text-red-500'}`}>{userObj?.breakdown?.casino?.net >= 0 ? `+${userObj?.breakdown?.casino?.net?.toLocaleString()}` : userObj?.breakdown?.casino?.net?.toLocaleString()}</td>
                                   </tr>
                                 </>
                               );
@@ -349,10 +354,22 @@ export default function SuperAdminReports() {
                           <tfoot>
                             <tr className="bg-[#1abc9c] text-white font-bold">
                               <td className="px-3 py-1.5 border-r border-[#16a085] uppercase">Total</td>
+                              <td className="px-3 py-1.5 text-right border-r border-[#16a085]">
+                                {(() => {
+                                  const userObj = dailyReportData.accounts?.find(u => u.name === expandedUser);
+                                  return (userObj?.green || 0).toLocaleString();
+                                })()}
+                              </td>
+                              <td className="px-3 py-1.5 text-right border-r border-[#16a085]">
+                                {(() => {
+                                  const userObj = dailyReportData.accounts?.find(u => u.name === expandedUser);
+                                  return (userObj?.red || 0).toLocaleString();
+                                })()}
+                              </td>
                               <td className="px-3 py-1.5 text-right">
                                 {(() => {
-                                  const userObj = [...dailyReportData.profit, ...dailyReportData.loss].find(u => u.name === expandedUser);
-                                  return (userObj?.breakdown?.totalNet || 0).toLocaleString();
+                                  const userObj = dailyReportData.accounts?.find(u => u.name === expandedUser);
+                                  return (userObj?.net || 0).toLocaleString();
                                 })()}
                               </td>
                             </tr>
@@ -366,9 +383,9 @@ export default function SuperAdminReports() {
                         <Layout size={16} /> {expandedUser} / Cricket-Markets Reports
                       </div>
                       <div className="p-3">
-                        <table className="w-full text-[11px] border border-gray-300">
+                        <table className="w-full text-[11px] border border-gray-300 text-left border-collapse">
                           <thead>
-                            <tr className="bg-white border-b border-gray-300 text-left">
+                            <tr className="bg-white border-b border-gray-300">
                               <th className="px-2 py-1.5 font-bold border-r border-gray-300">Date</th>
                               <th className="px-2 py-1.5 font-bold border-r border-gray-300">Event</th>
                               <th className="px-2 py-1.5 font-bold text-right">Amount</th>
@@ -385,7 +402,7 @@ export default function SuperAdminReports() {
                                 <td className="px-2 py-1.5 border-r border-gray-100 text-blue-600 font-medium">
                                   {t.event || t.description} {t.selection ? `(${t.selection})` : ''}
                                 </td>
-                                <td className="px-2 py-1.5 text-right font-bold text-gray-700">{Math.abs(t.amount).toLocaleString()}</td>
+                                <td className={`px-2 py-1.5 text-right font-bold ${t.amount >= 0 ? 'text-green-600' : 'text-red-500'}`}>{t.amount.toLocaleString()}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -404,97 +421,82 @@ export default function SuperAdminReports() {
         );
 
       case "Final Sheet":
-  const filteredProfit = finalSheetData.profit.filter(u => (!hideZero || u.amount !== 0) && u.role !== 'user');
-  const filteredLoss = finalSheetData.loss.filter(u => u.role !== 'user');
-  const totalProfit = filteredProfit.reduce((sum, u) => sum + (u.amount || 0), 0);
-  const totalLoss = filteredLoss.reduce((sum, u) => sum + (u.amount || 0), 0);
+        const finalAccounts = finalSheetData.accounts || [];
+        const filteredFinalAccounts = finalAccounts.filter(u => !hideZero || u.green !== 0 || u.red !== 0 || u.net !== 0);
+        const totalFinalGreen = filteredFinalAccounts.reduce((sum, u) => sum + (u.green || 0), 0);
+        const totalFinalRed = filteredFinalAccounts.reduce((sum, u) => sum + (u.red || 0), 0);
+        const totalFinalNet = filteredFinalAccounts.reduce((sum, u) => sum + (u.net || 0), 0);
 
-  return (
-    <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden">
-      <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px]">
-        <div className="flex items-center gap-2 mb-1">
-          <List size={16} className="text-gray-700" />
-          SuperAdmin - Final Sheet
-        </div>
-        <div className="flex items-center gap-1 font-normal text-gray-600 text-[11px]">
-          <input
-            type="checkbox"
-            id="hideZero"
-            checked={hideZero}
-            onChange={(e) => setHideZero(e.target.checked)}
-            className="w-3 h-3 accent-[#1abc9c]"
-          />
-          <label htmlFor="hideZero">Hide Zero Amounts</label>
-        </div>
-      </div>
-      <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Left Side: Users/Profit */}
-        <div className="border border-gray-200">
-          <table className="w-full text-[12px]">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-left">
-                <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200">Name <span className="text-[10px] ml-1">▲▼</span></th>
-                <th className="px-3 py-2 font-bold text-gray-700">Amount <span className="text-[10px] ml-1">▲▼</span></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredProfit.map((u, i) => (
-                <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="px-3 py-2 border-r border-gray-100 text-blue-600 font-medium">
-                    {u.name}
-                  </td>
-                  <td className={`px-3 py-2 font-bold ${u.amount > 0 ? 'text-green-600' : 'text-gray-600'}`}>
-                    {u.amount.toLocaleString()}
-                  </td>
-                </tr>
-              ))}
-              {filteredProfit.length === 0 && (
-                <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No data found</td></tr>
-              )}
-            </tbody>
-            <tfoot>
-              <tr className="bg-[#1abc9c] text-white font-bold">
-                <td className="px-3 py-2 border-r border-teal-600">Total</td>
-                <td className="px-3 py-2">{totalProfit.toLocaleString()}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-        {/* Right Side: Cash/Loss */}
-        <div className="border border-gray-200">
-          <table className="w-full text-[12px]">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-left">
-                <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200">Name <span className="text-[10px] ml-1">▲▼</span></th>
-                <th className="px-3 py-2 font-bold text-gray-700">Amount <span className="text-[10px] ml-1">▲▼</span></th>
-              </tr>
-            </thead>
-            <tbody>
-            {filteredLoss.map((u, i) => (
-                <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="px-3 py-2 border-r border-gray-100 text-red-500 font-bold">{u.name}</td>
-                  <td className="px-3 py-2 text-red-500 font-bold">{u.amount.toLocaleString()}</td>
-                </tr>
-              ))}
-              {filteredLoss.length === 0 && (
-                <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No data found</td></tr>
-              )}
-            </tbody>
-            <tfoot>
-              <tr className="bg-[#e74c3c] text-white font-bold">
-                <td className="px-3 py-2 border-r border-red-400">Total</td>
-                <td className="px-3 py-2">{totalLoss.toLocaleString()}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
-      <div className={`p-3 m-4 mt-0 rounded-sm text-white font-bold flex justify-between items-center shadow-md ${totalProfit - totalLoss >= 0 ? 'bg-gradient-to-r from-green-600 to-green-500' : 'bg-gradient-to-r from-red-600 to-red-500'}`}>
-        <span className="text-sm uppercase tracking-wider">Net Total P/L</span>
-        <span className="text-xl font-black">{(totalProfit - totalLoss).toLocaleString()}</span>
-      </div>
-    </div>
-  );
+        return (
+          <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden">
+            <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px]">
+              <div className="flex items-center gap-2 mb-1">
+                <List size={16} className="text-gray-700" />
+                SuperAdmin - Final Sheet
+              </div>
+              <div className="flex items-center gap-1 font-normal text-gray-600 text-[11px]">
+                <input
+                  type="checkbox"
+                  id="hideZero"
+                  checked={hideZero}
+                  onChange={(e) => setHideZero(e.target.checked)}
+                  className="w-3 h-3 accent-[#1abc9c]"
+                />
+                <label htmlFor="hideZero">Hide Zero Amounts</label>
+              </div>
+            </div>
+            <div className="p-4 overflow-x-auto">
+              <table className="w-full text-[12px] border-collapse text-left">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200">Downline</th>
+                    <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">Downline Owes You (Green)</th>
+                    <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">You Owe Downline (Red)</th>
+                    <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">Settlement Net</th>
+                    <th className="px-3 py-2 font-bold text-gray-700 text-right text-[#1abc9c]">My Profit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredFinalAccounts.map((u, i) => (
+                    <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="px-3 py-2 border-r border-gray-100 text-blue-600 font-medium">
+                        {u.name}
+                      </td>
+                      <td className="px-3 py-2 border-r border-gray-100 text-right font-bold text-green-600">
+                        {u.green.toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2 border-r border-gray-100 text-right font-bold text-red-500">
+                        {u.red.toLocaleString()}
+                      </td>
+                      <td className={`px-3 py-2 border-r border-gray-100 text-right font-bold ${u.net >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                        {u.net >= 0 ? `+${u.net.toLocaleString()}` : u.net.toLocaleString()}
+                      </td>
+                      <td className={`px-3 py-2 text-right font-bold ${u.myProfit >= 0 ? 'text-[#1abc9c]' : 'text-red-500'}`}>
+                        {u.myProfit >= 0 ? `+${u.myProfit?.toLocaleString()}` : u.myProfit?.toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredFinalAccounts.length === 0 && (
+                    <tr><td colSpan="4" className="px-3 py-10 text-center text-gray-400 italic">No data found</td></tr>
+                  )}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-[#1abc9c] text-white font-bold">
+                    <td className="px-3 py-2 border-r border-teal-600">Total</td>
+                    <td className="px-3 py-2 text-right border-r border-teal-600">{totalFinalGreen.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right border-r border-teal-600">{totalFinalRed.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right border-r border-teal-600">{totalFinalNet >= 0 ? `+${totalFinalNet.toLocaleString()}` : totalFinalNet.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right">{filteredFinalAccounts.reduce((sum, u) => sum + (u.myProfit || 0), 0) >= 0 ? `+${filteredFinalAccounts.reduce((sum, u) => sum + (u.myProfit || 0), 0).toLocaleString()}` : filteredFinalAccounts.reduce((sum, u) => sum + (u.myProfit || 0), 0).toLocaleString()}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <div className={`mt-2 p-3 m-4 rounded-sm text-white font-bold flex justify-between items-center shadow-md ${totalFinalNet >= 0 ? 'bg-gradient-to-r from-green-600 to-green-500' : 'bg-gradient-to-r from-red-600 to-red-500'}`}>
+              <span className="text-sm uppercase tracking-wider font-bold">Net Total P/L</span>
+              <span className="text-xl font-black">{totalFinalNet >= 0 ? `+${totalFinalNet.toLocaleString()}` : totalFinalNet.toLocaleString()}</span>
+            </div>
+          </div>
+        );
 
       case "Commission Report":
         return (
