@@ -647,10 +647,13 @@ export default function MasterUsers() {
         }
 
         const finalAccounts = finalSheetData.accounts || [];
-        const filteredFinalAccounts = finalAccounts.filter(u => (!hideZero || u.green !== 0 || u.red !== 0 || u.net !== 0));
-        const totalFinalGreen = filteredFinalAccounts.reduce((sum, u) => sum + (u.green || 0), 0);
-        const totalFinalRed = filteredFinalAccounts.reduce((sum, u) => sum + (u.red || 0), 0);
-        const totalFinalNet = filteredFinalAccounts.reduce((sum, u) => sum + (u.net || 0), 0);
+        const filteredFinalAccounts = finalAccounts.filter(u => (!hideZero || u.net !== 0));
+        
+        const positiveAccounts = filteredFinalAccounts.filter(u => u.net >= 0);
+        const negativeAccounts = filteredFinalAccounts.filter(u => u.net < 0);
+        
+        const totalPositiveNet = positiveAccounts.reduce((sum, u) => sum + u.net, 0);
+        const totalNegativeNet = negativeAccounts.reduce((sum, u) => sum + u.net, 0);
 
         return (
           <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden animate-in fade-in duration-300">
@@ -664,50 +667,71 @@ export default function MasterUsers() {
                 <label htmlFor="hideZero">Hide Zero Amounts</label>
               </div>
             </div>
-            <div className="p-4 overflow-x-auto">
-              <table className="w-full text-[12px] border-collapse text-left">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200">Name</th>
-                    <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">Green (Received)</th>
-                    <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">Red (Paid)</th>
-                    <th className="px-3 py-2 font-bold text-gray-700 text-right">Net</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredFinalAccounts.map((u, i) => (
-                    <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="px-3 py-2 border-r border-gray-100 text-blue-600 font-medium">
-                        {u.name} {u.role && <span className="ml-1 text-[9px] bg-gray-100 text-gray-500 px-1 rounded uppercase font-bold">{u.role}</span>}
-                      </td>
-                      <td className="px-3 py-2 border-r border-gray-100 text-right font-bold text-green-600">
-                        {u.green.toLocaleString()}
-                      </td>
-                      <td className="px-3 py-2 border-r border-gray-100 text-right font-bold text-red-500">
-                        {u.red.toLocaleString()}
-                      </td>
-                      <td className={`px-3 py-2 text-right font-bold ${u.net >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                        {u.net >= 0 ? `+${u.net.toLocaleString()}` : u.net.toLocaleString()}
-                      </td>
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Positive Net Table */}
+              <div className="border border-gray-200">
+                <table className="w-full text-[12px] border-collapse text-left">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200">Name <span className="text-[10px] ml-1 text-blue-500">▲▼</span></th>
+                      <th className="px-3 py-2 font-bold text-gray-700">Amount <span className="text-[10px] ml-1 text-blue-500">▲▼</span></th>
                     </tr>
-                  ))}
-                  {filteredFinalAccounts.length === 0 && (
-                    <tr><td colSpan="4" className="px-3 py-10 text-center text-gray-400 italic">No data found</td></tr>
-                  )}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-[#1abc9c] text-white font-bold">
-                    <td className="px-3 py-2 border-r border-teal-600">Total</td>
-                    <td className="px-3 py-2 text-right border-r border-teal-600">{totalFinalGreen.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right border-r border-teal-600">{totalFinalRed.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right">{totalFinalNet >= 0 ? `+${totalFinalNet.toLocaleString()}` : totalFinalNet.toLocaleString()}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-            <div className={`mt-2 p-3 m-4 rounded-sm text-white font-bold flex justify-between items-center shadow-md ${totalFinalNet >= 0 ? 'bg-gradient-to-r from-green-600 to-green-500' : 'bg-gradient-to-r from-red-600 to-red-500'}`}>
-              <span className="text-sm uppercase tracking-wider font-bold">Net Total P/L</span>
-              <span className="text-xl font-black">{totalFinalNet >= 0 ? `+${totalFinalNet.toLocaleString()}` : totalFinalNet.toLocaleString()}</span>
+                  </thead>
+                  <tbody>
+                    {positiveAccounts.map((u, i) => (
+                      <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="px-3 py-2 border-r border-gray-100 text-[#1abc9c] font-medium">
+                          {u.name} {u.role && <span className="ml-1 text-[9px] bg-gray-100 text-gray-500 px-1 rounded uppercase font-bold">{u.role}</span>}
+                        </td>
+                        <td className="px-3 py-2 font-bold text-gray-700">
+                          {u.net.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                    {positiveAccounts.length === 0 && (
+                      <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No data found</td></tr>
+                    )}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-[#1abc9c] text-white font-bold">
+                      <td className="px-3 py-2 border-r border-teal-600">Total</td>
+                      <td className="px-3 py-2">{totalPositiveNet.toLocaleString()}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              {/* Negative Net Table */}
+              <div className="border border-gray-200">
+                <table className="w-full text-[12px] border-collapse text-left">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200">Name <span className="text-[10px] ml-1 text-blue-500">▲▼</span></th>
+                      <th className="px-3 py-2 font-bold text-gray-700">Amount <span className="text-[10px] ml-1 text-blue-500">▲▼</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {negativeAccounts.map((u, i) => (
+                      <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="px-3 py-2 border-r border-gray-100 text-[#1abc9c] font-medium">
+                          {u.name} {u.role && <span className="ml-1 text-[9px] bg-gray-100 text-gray-500 px-1 rounded uppercase font-bold">{u.role}</span>}
+                        </td>
+                        <td className="px-3 py-2 font-bold text-red-500">
+                          {u.net.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                    {negativeAccounts.length === 0 && (
+                      <tr><td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No data found</td></tr>
+                    )}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-[#f25c54] text-white font-bold">
+                      <td className="px-3 py-2 border-r border-[#e04a43]">Total</td>
+                      <td className="px-3 py-2">{totalNegativeNet.toLocaleString()}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
             </div>
           </div>
         );
