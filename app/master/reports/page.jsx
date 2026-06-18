@@ -9,17 +9,17 @@ export default function MasterReports() {
   const [hideZero, setHideZero] = useState(false);
   const [finalSheetData, setFinalSheetData] = useState({ accounts: [] });
   const [dailyReportData, setDailyReportData] = useState({ accounts: [] });
-  const [showParentFor, setShowParentFor] = useState(null); // Track clicked user to keep parent visible
+  const [showParentFor, setShowParentFor] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [commissionData, setCommissionData] = useState([]);
-  const [reportPeriod, setReportPeriod] = useState("daily"); // daily, monthly, yearly, range
+  const [reportPeriod, setReportPeriod] = useState("daily");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
-  const [expandedUser, setExpandedUser] = useState(null); // For level 1 drill down (Cricket/Casino summary)
-  const [detailsView, setDetailsView] = useState(null); // For level 2 drill down (Transaction history) { bettor, type }
+  const [expandedUser, setExpandedUser] = useState(null);
+  const [detailsView, setDetailsView] = useState(null);
   const [transactionDetails, setTransactionDetails] = useState([]);
   const [isDetailsLoading, setIsDetailsLoading] = useState(false);
 
@@ -252,11 +252,12 @@ export default function MasterReports() {
                 <table className="w-full text-[12px] border-collapse">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-200 text-left">
-                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200">Downline</th>
-                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">Downline Owes You (Green)</th>
-                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">You Owe Downline (Red)</th>
-                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">Settlement Net</th>
-                      <th className="px-3 py-2 font-bold text-gray-700 text-right text-[#1abc9c]">My Profit</th>
+                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200">Name</th>
+                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200">Parent</th>
+                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">Green (Received)</th>
+                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">Red (Paid)</th>
+                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">Net</th>
+                      <th className="px-3 py-2 font-bold text-gray-700 text-right">My Profit</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -275,6 +276,9 @@ export default function MasterReports() {
                                 </span>
                               )}
                             </div>
+                          </td>
+                          <td className="px-3 py-2 border-r border-gray-100 text-gray-600">
+                            {u.parent && u.parent !== 'None' && u.parent !== 'Legacy' ? u.parent : '-'}
                           </td>
                           <td 
                             className="px-3 py-2 border-r border-gray-100 text-right font-bold text-green-600 cursor-pointer hover:bg-green-50"
@@ -308,7 +312,7 @@ export default function MasterReports() {
                         </tr>
                         {expandedUser === u.name && (
                           <tr className="bg-gray-50 border-b border-gray-200">
-                            <td colSpan="4" className="p-2">
+                            <td colSpan="6" className="p-2">
                               <div className="bg-white border border-gray-200 rounded shadow-inner p-2 text-[11px]">
                                 <table className="w-full text-left border-collapse">
                                   <thead>
@@ -356,12 +360,12 @@ export default function MasterReports() {
                       </React.Fragment>
                     ))}
                     {filteredDailyAccounts.length === 0 && (
-                      <tr><td colSpan="4" className="px-3 py-10 text-center text-gray-400 italic">No data found for this date</td></tr>
+                      <tr><td colSpan="6" className="px-3 py-10 text-center text-gray-400 italic">No data found for this date</td></tr>
                     )}
                   </tbody>
                   <tfoot>
                     <tr className="bg-[#1abc9c] text-white font-bold">
-                      <td className="px-3 py-2 border-r border-teal-600">Total</td>
+                      <td colSpan="2" className="px-3 py-2 border-r border-teal-600">Total</td>
                       <td className="px-3 py-2 text-right border-r border-teal-600">{totalDailyGreen.toLocaleString()}</td>
                       <td className="px-3 py-2 text-right border-r border-teal-600">{totalDailyRed.toLocaleString()}</td>
                       <td className="px-3 py-2 text-right border-r border-teal-600">{totalDailyNet >= 0 ? `+${totalDailyNet.toLocaleString()}` : totalDailyNet.toLocaleString()}</td>
@@ -393,11 +397,11 @@ export default function MasterReports() {
                 Master - Final Sheet
               </div>
               <div className="flex items-center gap-1 font-normal text-gray-600 text-[11px]">
-                <input
-                  type="checkbox"
-                  id="hideZero"
-                  checked={hideZero}
-                  onChange={(e) => setHideZero(e.target.checked)}
+                <input 
+                  type="checkbox" 
+                  id="hideZero" 
+                  checked={hideZero} 
+                  onChange={(e) => setHideZero(e.target.checked)} 
                   className="w-3 h-3 accent-[#1abc9c]"
                 />
                 <label htmlFor="hideZero">Hide Zero Amounts</label>
@@ -435,7 +439,7 @@ export default function MasterReports() {
                     </tr>
                   ))}
                   {filteredFinalAccounts.length === 0 && (
-                    <tr><td colSpan="4" className="px-3 py-10 text-center text-gray-400 italic">No data found</td></tr>
+                    <tr><td colSpan="5" className="px-3 py-10 text-center text-gray-400 italic">No data found</td></tr>
                   )}
                 </tbody>
                 <tfoot>
@@ -450,108 +454,112 @@ export default function MasterReports() {
               </table>
             </div>
             <div className={`mt-2 p-3 m-4 rounded-sm text-white font-bold flex justify-between items-center shadow-md ${totalFinalNet >= 0 ? 'bg-gradient-to-r from-green-600 to-green-500' : 'bg-gradient-to-r from-red-600 to-red-500'}`}>
-              <span className="text-sm uppercase tracking-wider font-bold">Master Final Net Position</span>
+              <span className="text-sm uppercase tracking-wider">Net Total P/L</span>
               <span className="text-xl font-black">{totalFinalNet >= 0 ? `+${totalFinalNet.toLocaleString()}` : totalFinalNet.toLocaleString()}</span>
             </div>
           </div>
         );
 
       case "Commission Report":
-            return (
-            <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden">
-              <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 flex items-center font-bold text-gray-800 text-[13px]">
-                <List size={16} className="mr-2 text-gray-700" />
-                Commission Report
+        return (
+          <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden">
+            <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 flex items-center font-bold text-gray-800 text-[13px]">
+              <List size={16} className="mr-2 text-gray-700" />
+              Commission Report
+            </div>
+            <div className="p-4">
+              <div className="mb-4 text-sm text-gray-600 italic">
+                All Commission goes to As per share <br />
+                (Auto Commission)
               </div>
-              <div className="p-4">
-                <div className="mb-4 text-sm text-gray-600 italic">
-                  All Commission goes to As per share <br />
-                  (Auto Commission)
-                </div>
-                <div className="border border-gray-200">
-                  <table className="w-full text-[12px]">
-                    <thead>
-                      <tr className="bg-gray-50 border-b border-gray-200 text-left">
-                        <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 uppercase tracking-wider">User Name <span className="text-[10px] ml-1">▲▼</span></th>
-                        <th className="px-3 py-2 font-bold text-gray-700 uppercase tracking-wider">Amount <span className="text-[10px] ml-1">▲▼</span></th>
+              <div className="border border-gray-200">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200 text-left">
+                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 uppercase tracking-wider">User Name <span className="text-[10px] ml-1">▲▼</span></th>
+                      <th className="px-3 py-2 font-bold text-gray-700 uppercase tracking-wider">Amount <span className="text-[10px] ml-1">▲▼</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {commissionData.length > 0 ? commissionData.map((c, i) => (
+                      <tr key={i} className="border-b border-gray-100">
+                        <td className="px-3 py-2 border-r border-gray-100 text-blue-600 font-medium">{c.name}</td>
+                        <td className="px-3 py-2 font-bold text-green-600">{c.amount.toLocaleString()}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {commissionData.length > 0 ? commissionData.map((c, i) => (
-                        <tr key={i} className="border-b border-gray-100">
-                          <td className="px-3 py-2 border-r border-gray-100 text-blue-600 font-medium">{c.name}</td>
-                          <td className="px-3 py-2 font-bold text-green-600">{c.amount.toLocaleString()}</td>
-                        </tr>
-                      )) : (
-                        <tr className="border-b border-gray-100">
-                          <td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No commission data found for this period</td>
-                        </tr>
-                      )}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-[#1abc9c] text-white font-black text-sm">
-                        <td className="px-3 py-2.5 border-r border-teal-600 uppercase">Total</td>
-                        <td className="px-3 py-2.5">
-                          {commissionData.reduce((sum, c) => sum + c.amount, 0).toLocaleString()}
-                        </td>
+                    )) : (
+                      <tr className="border-b border-gray-100">
+                        <td colSpan="2" className="px-3 py-10 text-center text-gray-400 italic">No commission data found for this period</td>
                       </tr>
-                    </tfoot>
-                  </table>
-                </div>
+                    )}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-[#1abc9c] text-white font-black text-sm">
+                      <td className="px-3 py-2.5 border-r border-teal-600 uppercase">Total</td>
+                      <td className="px-3 py-2.5">
+                        {commissionData.reduce((sum, c) => sum + c.amount, 0).toLocaleString()}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             </div>
-            );
+          </div>
+        );
 
-            default:
-            return (
-            <div className="bg-white p-10 text-center border border-dashed border-gray-300 text-gray-500 rounded-sm italic">
-              This report ({activeReport}) is being prepared and will be available soon.
-            </div>
-            );
+      default:
+        return (
+          <div className="bg-white p-10 text-center border border-dashed border-gray-300 text-gray-500 rounded-sm italic">
+            This report ({activeReport}) is being prepared and will be available soon.
+          </div>
+        );
     }
   };
 
-            return (
-            <div className="flex flex-col gap-4 max-w-full pb-10">
-              {/* Report Type Selector */}
-              <div className="bg-white border border-gray-300 shadow-sm rounded-sm">
-                <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 flex items-center font-bold text-gray-800 text-[13px]">
-                  <Filter size={16} className="mr-2 text-gray-700" />
-                  Report Type
-                </div>
-                <div className="p-4 flex flex-wrap gap-2">
-                  {reportTypes.map(btn => (
-                    <button
-                      key={btn}
-                      onClick={() => setActiveReport(btn)}
-                      className={`px-3 py-1.5 text-[12px] font-bold rounded-sm shadow-sm transition-all border ${activeReport === btn
-                        ? 'bg-[#1abc9c] border-[#1abc9c] text-white'
-                        : 'bg-white border-gray-300 text-gray-700 hover:border-[#1abc9c] hover:text-[#1abc9c]'
-                        }`}
-                    >
-                      {btn}
-                    </button>
-                  ))}
-                </div>
-              </div>
+  return (
+    <div className="flex flex-col gap-4 max-w-full pb-10">
+      {/* Report Type Selector */}
+      <div className="bg-white border border-gray-300 shadow-sm rounded-sm">
+        <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 flex items-center font-bold text-gray-800 text-[13px]">
+          <Filter size={16} className="mr-2 text-gray-700" />
+          Report Type
+        </div>
+        <div className="p-4 flex flex-wrap gap-2">
+          {reportTypes.map(btn => (
+            <button 
+              key={btn} 
+              onClick={() => setActiveReport(btn)}
+              className={`px-3 py-1.5 text-[12px] font-bold rounded-sm shadow-sm transition-all border ${
+                activeReport === btn 
+                ? 'bg-[#1abc9c] border-[#1abc9c] text-white' 
+                : 'bg-white border-gray-300 text-gray-700 hover:border-[#1abc9c] hover:text-[#1abc9c]'
+              }`}
+            >
+              {btn}
+            </button>
+          ))}
+        </div>
+      </div>
 
-              {/* Dynamic Report Content */}
-              {renderReportUI()}
+      {/* Dynamic Report Content */}
+      {renderReportUI()}
 
+      {/* Level 2 Drill Down: Transaction Details Modal */}
       {detailsView && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in duration-200">
-            <div className="bg-white border-b border-gray-300 px-4 py-3 flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <div className="bg-[#1abc9c] w-1 h-6 rounded-full"></div>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col overflow-hidden">
+          <div className="bg-white border-b border-gray-300 px-4 py-3 flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <div className="bg-[#1abc9c] w-1 h-6 rounded-full"></div>
+              <div>
                 <h3 className="font-bold text-gray-800 text-[14px]">
                   {detailsView.bettor} / {detailsView.type === 'cricket' ? 'Cricket-Markets Reports' : 'Casino-Markets Reports'}
                 </h3>
               </div>
-              <button onClick={() => setDetailsView(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
-                <X size={20} />
-              </button>
             </div>
+            <button onClick={() => setDetailsView(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
+              <X size={20} />
+            </button>
+          </div>
             
             <div className="flex-1 overflow-auto p-4">
               {isDetailsLoading ? (
@@ -559,55 +567,57 @@ export default function MasterReports() {
                   <div className="w-8 h-8 border-4 border-[#1abc9c] border-t-transparent rounded-full animate-spin"></div>
                   <p className="animate-pulse">Fetching transaction records...</p>
                 </div>
-              ) : transactionDetails.length > 0 ? (
-                <div className="border border-gray-300 rounded-sm overflow-hidden shadow-sm">
-                  <table className="w-full text-left text-[11px] border-collapse">
-                    <thead className="bg-white border-b border-gray-300">
+              ) : (
+                <table className="w-full text-left text-[11px] border-collapse">
+                  <thead className="sticky top-0 bg-white border-b border-gray-300">
+                    <tr>
+                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-300 w-[140px]">Date</th>
+                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-300">Event</th>
+                      <th className="px-3 py-2 font-bold text-gray-700 text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {transactionDetails.length > 0 ? transactionDetails.map((tx, idx) => {
+                      const netAmount = tx.amount;
+                      return (
+                        <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-3 py-2 text-gray-500 border-r border-gray-100">
+                            {new Date(tx.createdAt || tx.timestamp).toLocaleString('en-GB', { 
+                              day: '2-digit', month: '2-digit', year: 'numeric', 
+                              hour: '2-digit', minute: '2-digit', hour12: true 
+                            })}
+                          </td>
+                          <td className="px-3 py-2 border-r border-gray-100 font-medium text-[#1abc9c]">
+                            {tx.matchName ? (
+                              `${tx.matchName}${tx.selection ? ` (${tx.selection})` : ''}`
+                            ) : (
+                              (tx.event || tx.description || '').split('|')[0].trim().includes('Share from') 
+                              ? ((tx.event || tx.description || '').includes('Casino') ? 'Casino Game' : 'Cricket Match')
+                              : (tx.event || tx.description || '').split('|')[0].trim()
+                            )}
+                          </td>
+                          <td className={`px-3 py-2 text-right font-bold ${netAmount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                            {netAmount.toLocaleString()}
+                          </td>
+                        </tr>
+                      );
+                    }) : (
                       <tr>
-                        <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-300 w-[140px]">Date</th>
-                        <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-300">Event</th>
-                        <th className="px-3 py-2 font-bold text-gray-700 text-right">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {transactionDetails.map((tx, idx) => {
-                        const netAmount = tx.amount; // Positive = Master Profit
-                        return (
-                          <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-3 py-2 text-gray-500 border-r border-gray-100">
-                              {new Date(tx.createdAt || tx.timestamp).toLocaleString('en-GB', { 
-                                day: '2-digit', month: '2-digit', year: 'numeric', 
-                                hour: '2-digit', minute: '2-digit', hour12: true 
-                              })}
-                            </td>
-                            <td className="px-3 py-2 text-[#1abc9c] font-medium border-r border-gray-100">
-                              {tx.matchName ? (
-                                `${tx.matchName}${tx.selection ? ` (${tx.selection})` : ''}`
-                              ) : (
-                                (tx.event || tx.description || '').split('|')[0].trim().includes('Share from') 
-                                ? ((tx.event || tx.description || '').includes('Casino') ? 'Casino Game' : 'Cricket Match')
-                                : (tx.event || tx.description || '').split('|')[0].trim()
-                              )}
-                            </td>
-                            <td className={`px-3 py-2 text-right font-bold ${netAmount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                              {netAmount.toLocaleString()}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-[#1abc9c] text-white font-bold">
-                        <td colSpan="2" className="px-3 py-2 border-r border-[#16a085] uppercase text-[10px]">Total</td>
-                        <td className="px-3 py-2 text-right">
-                          {transactionDetails.reduce((sum, t) => sum + t.amount, 0).toLocaleString()}
+                        <td colSpan="3" className="px-4 py-20 text-center text-gray-400 italic">
+                          No records found for this period
                         </td>
                       </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-20 text-gray-400 italic font-bold">No transactions found for this period.</div>
+                    )}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-[#1abc9c] text-white font-bold">
+                      <td colSpan="2" className="px-3 py-2 border-r border-[#16a085] uppercase text-[10px]">Total</td>
+                      <td className="px-3 py-2 text-right">
+                        {transactionDetails.reduce((sum, t) => sum + t.amount, 0).toLocaleString()}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
               )}
             </div>
             
@@ -620,9 +630,9 @@ export default function MasterReports() {
         </div>
       )}
 
-              <div className="text-gray-500 text-[11px] font-bold mt-4 self-center italic text-center w-full">
-                Welcome to Betproexchange Master Portal.
-              </div>
-            </div>
-            );
+      <div className="text-gray-500 text-[11px] font-bold mt-4 self-center italic text-center w-full">
+        Welcome to Betproexchange Master Portal.
+      </div>
+    </div>
+  );
 }
