@@ -121,7 +121,7 @@ export default function DashboardLayout({ children }) {
 
     socket.on('live_score_update', (data) => {
         setCricketMatches(prev => prev.map(m => {
-            if (m.matchId === data.matchId) {
+            if (String(m.matchId) === String(data.matchId)) {
                 return {
                     ...m,
                     status: data.status || m.status,
@@ -147,8 +147,11 @@ export default function DashboardLayout({ children }) {
 
     socket.on('market_odds_update', (data) => {
         setCricketMatches(prev => prev.map(m => {
-            if (m.matchId === data.matchId) {
-                if (data.marketStatus) {
+            // ✅ Normalize matchId to string for safe comparison
+            // Server emits matchId as String, but data.matchId or data.matchIdNum may vary
+            const incomingId = String(data.matchId ?? data.matchIdNum ?? '');
+            if (String(m.matchId) === incomingId) {
+                if (data.marketStatus && !data.runners) {
                     return { ...m, marketStatus: data.marketStatus };
                 }
                 const runners = data.runners || [];
@@ -174,8 +177,8 @@ export default function DashboardLayout({ children }) {
 
     socket.on('odds_updated', (data) => {
         setCricketMatches(prev => prev.map(m => {
-            if (m.matchId === data.matchId) {
-                if (data.marketStatus) {
+            if (String(m.matchId) === String(data.matchId)) {
+                if (data.marketStatus && !data.teamABack) {
                     return { ...m, marketStatus: data.marketStatus };
                 }
                 return {
@@ -198,7 +201,7 @@ export default function DashboardLayout({ children }) {
 
     socket.on('match_result', (data) => {
         setCricketMatches(prev => prev.map(m => {
-            if (m.matchId === data.matchId) {
+            if (String(m.matchId) === String(data.matchId)) {
                 return {
                     ...m,
                     status: 'completed',

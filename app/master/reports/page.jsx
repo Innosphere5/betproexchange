@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Filter, Calendar, Layout, List, CheckSquare, X } from "lucide-react";
+import { Filter, Calendar, Layout, List, CheckSquare, X, TrendingUp, TrendingDown, AlertCircle, ChevronRight, Users } from "lucide-react";
 import { getApiUrl } from "@/lib/apiConfig";
 
 export default function MasterReports() {
@@ -383,79 +383,382 @@ export default function MasterReports() {
         );
 
       case "Final Sheet":
-        const finalAccounts = finalSheetData?.accounts || [];
-        const filteredFinalAccounts = finalAccounts.filter(u => !hideZero || u.green !== 0 || u.red !== 0 || u.net !== 0);
-        const totalFinalGreen = filteredFinalAccounts.reduce((sum, u) => sum + (u.green || 0), 0);
-        const totalFinalRed = filteredFinalAccounts.reduce((sum, u) => sum + (u.red || 0), 0);
-        const totalFinalNet = filteredFinalAccounts.reduce((sum, u) => sum + (u.net || 0), 0);
+        const finalAccounts       = finalSheetData?.accounts   || [];
+        const masterInfo          = finalSheetData?.masterInfo || null;
+        const isMasterEnriched    = !!masterInfo && masterInfo.masterShare > 0;
 
-        return (
-          <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden">
-            <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px]">
-              <div className="flex items-center gap-2 mb-1">
-                <List size={16} className="text-gray-700" />
-                Master - Final Sheet
+        const filteredFinalAccounts = finalAccounts.filter(u =>
+          u.role === 'user' && (!hideZero || u.green !== 0 || u.red !== 0)
+        );
+
+        // Bettors grouped by whether they won or lost overall
+        const fsBettorWins   = filteredFinalAccounts.filter(a => a.green > 0);
+        const fsBettorLosses = filteredFinalAccounts.filter(a => a.red   > 0);
+
+        // Aggregate totals
+        const fsTotalGreenPayout     = fsBettorWins.reduce((s, a) => s + (isMasterEnriched ? (a.netBettorGreen ?? a.green) : a.green), 0);
+        const fsTotalRedCollection   = fsBettorLosses.reduce((s, a) => s + (isMasterEnriched ? (a.netBettorRed   ?? a.red)  : a.red),  0);
+        const fsTotalParentGreen     = fsBettorWins.reduce((s, a) => s + (a.parentPortionGreen || 0), 0);
+        const fsTotalMasterGreen     = fsBettorWins.reduce((s, a) => s + (a.masterPortionGreen ?? a.green), 0);
+        const fsTotalAdminGreen      = fsBettorWins.reduce((s, a) => s + (a.adminPortionGreen || 0), 0);
+        const fsTotalSuperAdminGreen = fsBettorWins.reduce((s, a) => s + (a.superAdminPortionGreen || 0), 0);
+        const fsTotalPlatformFees    = fsBettorWins.reduce((s, a) => s + (a.platformFeeGreen || 0), 0)
+                                     + fsBettorLosses.reduce((s, a) => s + (a.platformFeeRed || 0), 0);
+        const fsMasterNetPL          = filteredFinalAccounts.reduce((s, a) => s + (a.myProfit ?? a.net ?? 0), 0);
+
+        // ── NON-MASTER / FALLBACK: simple table ──
+        if (!isMasterEnriched) {
+          const totalFinalGreen = filteredFinalAccounts.reduce((sum, u) => sum + (u.green || 0), 0);
+          const totalFinalRed   = filteredFinalAccounts.reduce((sum, u) => sum + (u.red   || 0), 0);
+          const totalFinalNet   = filteredFinalAccounts.reduce((sum, u) => sum + (u.net   || 0), 0);
+          return (
+            <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden">
+              <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px] flex items-center justify-between">
+                <div className="flex items-center gap-2"><List size={16} className="text-gray-700" /> Final Sheet</div>
+                <div className="flex items-center gap-1 font-normal text-gray-600 text-[11px]">
+                  <input type="checkbox" id="hideZeroFSFallback" checked={hideZero} onChange={e => setHideZero(e.target.checked)} className="w-3 h-3 accent-[#1abc9c]" />
+                  <label htmlFor="hideZeroFSFallback">Hide Zero</label>
+                </div>
               </div>
-              <div className="flex items-center gap-1 font-normal text-gray-600 text-[11px]">
-                <input 
-                  type="checkbox" 
-                  id="hideZero" 
-                  checked={hideZero} 
-                  onChange={(e) => setHideZero(e.target.checked)} 
-                  className="w-3 h-3 accent-[#1abc9c]"
-                />
-                <label htmlFor="hideZero">Hide Zero Amounts</label>
-              </div>
-            </div>
-            <div className="p-4 overflow-x-auto">
-              <table className="w-full text-[12px] border-collapse text-left">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200">Downline</th>
-                    <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">Downline Owes You (Green)</th>
-                    <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">You Owe Downline (Red)</th>
-                    <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">Settlement Net</th>
-                    <th className="px-3 py-2 font-bold text-gray-700 text-right text-[#1abc9c]">My Profit</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredFinalAccounts.map((u, i) => (
-                    <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="px-3 py-2 border-r border-gray-100 text-blue-600 font-medium">
-                        {u.name}
-                      </td>
-                      <td className="px-3 py-2 border-r border-gray-100 text-right font-bold text-green-600">
-                        {u.green.toLocaleString()}
-                      </td>
-                      <td className="px-3 py-2 border-r border-gray-100 text-right font-bold text-red-500">
-                        {u.red.toLocaleString()}
-                      </td>
-                      <td className={`px-3 py-2 border-r border-gray-100 text-right font-bold ${u.net >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                        {u.net >= 0 ? `+${u.net.toLocaleString()}` : u.net.toLocaleString()}
-                      </td>
-                      <td className={`px-3 py-2 text-right font-bold ${u.myProfit >= 0 ? 'text-[#1abc9c]' : 'text-red-500'}`}>
-                        {u.myProfit >= 0 ? `+${u.myProfit?.toLocaleString()}` : u.myProfit?.toLocaleString()}
-                      </td>
+              <div className="p-4 overflow-x-auto">
+                <table className="w-full text-[12px] border-collapse text-left">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200">Downline</th>
+                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">Green</th>
+                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">Red</th>
+                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">Net</th>
+                      <th className="px-3 py-2 font-bold text-gray-700 text-right text-[#1abc9c]">My Profit</th>
                     </tr>
-                  ))}
-                  {filteredFinalAccounts.length === 0 && (
-                    <tr><td colSpan="5" className="px-3 py-10 text-center text-gray-400 italic">No data found</td></tr>
-                  )}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-[#1abc9c] text-white font-bold">
-                    <td className="px-3 py-2 border-r border-teal-600">Total</td>
-                    <td className="px-3 py-2 text-right border-r border-teal-600">{totalFinalGreen.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right border-r border-teal-600">{totalFinalRed.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right border-r border-teal-600">{totalFinalNet >= 0 ? `+${totalFinalNet.toLocaleString()}` : totalFinalNet.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right">{filteredFinalAccounts.reduce((sum, u) => sum + (u.myProfit || 0), 0) >= 0 ? `+${filteredFinalAccounts.reduce((sum, u) => sum + (u.myProfit || 0), 0).toLocaleString()}` : filteredFinalAccounts.reduce((sum, u) => sum + (u.myProfit || 0), 0).toLocaleString()}</td>
-                  </tr>
-                </tfoot>
-              </table>
+                  </thead>
+                  <tbody>
+                    {filteredFinalAccounts.map((u, i) => (
+                      <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="px-3 py-2 border-r border-gray-100 text-blue-600 font-medium">{u.name}</td>
+                        <td className="px-3 py-2 border-r border-gray-100 text-right font-bold text-green-600">{u.green.toLocaleString()}</td>
+                        <td className="px-3 py-2 border-r border-gray-100 text-right font-bold text-red-500">{u.red.toLocaleString()}</td>
+                        <td className={`px-3 py-2 border-r border-gray-100 text-right font-bold ${u.net >= 0 ? 'text-green-600' : 'text-red-500'}`}>{u.net >= 0 ? `+${u.net.toLocaleString()}` : u.net.toLocaleString()}</td>
+                        <td className={`px-3 py-2 text-right font-bold ${u.myProfit >= 0 ? 'text-[#1abc9c]' : 'text-red-500'}`}>{u.myProfit >= 0 ? `+${u.myProfit?.toLocaleString()}` : u.myProfit?.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                    {filteredFinalAccounts.length === 0 && (<tr><td colSpan="5" className="px-3 py-10 text-center text-gray-400 italic">No data found</td></tr>)}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-[#1abc9c] text-white font-bold">
+                      <td className="px-3 py-2 border-r border-teal-600">Total</td>
+                      <td className="px-3 py-2 text-right border-r border-teal-600">{totalFinalGreen.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right border-r border-teal-600">{totalFinalRed.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right border-r border-teal-600">{totalFinalNet >= 0 ? `+${totalFinalNet.toLocaleString()}` : totalFinalNet.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right">{filteredFinalAccounts.reduce((s, u) => s + (u.myProfit || 0), 0) >= 0 ? `+${filteredFinalAccounts.reduce((s, u) => s + (u.myProfit || 0), 0).toLocaleString()}` : filteredFinalAccounts.reduce((s, u) => s + (u.myProfit || 0), 0).toLocaleString()}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <div className={`mt-2 p-3 m-4 rounded-sm text-white font-bold flex justify-between items-center shadow-md ${totalFinalNet >= 0 ? 'bg-gradient-to-r from-green-600 to-green-500' : 'bg-gradient-to-r from-red-600 to-red-500'}`}>
+                <span className="text-sm uppercase tracking-wider">Net Total P/L</span>
+                <span className="text-xl font-black">{totalFinalNet >= 0 ? `+${totalFinalNet.toLocaleString()}` : totalFinalNet.toLocaleString()}</span>
+              </div>
             </div>
-            <div className={`mt-2 p-3 m-4 rounded-sm text-white font-bold flex justify-between items-center shadow-md ${totalFinalNet >= 0 ? 'bg-gradient-to-r from-green-600 to-green-500' : 'bg-gradient-to-r from-red-600 to-red-500'}`}>
-              <span className="text-sm uppercase tracking-wider">Net Total P/L</span>
-              <span className="text-xl font-black">{totalFinalNet >= 0 ? `+${totalFinalNet.toLocaleString()}` : totalFinalNet.toLocaleString()}</span>
+          );
+        }
+
+        // ── MASTER ENRICHED VIEW ──────────────────────────────────────
+        return (
+          <div className="flex flex-col gap-4">
+
+            {/* ── Header Info Card ── */}
+            <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden">
+              <div className="bg-[#1a1a2e] px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <List size={16} className="text-[#1abc9c]" />
+                  <span className="font-bold text-white text-[14px] tracking-wide">Master — Final Settlement Sheet</span>
+                </div>
+                <div className="flex items-center gap-1 font-normal text-gray-400 text-[11px]">
+                  <input type="checkbox" id="hideZeroMasterFS" checked={hideZero} onChange={e => setHideZero(e.target.checked)} className="w-3 h-3 accent-[#1abc9c]" />
+                  <label htmlFor="hideZeroMasterFS" className="cursor-pointer text-gray-300">Hide Zero</label>
+                </div>
+              </div>
+
+              {/* Share Distribution Info Bar */}
+              <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center gap-4 text-[11px]">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#1abc9c] ring-2 ring-[#1abc9c]/30"></div>
+                  <span className="text-gray-600">Me (<span className="font-bold text-gray-800">{masterInfo.masterName}</span>):</span>
+                  <span className="bg-[#1abc9c] text-white font-bold px-2 py-0.5 rounded-full">{masterInfo.masterShare}%</span>
+                </div>
+                <ChevronRight size={12} className="text-gray-300" />
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-red-400 ring-2 ring-red-300/40"></div>
+                  <span className="text-gray-600">Admin (<span className="font-bold text-gray-800">{masterInfo.parentName}</span>):</span>
+                  <span className="bg-red-500 text-white font-bold px-2 py-0.5 rounded-full">{masterInfo.parentShare}%</span>
+                </div>
+                {masterInfo.superAdminEffectiveShare > 0 && (
+                  <>
+                    <ChevronRight size={12} className="text-gray-300" />
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-purple-500 ring-2 ring-purple-300/40"></div>
+                      <span className="text-gray-600">SuperAdmin (<span className="font-bold text-gray-800">{masterInfo.grandParentName}</span>):</span>
+                      <span className="bg-purple-600 text-white font-bold px-2 py-0.5 rounded-full">{masterInfo.superAdminEffectiveShare}%</span>
+                    </div>
+                  </>
+                )}
+                <div className="flex items-center gap-1.5 ml-auto">
+                  <div className="w-2.5 h-2.5 rounded-full bg-orange-400"></div>
+                  <span className="text-gray-500">Platform Fee: <span className="font-bold text-orange-500">5%</span></span>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Two-Panel Green / Red Layout ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+              {/* ════════ GREEN PANEL ════════ */}
+              <div className="flex flex-col bg-white border-2 border-green-400 shadow-sm rounded-sm overflow-hidden">
+                {/* Green Header */}
+                <div className="bg-gradient-to-r from-green-600 to-green-500 px-4 py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp size={16} className="text-white" />
+                    <span className="font-bold text-white text-[13px] uppercase tracking-wider">Green Side — Bettor Wins</span>
+                  </div>
+                  <span className="text-white/80 text-[11px] bg-white/20 px-2 py-0.5 rounded-full font-bold">
+                    {fsBettorWins.length} bettor{fsBettorWins.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                {/* Green Rows */}
+                <div className="flex-1 divide-y divide-green-100">
+                  {fsBettorWins.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-gray-400 gap-2">
+                      <AlertCircle size={24} className="text-gray-300" />
+                      <span className="text-[12px] italic">No winning bettors recorded</span>
+                    </div>
+                  ) : (
+                    fsBettorWins.map((a, i) => {
+                      const fullPayout   = a.netBettorGreen ?? a.green;
+                      const grossWin     = a.grossGreen     || a.green;
+                      const platformFee  = a.platformFeeGreen || 0;
+                      return (
+                        <div key={i} className="px-4 py-3.5 hover:bg-green-50/60 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="font-bold text-gray-900 text-[13px]">{a.name}</div>
+                              <div className="text-[10px] text-green-600 font-medium mt-0.5">Bettor · Won</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-black text-green-600 text-[16px]">
+                                ₹{fullPayout.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                              {platformFee > 0 && (
+                                <div className="text-[10px] text-orange-500 font-medium">
+                                  Fee deducted: ₹{platformFee.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {platformFee > 0 && (
+                            <div className="mt-2 pt-2 border-t border-green-100 flex items-center justify-between text-[10px] text-gray-400">
+                              <span>Gross win: ₹{grossWin.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                              <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold">Net after 5% fee</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Green Footer */}
+                <div className="bg-green-600 px-4 py-2.5 flex items-center justify-between mt-auto">
+                  <span className="font-bold text-white text-[12px] uppercase tracking-wide">Total Paid Out</span>
+                  <span className="font-black text-white text-[15px]">
+                    ₹{fsTotalGreenPayout.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              {/* ════════ RED PANEL ════════ */}
+              <div className="flex flex-col bg-white border-2 border-red-400 shadow-sm rounded-sm overflow-hidden">
+                {/* Red Header */}
+                <div className="bg-gradient-to-r from-red-600 to-red-500 px-4 py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <TrendingDown size={16} className="text-white" />
+                    <span className="font-bold text-white text-[13px] uppercase tracking-wider">Red Side — Settlement</span>
+                  </div>
+                  <span className="text-white/80 text-[11px] bg-white/20 px-2 py-0.5 rounded-full font-bold">Distribution</span>
+                </div>
+
+                <div className="flex-1 divide-y divide-red-100">
+
+                  {/* Section A — Bettor Win Distribution (how liability is split upward) */}
+                  {fsBettorWins.length > 0 && (
+                    <>
+                      <div className="px-4 py-1.5 bg-red-50 flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-red-400"></div>
+                        <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest">Win Liability Split</span>
+                      </div>
+                      {fsBettorWins.map((a, i) => {
+                        const fullPayout       = a.netBettorGreen     ?? a.green;
+                        const masterPortion    = a.masterPortionGreen ?? a.green;
+                        const parentPortion    = a.parentPortionGreen || 0;
+                        const adminPortion     = a.adminPortionGreen  || 0;
+                        const saAdminPortion   = a.superAdminPortionGreen || 0;
+                        return (
+                          <div key={i} className="px-4 py-3 hover:bg-red-50/40 transition-colors">
+                            {/* Bettor reference line */}
+                            <div className="flex items-center gap-1.5 mb-2.5">
+                              <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0"></span>
+                              <span className="text-[10px] text-gray-500">
+                                <span className="font-bold text-gray-800">{a.name}</span> won
+                                {' '}₹{fullPayout.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                            <div className="space-y-1.5">
+                              {/* Admin row */}
+                              {adminPortion > 0 && (
+                                <div className="flex items-center justify-between bg-red-50 border border-red-100 rounded px-3 py-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-full bg-red-400 flex items-center justify-center">
+                                      <Users size={11} className="text-white" />
+                                    </div>
+                                    <div>
+                                      <div className="font-bold text-gray-800 text-[12px]">{masterInfo.parentName}</div>
+                                      <div className="text-[10px] text-gray-400">Admin · {masterInfo.parentShare}% share</div>
+                                    </div>
+                                  </div>
+                                  <span className="font-black text-red-600 text-[13px]">
+                                    ₹{adminPortion.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                  </span>
+                                </div>
+                              )}
+                              {/* SuperAdmin row */}
+                              {saAdminPortion > 0 && (
+                                <div className="flex items-center justify-between bg-purple-50 border border-purple-100 rounded px-3 py-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center">
+                                      <Users size={11} className="text-white" />
+                                    </div>
+                                    <div>
+                                      <div className="font-bold text-gray-800 text-[12px]">{masterInfo.grandParentName}</div>
+                                      <div className="text-[10px] text-gray-400">SuperAdmin · {masterInfo.superAdminEffectiveShare}% share</div>
+                                    </div>
+                                  </div>
+                                  <span className="font-black text-purple-600 text-[13px]">
+                                    ₹{saAdminPortion.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                  </span>
+                                </div>
+                              )}
+                              {/* Master's own absorbed portion */}
+                              <div className="flex items-center justify-between bg-[#1abc9c]/10 border border-[#1abc9c]/25 rounded px-3 py-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-full bg-[#1abc9c] flex items-center justify-center">
+                                    <Users size={11} className="text-white" />
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-gray-800 text-[12px]">{masterInfo.masterName} <span className="text-[10px] text-[#1abc9c]">(Me)</span></div>
+                                    <div className="text-[10px] text-gray-400">Master · {masterInfo.masterShare}% absorbed</div>
+                                  </div>
+                                </div>
+                                <span className="font-black text-[#1abc9c] text-[13px]">
+                                  ₹{masterPortion.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
+
+                  {/* Section B — Bettor losses (master collected) */}
+                  {fsBettorLosses.length > 0 && (
+                    <>
+                      <div className="px-4 py-1.5 bg-orange-50 flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-orange-400"></div>
+                        <span className="text-[10px] font-bold text-orange-600 uppercase tracking-widest">Master Collected (Bettor Losses)</span>
+                      </div>
+                      {fsBettorLosses.map((a, i) => {
+                        const collected     = a.netBettorRed    ?? a.red;
+                        const masterCollect = a.masterPortionRed ?? a.red;
+                        const parentReceive = a.parentPortionRed  || 0;
+                        return (
+                          <div key={i} className="px-4 py-3 hover:bg-orange-50/30 transition-colors">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="font-bold text-gray-900 text-[12px]">{a.name}</div>
+                                <div className="text-[10px] text-orange-500 font-medium">Bettor · Lost — collected</div>
+                              </div>
+                              <span className="font-black text-orange-600 text-[14px]">
+                                +₹{collected.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                            {(masterCollect > 0 || parentReceive > 0) && (
+                              <div className="mt-1.5 flex items-center justify-between text-[10px] text-gray-400">
+                                <span>My portion: ₹{masterCollect.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                                <span>→ Passed up: ₹{parentReceive.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
+
+                  {filteredFinalAccounts.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-12 text-gray-400 gap-2">
+                      <AlertCircle size={24} className="text-gray-300" />
+                      <span className="text-[12px] italic">No settlement data found</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Red Footer */}
+                <div className="bg-red-600 px-4 py-2.5 flex items-center justify-between mt-auto">
+                  <span className="font-bold text-white text-[12px] uppercase tracking-wide">Total Distributed</span>
+                  <span className="font-black text-white text-[15px]">
+                    ₹{(fsTotalAdminGreen + fsTotalSuperAdminGreen + fsTotalMasterGreen).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Three-Box Summary ── */}
+            {filteredFinalAccounts.length > 0 && (
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-white border border-gray-200 rounded-sm shadow-sm p-3 text-center">
+                  <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-1 font-bold">Upward to Admin</div>
+                  <div className="font-black text-red-600 text-[16px]">
+                    ₹{(fsTotalAdminGreen + fsTotalSuperAdminGreen).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                  </div>
+                  <div className="text-[9px] text-gray-400 mt-0.5">{masterInfo.parentName} + {masterInfo.grandParentName}</div>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-sm shadow-sm p-3 text-center">
+                  <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-1 font-bold">My Absorbed ({masterInfo.masterShare}%)</div>
+                  <div className="font-black text-[#1abc9c] text-[16px]">
+                    ₹{fsTotalMasterGreen.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                  </div>
+                  <div className="text-[9px] text-gray-400 mt-0.5">Master's own share</div>
+                </div>
+                <div className={`rounded-sm shadow-sm p-3 text-center border-2 ${ fsMasterNetPL >= 0 ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}`}>
+                  <div className="text-[9px] text-gray-400 uppercase tracking-wider mb-1 font-bold">My Net P/L</div>
+                  <div className={`font-black text-[16px] ${fsMasterNetPL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {fsMasterNetPL >= 0 ? '+' : ''}₹{Math.abs(fsMasterNetPL).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                  </div>
+                  <div className="text-[9px] text-gray-400 mt-0.5">{fsMasterNetPL >= 0 ? 'Profit' : 'Loss'}</div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Net P/L Banner ── */}
+            <div className={`p-4 rounded-sm text-white font-bold flex justify-between items-center shadow-md ${ fsMasterNetPL >= 0 ? 'bg-gradient-to-r from-green-700 to-green-500' : 'bg-gradient-to-r from-red-700 to-red-500'}`}>
+              <div className="flex flex-col">
+                <span className="text-sm uppercase tracking-wider">Master Net Total P/L</span>
+                <span className="text-[11px] opacity-75 font-normal mt-0.5">
+                  Platform fees collected: ₹{fsTotalPlatformFees.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <span className="text-2xl font-black">
+                {fsMasterNetPL >= 0 ? '+' : ''}₹{Math.abs(fsMasterNetPL).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+              </span>
             </div>
           </div>
         );
