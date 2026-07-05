@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Filter, Calendar, Layout, List, CheckSquare, Search, X, ChevronRight, TrendingUp, TrendingDown, AlertCircle, Users } from "lucide-react";
 import { getApiUrl } from "@/lib/apiConfig";
-import FinalSheet from "../../components/FinalSheet";
+import FinalSheet from "@/components/FinalSheet";
 
 export default function SuperAdminReports() {
   const [activeReport, setActiveReport] = useState("Daily Report");
