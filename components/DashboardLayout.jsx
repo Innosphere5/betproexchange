@@ -251,8 +251,10 @@ export default function DashboardLayout({ children }) {
     };
 
     fetchMatches();
+    const matchesRefetchInterval = setInterval(fetchMatches, 60000);
 
     return () => {
+      clearInterval(matchesRefetchInterval);
       socket.disconnect();
     };
   }, []);

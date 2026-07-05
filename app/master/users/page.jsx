@@ -65,7 +65,19 @@ export default function MasterUsers() {
       });
       const data = await res.json();
       if (res.ok) {
-        setFinalSheetData(data);
+        // Map greenEntries/redEntries from API into the accounts format the UI expects
+        const accounts = [];
+        if (data.greenEntries) {
+          data.greenEntries.forEach(e => {
+            accounts.push({ name: e.accountName, net: e.amount, role: e.role });
+          });
+        }
+        if (data.redEntries) {
+          data.redEntries.forEach(e => {
+            accounts.push({ name: e.accountName, net: -e.amount, role: e.role });
+          });
+        }
+        setFinalSheetData({ ...data, accounts });
       }
     } catch (err) {
       console.error("Error fetching final sheet:", err);
@@ -89,7 +101,9 @@ export default function MasterUsers() {
       });
       const data = await res.json();
       if (res.ok) {
-        setDailyReportData(data);
+        const profit = (data.greenEntries || []).map(e => ({ name: e.accountName, amount: e.amount, role: e.role }));
+        const loss = (data.redEntries || []).map(e => ({ name: e.accountName, amount: e.amount, role: e.role }));
+        setDailyReportData({ ...data, profit, loss });
       }
     } catch (err) {
       console.error("Error fetching daily report:", err);

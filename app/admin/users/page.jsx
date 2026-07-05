@@ -79,7 +79,19 @@ export default function AdminUsers() {
       });
       const data = await res.json();
       if (res.ok) {
-        setFinalSheetData(data);
+        // Map greenEntries/redEntries from API into the accounts format the UI expects
+        const accounts = [];
+        if (data.greenEntries) {
+          data.greenEntries.forEach(e => {
+            accounts.push({ name: e.accountName, net: e.amount, role: e.role });
+          });
+        }
+        if (data.redEntries) {
+          data.redEntries.forEach(e => {
+            accounts.push({ name: e.accountName, net: -e.amount, role: e.role });
+          });
+        }
+        setFinalSheetData({ ...data, accounts });
       }
     } catch (err) {
       console.error("Error fetching final sheet:", err);
@@ -103,7 +115,9 @@ export default function AdminUsers() {
       });
       const data = await res.json();
       if (res.ok) {
-        setDailyReportData(data);
+        const profit = (data.greenEntries || []).map(e => ({ name: e.accountName, amount: e.amount, role: e.role }));
+        const loss = (data.redEntries || []).map(e => ({ name: e.accountName, amount: e.amount, role: e.role }));
+        setDailyReportData({ ...data, profit, loss });
       }
     } catch (err) {
       console.error("Error fetching daily report:", err);
@@ -771,11 +785,11 @@ export default function AdminUsers() {
                   <tbody>
                     {negativeAccounts.map((u, i) => (
                       <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-3 py-2 border-r border-gray-100 text-[#1abc9c] font-medium">
+                        <td className="px-3 py-2 border-r border-gray-100 text-red-600 font-medium">
                           {u.name} {u.role && <span className="ml-1 text-[9px] bg-gray-100 text-gray-500 px-1 rounded uppercase font-bold">{u.role}</span>}
                         </td>
                         <td className="px-3 py-2 font-bold text-red-500">
-                          {u.net.toLocaleString()}
+                          {Math.abs(u.net).toLocaleString()}
                         </td>
                       </tr>
                     ))}
@@ -786,7 +800,7 @@ export default function AdminUsers() {
                   <tfoot>
                     <tr className="bg-[#f25c54] text-white font-bold">
                       <td className="px-3 py-2 border-r border-[#e04a43]">Total</td>
-                      <td className="px-3 py-2">{totalNegativeNet.toLocaleString()}</td>
+                      <td className="px-3 py-2">{Math.abs(totalNegativeNet).toLocaleString()}</td>
                     </tr>
                   </tfoot>
                 </table>

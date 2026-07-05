@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Filter, Calendar, Layout, List, CheckSquare, X } from "lucide-react";
+import { Filter, Calendar, Layout, List, CheckSquare, X, ChevronRight, TrendingUp, TrendingDown, AlertCircle, Users } from "lucide-react";
 import { getApiUrl } from "@/lib/apiConfig";
+import FinalSheet from "../../components/FinalSheet";
 
 export default function AdminReports() {
   const [activeReport, setActiveReport] = useState("Daily Report");
@@ -143,12 +144,6 @@ export default function AdminReports() {
 
     switch (activeReport) {
       case "Daily Report":
-        const dailyAccounts = dailyReportData?.accounts || [];
-        const filteredDailyAccounts = dailyAccounts.filter(u => !hideZero || u.green !== 0 || u.red !== 0 || u.net !== 0);
-        const totalDailyGreen = filteredDailyAccounts.reduce((sum, u) => sum + (u.green || 0), 0);
-        const totalDailyRed = filteredDailyAccounts.reduce((sum, u) => sum + (u.red || 0), 0);
-        const totalDailyNet = filteredDailyAccounts.reduce((sum, u) => sum + (u.net || 0), 0);
-
         return (
           <div className="flex flex-col gap-4">
             {/* Report Filter Section */}
@@ -226,239 +221,16 @@ export default function AdminReports() {
                 >
                   Submit
                 </button>
-
-                <div className="flex items-center gap-1 ml-auto font-normal text-gray-600 text-[11px]">
-                  <input 
-                    type="checkbox" 
-                    id="hideZeroDaily" 
-                    checked={hideZero} 
-                    onChange={(e) => setHideZero(e.target.checked)} 
-                    className="w-3 h-3 accent-[#1abc9c]"
-                  />
-                  <label htmlFor="hideZeroDaily" className="cursor-pointer">Hide Zero</label>
-                </div>
               </div>
             </div>
 
-            {/* Report Table Section */}
-            <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden">
-              <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px] flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Layout size={16} className="text-gray-700" />
-                  Report
-                </div>
-              </div>
-              <div className="p-4 overflow-x-auto">
-                <table className="w-full text-[12px] border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200 text-left">
-                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200">Name</th>
-                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200">Parent</th>
-                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">Green (Received)</th>
-                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">Red (Paid)</th>
-                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">Net</th>
-                      <th className="px-3 py-2 font-bold text-gray-700 text-right">My Profit</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredDailyAccounts.map((u, i) => (
-                      <React.Fragment key={`daily-${i}`}>
-                        <tr className="border-b border-gray-100 hover:bg-gray-50">
-                          <td 
-                            className="px-3 py-2 border-r border-gray-100 cursor-pointer text-blue-600 font-medium hover:underline"
-                            onClick={() => setShowParentFor(showParentFor === u.name ? null : u.name)}
-                          >
-                            <div className="flex flex-col">
-                              <span>{u.name}</span>
-                              {u.parent && u.parent !== 'None' && u.parent !== 'Legacy' && showParentFor === u.name && (
-                                <span className="text-[10px] text-blue-500 font-bold italic">
-                                  Parent: {u.parent}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 border-r border-gray-100 text-gray-600">
-                            {u.parent && u.parent !== 'None' && u.parent !== 'Legacy' ? u.parent : '-'}
-                          </td>
-                          <td 
-                            className="px-3 py-2 border-r border-gray-100 text-right font-bold text-green-600 cursor-pointer hover:bg-green-50"
-                            onClick={() => setExpandedUser(expandedUser === u.name ? null : u.name)}
-                          >
-                            {u.green.toLocaleString()}
-                          </td>
-                          <td 
-                            className="px-3 py-2 border-r border-gray-100 text-right font-bold text-red-500 cursor-pointer hover:bg-red-50"
-                            onClick={() => setExpandedUser(expandedUser === u.name ? null : u.name)}
-                          >
-                            {u.red.toLocaleString()}
-                          </td>
-                          <td 
-                            className={`px-3 py-2 border-r border-gray-100 text-right font-bold cursor-pointer hover:bg-gray-50 ${u.net >= 0 ? 'text-green-600' : 'text-red-500'}`}
-                            onClick={() => setExpandedUser(expandedUser === u.name ? null : u.name)}
-                          >
-                            <span>{u.net >= 0 ? `+${u.net.toLocaleString()}` : u.net.toLocaleString()}</span>
-                          </td>
-                          <td 
-                            className={`px-3 py-2 text-right font-bold cursor-pointer hover:bg-gray-50 ${u.myProfit >= 0 ? 'text-[#1abc9c]' : 'text-red-500'}`}
-                            onClick={() => setExpandedUser(expandedUser === u.name ? null : u.name)}
-                          >
-                            <div className="flex items-center justify-end gap-1">
-                              <span>{u.myProfit >= 0 ? `+${u.myProfit?.toLocaleString()}` : u.myProfit?.toLocaleString()}</span>
-                              <span className={`text-[10px] transition-transform duration-300 ${expandedUser === u.name ? 'rotate-180 text-[#1abc9c]' : 'text-gray-400'}`}>
-                                ▼
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                        {expandedUser === u.name && (
-                          <tr className="bg-gray-50 border-b border-gray-200">
-                            <td colSpan="6" className="p-2">
-                              <div className="bg-white border border-gray-200 rounded shadow-inner p-2 text-[11px]">
-                                <table className="w-full text-left border-collapse">
-                                  <thead>
-                                    <tr className="border-b border-gray-100 text-gray-500">
-                                      <th className="py-1">Type</th>
-                                      <th className="text-right py-1">Green</th>
-                                      <th className="text-right py-1">Red</th>
-                                      <th className="text-right py-1">Net</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    <tr className="border-b border-gray-50 hover:bg-blue-50 cursor-pointer" onClick={() => fetchDailyReportDetails(u.name, 'cricket')}>
-                                      <td className="py-1.5 font-medium text-blue-600 hover:underline">Cricket</td>
-                                      <td className="text-right font-bold text-green-600">{u.breakdown?.cricket?.green.toLocaleString()}</td>
-                                      <td className="text-right font-bold text-red-500">{u.breakdown?.cricket?.red.toLocaleString()}</td>
-                                      <td className={`text-right font-bold ${u.breakdown?.cricket?.net >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                        {u.breakdown?.cricket?.net >= 0 ? `+${u.breakdown?.cricket?.net.toLocaleString()}` : u.breakdown?.cricket?.net.toLocaleString()}
-                                      </td>
-                                    </tr>
-                                    <tr className="border-b border-gray-50 hover:bg-blue-50 cursor-pointer" onClick={() => fetchDailyReportDetails(u.name, 'casino')}>
-                                      <td className="py-1.5 font-medium text-blue-600 hover:underline">Casino</td>
-                                      <td className="text-right font-bold text-green-600">{u.breakdown?.casino?.green.toLocaleString()}</td>
-                                      <td className="text-right font-bold text-red-500">{u.breakdown?.casino?.red.toLocaleString()}</td>
-                                      <td className={`text-right font-bold ${u.breakdown?.casino?.net >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                        {u.breakdown?.casino?.net >= 0 ? `+${u.breakdown?.casino?.net.toLocaleString()}` : u.breakdown?.casino?.net.toLocaleString()}
-                                      </td>
-                                    </tr>
-                                  </tbody>
-                                  <tfoot>
-                                    <tr className="font-bold bg-gray-50">
-                                      <td className="py-1">Total</td>
-                                      <td className="text-right text-green-600">{u.green.toLocaleString()}</td>
-                                      <td className="text-right text-red-500">{u.red.toLocaleString()}</td>
-                                      <td className={`text-right ${u.net >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                        {u.net >= 0 ? `+${u.net.toLocaleString()}` : u.net.toLocaleString()}
-                                      </td>
-                                    </tr>
-                                  </tfoot>
-                                </table>
-                                <div className="text-[9px] text-gray-400 mt-1 italic text-center">Click on Cricket or Casino for full history</div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    ))}
-                    {filteredDailyAccounts.length === 0 && (
-                      <tr><td colSpan="6" className="px-3 py-10 text-center text-gray-400 italic">No data found for this date</td></tr>
-                    )}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-[#1abc9c] text-white font-bold">
-                      <td colSpan="2" className="px-3 py-2 border-r border-teal-600">Total</td>
-                      <td className="px-3 py-2 text-right border-r border-teal-600">{totalDailyGreen.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right border-r border-teal-600">{totalDailyRed.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right border-r border-teal-600">{totalDailyNet >= 0 ? `+${totalDailyNet.toLocaleString()}` : totalDailyNet.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-right">{filteredDailyAccounts.reduce((sum, u) => sum + (u.myProfit || 0), 0) >= 0 ? `+${filteredDailyAccounts.reduce((sum, u) => sum + (u.myProfit || 0), 0).toLocaleString()}` : filteredDailyAccounts.reduce((sum, u) => sum + (u.myProfit || 0), 0).toLocaleString()}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </div>
-            <div className={`mt-2 p-3 rounded-sm text-white font-bold flex justify-between items-center shadow-md ${totalDailyNet >= 0 ? 'bg-gradient-to-r from-green-600 to-green-500' : 'bg-gradient-to-r from-red-600 to-red-500'}`}>
-              <span className="text-sm uppercase tracking-wider">Net Total P/L</span>
-              <span className="text-xl font-black">{totalDailyNet >= 0 ? `+${totalDailyNet.toLocaleString()}` : totalDailyNet.toLocaleString()}</span>
-            </div>
+            <FinalSheet data={dailyReportData} title="Daily Report" />
           </div>
         );
 
       case "Final Sheet":
-        const finalAccounts = finalSheetData?.accounts || [];
-        const filteredFinalAccounts = finalAccounts.filter(u => !hideZero || u.green !== 0 || u.red !== 0 || u.net !== 0);
-        const totalFinalGreen = filteredFinalAccounts.reduce((sum, u) => sum + (u.green || 0), 0);
-        const totalFinalRed = filteredFinalAccounts.reduce((sum, u) => sum + (u.red || 0), 0);
-        const totalFinalNet = filteredFinalAccounts.reduce((sum, u) => sum + (u.net || 0), 0);
+        return <FinalSheet data={finalSheetData} />;
 
-        return (
-          <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden">
-            <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px]">
-              <div className="flex items-center gap-2 mb-1">
-                <List size={16} className="text-gray-700" />
-                Admin - Final Sheet
-              </div>
-              <div className="flex items-center gap-1 font-normal text-gray-600 text-[11px]">
-                <input 
-                  type="checkbox" 
-                  id="hideZero" 
-                  checked={hideZero} 
-                  onChange={(e) => setHideZero(e.target.checked)} 
-                  className="w-3 h-3 accent-[#1abc9c]"
-                />
-                <label htmlFor="hideZero">Hide Zero Amounts</label>
-              </div>
-            </div>
-            <div className="p-4 overflow-x-auto">
-              <table className="w-full text-[12px] border-collapse text-left">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200">Downline</th>
-                    <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">Downline Owes You (Green)</th>
-                    <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">You Owe Downline (Red)</th>
-                    <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-200 text-right">Settlement Net</th>
-                    <th className="px-3 py-2 font-bold text-gray-700 text-right text-[#1abc9c]">My Profit</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredFinalAccounts.map((u, i) => (
-                    <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="px-3 py-2 border-r border-gray-100 text-blue-600 font-medium">
-                        {u.name}
-                      </td>
-                      <td className="px-3 py-2 border-r border-gray-100 text-right font-bold text-green-600">
-                        {u.green.toLocaleString()}
-                      </td>
-                      <td className="px-3 py-2 border-r border-gray-100 text-right font-bold text-red-500">
-                        {u.red.toLocaleString()}
-                      </td>
-                      <td className={`px-3 py-2 border-r border-gray-100 text-right font-bold ${u.net >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                        {u.net >= 0 ? `+${u.net.toLocaleString()}` : u.net.toLocaleString()}
-                      </td>
-                      <td className={`px-3 py-2 text-right font-bold ${u.myProfit >= 0 ? 'text-[#1abc9c]' : 'text-red-500'}`}>
-                        {u.myProfit >= 0 ? `+${u.myProfit?.toLocaleString()}` : u.myProfit?.toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                  {filteredFinalAccounts.length === 0 && (
-                    <tr><td colSpan="4" className="px-3 py-10 text-center text-gray-400 italic">No data found</td></tr>
-                  )}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-[#1abc9c] text-white font-bold">
-                    <td className="px-3 py-2 border-r border-teal-600">Total</td>
-                    <td className="px-3 py-2 text-right border-r border-teal-600">{totalFinalGreen.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right border-r border-teal-600">{totalFinalRed.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right border-r border-teal-600">{totalFinalNet >= 0 ? `+${totalFinalNet.toLocaleString()}` : totalFinalNet.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right">{filteredFinalAccounts.reduce((sum, u) => sum + (u.myProfit || 0), 0) >= 0 ? `+${filteredFinalAccounts.reduce((sum, u) => sum + (u.myProfit || 0), 0).toLocaleString()}` : filteredFinalAccounts.reduce((sum, u) => sum + (u.myProfit || 0), 0).toLocaleString()}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-            <div className={`mt-2 p-3 m-4 rounded-sm text-white font-bold flex justify-between items-center shadow-md ${totalFinalNet >= 0 ? 'bg-gradient-to-r from-green-600 to-green-500' : 'bg-gradient-to-r from-red-600 to-red-500'}`}>
-              <span className="text-sm uppercase tracking-wider">Net Total P/L</span>
-              <span className="text-xl font-black">{totalFinalNet >= 0 ? `+${totalFinalNet.toLocaleString()}` : totalFinalNet.toLocaleString()}</span>
-            </div>
-          </div>
-        );
 
       case "Commission Report":
         return (

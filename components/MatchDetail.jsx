@@ -94,17 +94,17 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   const runners = [
     { 
       name: actualMatch.teamA, 
-      back: showOdds ? (actualMatch.backOddsA || "N/A") : "N/A", 
+      back: showOdds ? (actualMatch.backOddsA || "-") : "-", 
       backVol: showOdds ? (actualMatch.depthBackA || "0") : "0", 
-      lay: showOdds ? (actualMatch.layOddsA || "N/A") : "N/A", 
+      lay: showOdds ? (actualMatch.layOddsA || "-") : "-", 
       layVol: showOdds ? (actualMatch.depthLayA || "0") : "0",
       flash: { back: flash.backA, lay: flash.layA }
     },
     { 
       name: actualMatch.teamB, 
-      back: showOdds ? (actualMatch.backOddsB || "N/A") : "N/A", 
+      back: showOdds ? (actualMatch.backOddsB || "-") : "-", 
       backVol: showOdds ? (actualMatch.depthBackB || "0") : "0", 
-      lay: showOdds ? (actualMatch.layOddsB || "N/A") : "N/A", 
+      lay: showOdds ? (actualMatch.layOddsB || "-") : "-", 
       layVol: showOdds ? (actualMatch.depthLayB || "0") : "0",
       flash: { back: flash.backB, lay: flash.layB }
     }
@@ -181,17 +181,17 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                   </div>
                   <div className="flex w-32 shrink-0">
                     <button
-                      disabled={actualMatch.marketStatus && actualMatch.marketStatus !== 'OPEN'}
+                      disabled={(actualMatch.marketStatus && actualMatch.marketStatus !== 'OPEN') || runner.back === '-'}
                       onClick={() => onSelectOutcome(runner.name, runner.back, 'back', actualMatch.status === 'live')}
-                      className={`flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all border-r border-white/40 disabled:opacity-50 relative overflow-hidden ${runner.flash?.back ? 'bg-[#5d99d6]' : 'bg-[#bbd9f9]'}`}
+                      className={`flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all border-r border-white/40 disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden ${runner.flash?.back ? 'bg-[#5d99d6]' : 'bg-[#bbd9f9]'}`}
                     >
                       <span className={`text-[15px] font-black leading-none z-10 transition-colors ${runner.flash?.back ? 'text-white' : 'text-[#1c3246]'}`}>{runner.back}</span>
                       <span className={`text-[9px] font-bold mt-1 z-10 transition-colors ${runner.flash?.back ? 'text-white/80' : 'text-gray-500'}`}>{runner.backVol}</span>
                     </button>
                     <button
-                      disabled={actualMatch.marketStatus && actualMatch.marketStatus !== 'OPEN'}
+                      disabled={(actualMatch.marketStatus && actualMatch.marketStatus !== 'OPEN') || runner.lay === '-'}
                       onClick={() => onSelectOutcome(runner.name, runner.lay, 'lay', actualMatch.status === 'live')}
-                      className={`flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all disabled:opacity-50 relative overflow-hidden ${runner.flash?.lay ? 'bg-[#d65d7a]' : 'bg-[#f8c9d4]'}`}
+                      className={`flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden ${runner.flash?.lay ? 'bg-[#d65d7a]' : 'bg-[#f8c9d4]'}`}
                     >
                       <span className={`text-[15px] font-black leading-none z-10 transition-colors ${runner.flash?.lay ? 'text-white' : 'text-[#1c3246]'}`}>{runner.lay}</span>
                       <span className={`text-[9px] font-bold mt-1 z-10 transition-colors ${runner.flash?.lay ? 'text-white/80' : 'text-gray-500'}`}>{runner.layVol}</span>
