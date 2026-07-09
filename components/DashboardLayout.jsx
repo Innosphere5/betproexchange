@@ -122,23 +122,25 @@ export default function DashboardLayout({ children }) {
     socket.on('live_score_update', (data) => {
         setCricketMatches(prev => prev.map(m => {
             if (String(m.matchId) === String(data.matchId)) {
+                const nextScore = {
+                    ...m.score,
+                    teamA_runs: data.teamA_runs ?? m.score?.teamA_runs,
+                    teamB_runs: data.teamB_runs ?? m.score?.teamB_runs,
+                    overs: data.overs ?? m.score?.overs,
+                    wickets: data.wickets ?? m.score?.wickets,
+                    target: data.target ?? m.score?.target,
+                    runRate: data.runRate ?? m.score?.runRate,
+                    reqRunRate: data.reqRunRate ?? m.score?.reqRunRate,
+                    thisOver: data.thisOver ?? m.score?.thisOver,
+                    remRuns: data.remRuns ?? m.score?.remRuns,
+                    remBalls: data.remBalls ?? m.score?.remBalls,
+                    lastUpdated: new Date()
+                };
+
                 return {
                     ...m,
                     status: data.status || m.status,
-                    score: {
-                        ...m.score,
-                        teamA_runs: data.teamA_runs || m.score?.teamA_runs,
-                        teamB_runs: data.teamB_runs || m.score?.teamB_runs,
-                        overs:      data.overs || m.score?.overs,
-                        wickets:    data.wickets || m.score?.wickets,
-                        target:     data.target || m.score?.target,
-                        runRate:    data.runRate || m.score?.runRate,
-                        reqRunRate: data.reqRunRate || m.score?.reqRunRate,
-                        thisOver:   data.thisOver || m.score?.thisOver,
-                        remRuns:    data.remRuns || m.score?.remRuns,
-                        remBalls:   data.remBalls || m.score?.remBalls,
-                        lastUpdated: new Date()
-                    }
+                    score: nextScore
                 };
             }
             return m;

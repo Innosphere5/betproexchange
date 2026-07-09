@@ -5,6 +5,7 @@ import { List, TrendingUp, TrendingDown, AlertCircle, ChevronRight, Users } from
 
 export default function FinalSheet({ data }) {
   const [hideZero, setHideZero] = useState(false);
+  const [showParentFor, setShowParentFor] = useState(null);
 
   if (!data || !data.masterInfo) {
     return (
@@ -116,10 +117,28 @@ export default function FinalSheet({ data }) {
               {filteredGreen.map((entry, i) => (
                 <div key={i} className="px-4 py-3.5 hover:bg-green-50/60 transition-colors">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-bold text-gray-900 text-[13px]">{entry.accountName}</div>
-                      <div className="text-[10px] text-green-600 font-medium mt-0.5 capitalize">
-                        {entry.role}
+                    <div 
+                      className={`flex flex-col group ${entry.parentName ? 'cursor-pointer' : ''}`}
+                      onClick={() => {
+                        if (entry.parentName) {
+                          setShowParentFor(showParentFor === entry.accountName ? null : entry.accountName);
+                        }
+                      }}
+                    >
+                      <div className="font-bold text-gray-900 text-[13px] group-hover:text-blue-600 transition-colors">
+                        {entry.accountName}
+                      </div>
+                      <div className="text-[10px] text-green-600 font-medium mt-0.5 capitalize flex flex-col gap-0.5">
+                        <span>{entry.role === 'user' ? 'Bettor' : entry.role}</span>
+                        {entry.parentName && (
+                          <span className={`text-[10px] text-blue-500 font-bold italic transition-all duration-300 ${
+                            showParentFor === entry.accountName
+                              ? 'opacity-100 max-h-10'
+                              : 'opacity-0 max-h-0 overflow-hidden group-hover:opacity-100 group-hover:max-h-10'
+                          }`}>
+                            Parent: {entry.parentName}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">
@@ -169,10 +188,28 @@ export default function FinalSheet({ data }) {
                       <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
                         <Users size={14} className="text-red-500" />
                       </div>
-                      <div>
-                        <div className="font-bold text-gray-900 text-[13px]">{entry.accountName}</div>
-                        <div className="text-[10px] text-red-500 font-medium mt-0.5 capitalize">
-                          {entry.role}
+                      <div 
+                        className={`flex flex-col group ${entry.parentName ? 'cursor-pointer' : ''}`}
+                        onClick={() => {
+                          if (entry.parentName) {
+                            setShowParentFor(showParentFor === entry.accountName ? null : entry.accountName);
+                          }
+                        }}
+                      >
+                        <div className="font-bold text-gray-900 text-[13px] group-hover:text-blue-600 transition-colors">
+                          {entry.accountName}
+                        </div>
+                        <div className="text-[10px] text-red-500 font-medium mt-0.5 capitalize flex flex-col gap-0.5">
+                          <span>{entry.role === 'user' ? 'Bettor' : entry.role}</span>
+                          {entry.parentName && (
+                            <span className={`text-[10px] text-blue-500 font-bold italic transition-all duration-300 ${
+                              showParentFor === entry.accountName
+                                ? 'opacity-100 max-h-10'
+                                : 'opacity-0 max-h-0 overflow-hidden group-hover:opacity-100 group-hover:max-h-10'
+                            }`}>
+                              Parent: {entry.parentName}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
