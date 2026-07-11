@@ -10,7 +10,6 @@ export default function SuperAdminReports() {
   const [hideZero, setHideZero] = useState(false);
   const [finalSheetData, setFinalSheetData] = useState({ accounts: [] });
   const [dailyReportData, setDailyReportData] = useState({ accounts: [] });
-  const [showParentFor, setShowParentFor] = useState(null); // Track clicked user to keep parent visible
   const [isLoading, setIsLoading] = useState(false);
   const [commissionData, setCommissionData] = useState([]);
   const [reportPeriod, setReportPeriod] = useState("daily"); // daily, monthly, yearly, range
@@ -19,10 +18,6 @@ export default function SuperAdminReports() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
-  const [expandedUser, setExpandedUser] = useState(null); // For level 1 drill down (Cricket/Casino summary)
-  const [detailsView, setDetailsView] = useState(null); // For level 2 drill down (Transaction history) { bettor, type }
-  const [transactionDetails, setTransactionDetails] = useState([]);
-  const [isDetailsLoading, setIsDetailsLoading] = useState(false);
 
   const reportTypes = [
     'Book Detail', 'Book Detail 2', 'Daily PL', 'Daily Report', 'Final Sheet', 'Accounts', 'Commission Report'
@@ -77,31 +72,6 @@ export default function SuperAdminReports() {
       console.error("Error fetching daily report:", err);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const fetchDailyReportDetails = async (bettor, type = 'all') => {
-    setIsDetailsLoading(true);
-    const token = getAuthToken();
-    try {
-      let url = `${getApiUrl()}/api/admin/daily-report-details?bettor=${bettor}&type=${type}&reportType=${reportPeriod}`;
-      if (reportPeriod === 'daily') url += `&date=${selectedDate}`;
-      else if (reportPeriod === 'monthly') url += `&month=${selectedMonth}`;
-      else if (reportPeriod === 'yearly') url += `&year=${selectedYear}`;
-      else if (reportPeriod === 'range') url += `&startDate=${startDate}&endDate=${endDate}`;
-
-      const res = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setTransactionDetails(data);
-        setDetailsView({ bettor, type });
-      }
-    } catch (err) {
-      console.error("Error fetching details:", err);
-    } finally {
-      setIsDetailsLoading(false);
     }
   };
 
@@ -168,7 +138,15 @@ export default function SuperAdminReports() {
     }
   }, [activeReport, selectedDate, selectedMonth, selectedYear, reportPeriod, startDate, endDate]);
 
-
+  // Report filters object to pass to FinalSheet for drill-down
+  const reportFiltersObj = {
+    reportPeriod,
+    selectedDate,
+    selectedMonth,
+    selectedYear,
+    startDate,
+    endDate
+  };
 
   const renderReportUI = () => {
     if (isLoading) {
@@ -244,12 +222,12 @@ export default function SuperAdminReports() {
               </div>
             </div>
 
-            <FinalSheet data={dailyReportData} title="Daily Report" />
-          </div>
-        );
-
-      case "Final Sheet":
-        return <FinalSheet data={finalSheetData} />;
+             <FinalSheet data={dailyReportData} title="Daily Report" reportFilters={reportFiltersObj} />
+           </div>
+         );
+ 
+       case "Final Sheet":
+         return <FinalSheet data={finalSheetData} />;
 
 
       case "Commission Report":
@@ -295,10 +273,6 @@ export default function SuperAdminReports() {
                 </table>
               </div>
             </div>
-            <div className={`p-3 m-4 mt-0 rounded-sm text-white font-bold flex justify-between items-center shadow-md ${totalDailyProfit - totalDailyLoss >= 0 ? 'bg-gradient-to-r from-green-600 to-green-500' : 'bg-gradient-to-r from-red-600 to-red-500'}`}>
-              <span className="text-sm uppercase tracking-wider">Net Total P/L</span>
-              <span className="text-xl font-black">{(totalDailyProfit - totalDailyLoss).toLocaleString()}</span>
-            </div>
           </div>
         );
 
@@ -341,97 +315,6 @@ export default function SuperAdminReports() {
     <div className="text-gray-500 text-[11px] font-bold mt-4 self-center italic">
       Welcome to Betproexchange SuperAdmin Portal.
     </div>
-
-    {/* Transaction Details Modal */}
-    {detailsView && (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-        <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in duration-200">
-          <div className="bg-white border-b border-gray-300 px-4 py-3 flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <div className="bg-[#1abc9c] w-1 h-6 rounded-full"></div>
-              <div>
-                <h3 className="font-bold text-gray-800 text-[14px]">
-                  {detailsView.bettor} / {detailsView.type === 'cricket' ? 'Cricket-Markets Reports' : 'Casino-Markets Reports'}
-                </h3>
-              </div>
-            </div>
-            <button onClick={() => setDetailsView(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
-              <X size={20} />
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-6">
-            {isDetailsLoading ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-4 text-blue-600 animate-pulse">
-                <div className="w-12 h-12 border-4 border-current border-t-transparent rounded-full animate-spin"></div>
-                <p className="font-bold uppercase text-xs tracking-widest">Fetching details...</p>
-              </div>
-            ) : transactionDetails.length > 0 ? (
-              <div className="border border-gray-300 rounded-sm overflow-hidden shadow-sm">
-                <table className="w-full text-[11px] border-collapse">
-                  <thead>
-                    <tr className="bg-white border-b border-gray-300 text-left text-gray-700 font-bold">
-                      <th className="px-3 py-2 border-r border-gray-300 w-[140px]">Date</th>
-                      <th className="px-3 py-2 border-r border-gray-300">Event</th>
-                      <th className="px-3 py-2 text-right">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {transactionDetails.map((t, idx) => {
-                      const netAmount = t.amount; // Positive = Master Profit
-                      return (
-                        <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                          <td className="px-3 py-2 border-r border-gray-100 text-gray-500">
-                            {new Date(t.timestamp || t.createdAt).toLocaleString('en-GB', { 
-                              day: '2-digit', month: '2-digit', year: 'numeric', 
-                              hour: '2-digit', minute: '2-digit', hour12: true 
-                            })}
-                          </td>
-                          <td className="px-3 py-2 border-r border-gray-100 font-medium text-[#1abc9c]">
-                            {t.matchName ? (
-                              `${t.matchName}${t.selection ? ` (${t.selection})` : ''}`
-                            ) : (
-                              (t.event || t.description || '').split('|')[0].trim().includes('Share from') 
-                              ? ((t.event || t.description || '').includes('Casino') ? 'Casino Game' : 'Cricket Match')
-                              : (t.event || t.description || '').split('|')[0].trim()
-                            )}
-                          </td>
-                          <td className={`px-3 py-2 text-right font-bold ${netAmount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                            {netAmount.toLocaleString()}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-[#1abc9c] text-white font-bold">
-                      <td colSpan="2" className="px-3 py-2 border-r border-[#16a085] uppercase text-[10px]">Total</td>
-                      <td className="px-3 py-2 text-right">
-                        {transactionDetails.reduce((sum, t) => sum + t.amount, 0).toLocaleString()}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            ) : (
-              <div className="text-center py-20 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-                <div className="text-gray-300 mb-3 flex justify-center"><Search size={48} /></div>
-                <p className="text-gray-500 font-bold italic">No detailed transactions found for this period.</p>
-              </div>
-            )}
-          </div>
-
-          <div className="bg-gray-50 border-t border-gray-200 px-6 py-3 flex justify-end">
-            <button
-              onClick={() => setDetailsView(null)}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold px-6 py-2 rounded-lg transition-all active:scale-95 text-xs uppercase tracking-widest"
-            >
-              Close View
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
   </div>
 );
 }

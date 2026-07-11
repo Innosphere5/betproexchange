@@ -103,6 +103,16 @@ export default function MasterReports() {
     }
   }, [activeReport, selectedDate, selectedMonth, selectedYear, reportPeriod, startDate, endDate]);
 
+  // Report filters object to pass to FinalSheet for drill-down
+  const reportFiltersObj = {
+    reportPeriod,
+    selectedDate,
+    selectedMonth,
+    selectedYear,
+    startDate,
+    endDate
+  };
+
   const renderReportUI = () => {
     if (isLoading) {
       return (
@@ -195,7 +205,7 @@ export default function MasterReports() {
             </div>
 
             {/* Green/Red Two-Panel Daily Report using FinalSheet */}
-            <FinalSheet data={dailyReportData} title="Daily Report" />
+            <FinalSheet data={dailyReportData} title="Daily Report" reportFilters={reportFiltersObj} />
           </div>
         );
 

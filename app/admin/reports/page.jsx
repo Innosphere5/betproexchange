@@ -10,7 +10,6 @@ export default function AdminReports() {
   const [hideZero, setHideZero] = useState(false);
   const [finalSheetData, setFinalSheetData] = useState({ accounts: [] });
   const [dailyReportData, setDailyReportData] = useState({ accounts: [] });
-  const [showParentFor, setShowParentFor] = useState(null); // Track clicked user to keep parent visible
   const [isLoading, setIsLoading] = useState(false);
   const [commissionData, setCommissionData] = useState([]);
   const [reportPeriod, setReportPeriod] = useState("daily"); // daily, monthly, yearly, range
@@ -19,10 +18,6 @@ export default function AdminReports() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
-  const [expandedUser, setExpandedUser] = useState(null); // For level 1 drill down (Cricket/Casino summary)
-  const [detailsView, setDetailsView] = useState(null); // For level 2 drill down (Transaction history) { bettor, type }
-  const [transactionDetails, setTransactionDetails] = useState([]);
-  const [isDetailsLoading, setIsDetailsLoading] = useState(false);
 
   const reportTypes = [
     'Book Detail', 'Book Detail 2', 'Daily PL', 'Daily Report', 'Final Sheet', 'Accounts', 'Commission Report'
@@ -98,31 +93,6 @@ export default function AdminReports() {
     }
   };
 
-  const fetchDailyReportDetails = async (bettor, type = 'all') => {
-    setIsDetailsLoading(true);
-    const token = getAuthToken();
-    try {
-      let url = `${getApiUrl()}/api/admin/daily-report-details?bettor=${bettor}&type=${type}&reportType=${reportPeriod}`;
-      if (reportPeriod === 'daily') url += `&date=${selectedDate}`;
-      else if (reportPeriod === 'monthly') url += `&month=${selectedMonth}`;
-      else if (reportPeriod === 'yearly') url += `&year=${selectedYear}`;
-      else if (reportPeriod === 'range') url += `&startDate=${startDate}&endDate=${endDate}`;
-
-      const res = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setTransactionDetails(data);
-        setDetailsView({ bettor, type });
-      }
-    } catch (err) {
-      console.error("Error fetching details:", err);
-    } finally {
-      setIsDetailsLoading(false);
-    }
-  };
-
   useEffect(() => {
     if (activeReport === "Final Sheet") {
       fetchFinalSheet();
@@ -132,6 +102,16 @@ export default function AdminReports() {
       fetchDailyReport();
     }
   }, [activeReport, selectedDate, selectedMonth, selectedYear, reportPeriod, startDate, endDate]);
+
+  // Report filters object to pass to FinalSheet for drill-down
+  const reportFiltersObj = {
+    reportPeriod,
+    selectedDate,
+    selectedMonth,
+    selectedYear,
+    startDate,
+    endDate
+  };
 
   const renderReportUI = () => {
     if (isLoading) {
@@ -224,7 +204,7 @@ export default function AdminReports() {
               </div>
             </div>
 
-            <FinalSheet data={dailyReportData} title="Daily Report" />
+            <FinalSheet data={dailyReportData} title="Daily Report" reportFilters={reportFiltersObj} />
           </div>
         );
 
@@ -314,93 +294,6 @@ export default function AdminReports() {
 
       {/* Dynamic Report Content */}
       {renderReportUI()}
-
-      {/* Level 2 Drill Down: Transaction Details Modal */}
-      {detailsView && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col overflow-hidden">
-          <div className="bg-white border-b border-gray-300 px-4 py-3 flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <div className="bg-[#1abc9c] w-1 h-6 rounded-full"></div>
-              <div>
-                <h3 className="font-bold text-gray-800 text-[14px]">
-                  {detailsView.bettor} / {detailsView.type === 'cricket' ? 'Cricket-Markets Reports' : 'Casino-Markets Reports'}
-                </h3>
-              </div>
-            </div>
-            <button onClick={() => setDetailsView(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
-              <X size={20} />
-            </button>
-          </div>
-            
-            <div className="flex-1 overflow-auto p-4">
-              {isDetailsLoading ? (
-                <div className="flex flex-col items-center justify-center h-40 gap-2 text-gray-400">
-                  <div className="w-8 h-8 border-4 border-[#1abc9c] border-t-transparent rounded-full animate-spin"></div>
-                  <p className="animate-pulse">Fetching transaction records...</p>
-                </div>
-              ) : (
-                <table className="w-full text-left text-[11px] border-collapse">
-                  <thead className="sticky top-0 bg-white border-b border-gray-300">
-                    <tr>
-                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-300 w-[140px]">Date</th>
-                      <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-300">Event</th>
-                      <th className="px-3 py-2 font-bold text-gray-700 text-right">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {transactionDetails.length > 0 ? transactionDetails.map((tx, idx) => {
-                      const netAmount = tx.amount; // Positive = Master Profit
-                      return (
-                        <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-3 py-2 text-gray-500 border-r border-gray-100">
-                            {new Date(tx.createdAt || tx.timestamp).toLocaleString('en-GB', { 
-                              day: '2-digit', month: '2-digit', year: 'numeric', 
-                              hour: '2-digit', minute: '2-digit', hour12: true 
-                            })}
-                          </td>
-                          <td className="px-3 py-2 border-r border-gray-100 font-medium text-[#1abc9c]">
-                            {tx.matchName ? (
-                              `${tx.matchName}${tx.selection ? ` (${tx.selection})` : ''}`
-                            ) : (
-                              (tx.event || tx.description || '').split('|')[0].trim().includes('Share from') 
-                              ? ((tx.event || tx.description || '').includes('Casino') ? 'Casino Game' : 'Cricket Match')
-                              : (tx.event || tx.description || '').split('|')[0].trim()
-                            )}
-                          </td>
-                          <td className={`px-3 py-2 text-right font-bold ${netAmount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                            {netAmount.toLocaleString()}
-                          </td>
-                        </tr>
-                      );
-                    }) : (
-                      <tr>
-                        <td colSpan="3" className="px-4 py-20 text-center text-gray-400 italic">
-                          No records found for this period
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-[#1abc9c] text-white font-bold">
-                      <td colSpan="2" className="px-3 py-2 border-r border-[#16a085] uppercase text-[10px]">Total</td>
-                      <td className="px-3 py-2 text-right">
-                        {transactionDetails.reduce((sum, t) => sum + t.amount, 0).toLocaleString()}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              )}
-            </div>
-            
-            <div className="bg-gray-50 p-4 border-t border-gray-200 flex justify-end">
-              <button onClick={() => setDetailsView(null)} className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold px-6 py-2 rounded-lg transition-all active:scale-95 text-xs uppercase tracking-widest">
-                Close View
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="text-gray-500 text-[11px] font-bold mt-4 self-center italic text-center w-full">
         Welcome to Betproexchange Admin Portal.
