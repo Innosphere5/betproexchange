@@ -20,7 +20,9 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
   const [marketData, setMarketData] = useState([]);
   const [selectedMarket, setSelectedMarket] = useState(null);
   const [betStatementData, setBetStatementData] = useState(null);
-  const [drillLoading, setDrillLoading] = useState(false);
+  const [betStatementPage, setBetStatementPage] = useState(1);
+  const [betStatementSearch, setBetStatementSearch] = useState("");
+  const [betStatementItemsPerPage] = useState(10);
 
   const getAuthToken = () => {
     if (typeof window === "undefined") return null;
@@ -99,6 +101,8 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
   const fetchBetStatement = async (market) => {
     setDrillLoading(true);
     setSelectedMarket(market);
+    setBetStatementPage(1);
+    setBetStatementSearch("");
     try {
       const token = getAuthToken();
       const res = await fetch(
@@ -278,6 +282,23 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
   const renderDrillPanel = () => {
     if (!isDrillOpen) return null;
 
+    let filteredBets = [];
+    if (betStatementData && betStatementData.bets) {
+      filteredBets = betStatementData.bets;
+      if (betStatementSearch) {
+        const q = betStatementSearch.toLowerCase();
+        filteredBets = filteredBets.filter(b => 
+          (b.runner && b.runner.toLowerCase().includes(q)) || 
+          (b.userName && b.userName.toLowerCase().includes(q))
+        );
+      }
+    }
+    const betTotalPages = Math.ceil(filteredBets.length / betStatementItemsPerPage);
+    const paginatedBets = filteredBets.slice(
+      (betStatementPage - 1) * betStatementItemsPerPage,
+      betStatementPage * betStatementItemsPerPage
+    );
+
     return (
       <div className="flex flex-col gap-3 animate-in slide-in-from-right duration-300">
         {/* ═══ Close Button ═══ */}
@@ -348,7 +369,7 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
                             </div>
                           </td>
                           <td className={`px-3 py-2.5 text-right font-bold ${row.amount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                            {row.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {row.amount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                           </td>
                         </tr>
                       ))}
@@ -357,7 +378,7 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
                       <tr className="bg-[#1abc9c] text-white font-bold">
                         <td className="px-3 py-2 border-r border-[#16a085] uppercase text-[10px]">Total</td>
                         <td className="px-3 py-2 text-right">
-                          {sportwiseData.reduce((s, r) => s + r.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          {sportwiseData.reduce((s, r) => s + r.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                         </td>
                       </tr>
                     </tfoot>
@@ -434,7 +455,7 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
                             </div>
                           </td>
                           <td className={`px-3 py-2.5 text-right font-bold ${row.amount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                            {row.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {row.amount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                           </td>
                         </tr>
                       ))}
@@ -443,7 +464,7 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
                       <tr className="bg-[#1abc9c] text-white font-bold">
                         <td colSpan="2" className="px-3 py-2 border-r border-[#16a085] uppercase text-[10px]">Total</td>
                         <td className="px-3 py-2 text-right">
-                          {marketData.reduce((s, r) => s + r.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          {marketData.reduce((s, r) => s + r.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                         </td>
                       </tr>
                     </tfoot>
@@ -486,16 +507,33 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
                       ? 'bg-green-100 text-green-800 border-green-200'
                       : 'bg-red-100 text-red-800 border-red-200'
                     }`}>
-                    Net P/L: {betStatementData.netPL?.toLocaleString('en-IN', { minimumFractionDigits: 2 }) || '0.00'}
+                    Net P/L: {betStatementData.netPL?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) || '0.00'}
                   </span>
                   <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-2.5 py-1 rounded-full border border-blue-200">
                     User: {betStatementData.userName}
                   </span>
                 </div>
 
+                {/* Search Bar */}
+                <div className="mb-3">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1.5 text-gray-400" size={14} />
+                    <input
+                      type="text"
+                      placeholder="Search runner or user..."
+                      value={betStatementSearch}
+                      onChange={(e) => {
+                        setBetStatementSearch(e.target.value);
+                        setBetStatementPage(1);
+                      }}
+                      className="w-full pl-8 pr-3 py-1.5 text-[11px] border border-gray-300 rounded focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
                 {/* Bets Table */}
-                {betStatementData.bets && betStatementData.bets.length > 0 ? (
-                  <div className="border border-gray-200 rounded-sm overflow-hidden">
+                {paginatedBets && paginatedBets.length > 0 ? (
+                  <div className="border border-gray-200 rounded-sm overflow-hidden mb-2">
                     <table className="w-full text-[10px]">
                       <thead>
                         <tr className="bg-gray-50 border-b border-gray-200 text-left">
@@ -508,7 +546,7 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
                         </tr>
                       </thead>
                       <tbody>
-                        {betStatementData.bets.map((bet, idx) => (
+                        {paginatedBets.map((bet, idx) => (
                           <tr key={idx} className={`border-b border-gray-50 ${bet.runner === 'Commission' ? 'bg-orange-50' : 'hover:bg-gray-50'}`}>
                             <td className="px-2 py-2 border-r border-gray-100 font-medium text-gray-800">
                               {bet.runner}
@@ -530,7 +568,7 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
                               ) : '—'}
                             </td>
                             <td className={`px-2 py-2 border-r border-gray-100 text-right font-bold ${bet.pl >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                              {bet.pl?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              {bet.pl?.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                             </td>
                             <td className="px-2 py-2 text-right text-gray-500 text-[9px]">
                               {bet.placedAt ? new Date(bet.placedAt).toLocaleString('en-GB', {
@@ -546,6 +584,31 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
                 ) : (
                   <div className="text-center py-6 text-gray-400 text-[12px] italic">
                     No bets found for this market.
+                  </div>
+                )}
+
+                {/* Pagination Controls */}
+                {betTotalPages > 1 && (
+                  <div className="flex items-center justify-between text-[10px] text-gray-500 mt-2">
+                    <div>
+                      Page {betStatementPage} of {betTotalPages}
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        disabled={betStatementPage === 1}
+                        onClick={() => setBetStatementPage(p => p - 1)}
+                        className="px-2 py-1 bg-gray-100 hover:bg-gray-200 disabled:opacity-50 rounded"
+                      >
+                        Prev
+                      </button>
+                      <button
+                        disabled={betStatementPage === betTotalPages}
+                        onClick={() => setBetStatementPage(p => p + 1)}
+                        className="px-2 py-1 bg-gray-100 hover:bg-gray-200 disabled:opacity-50 rounded"
+                      >
+                        Next
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -617,7 +680,7 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
               }}
               title={reportFilters ? "Click for sportwise drill-down" : ""}
             >
-              ₹{entry.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ₹{entry.amount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </div>
           </div>
         </div>
@@ -752,7 +815,7 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
                     <div className="bg-green-600 px-4 py-2.5 flex items-center justify-between mt-auto">
                       <span className="font-bold text-white text-[12px] uppercase tracking-wide">Total Green</span>
                       <span className="font-black text-white text-[15px]">
-                        ₹{totalGreen.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ₹{totalGreen.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </span>
                     </div>
                   </div>
@@ -785,7 +848,7 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
                     <div className="bg-red-600 px-4 py-2.5 flex items-center justify-between mt-auto">
                       <span className="font-bold text-white text-[12px] uppercase tracking-wide">Total Red</span>
                       <span className="font-black text-white text-[15px]">
-                        ₹{totalRed.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ₹{totalRed.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </span>
                     </div>
                   </div>
@@ -825,19 +888,19 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
             <div className="bg-white border-l-4 border-green-500 border-t border-r border-b border-gray-200 rounded p-4 flex flex-col justify-between shadow-sm">
               <span className="text-[11px] text-green-600 font-bold uppercase tracking-wider">Total Green (Incoming)</span>
               <span className="text-xl font-black text-green-600 mt-2">
-                ₹{stats.totalGreen.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                ₹{stats.totalGreen.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
               </span>
             </div>
             <div className="bg-white border-l-4 border-red-500 border-t border-r border-b border-gray-200 rounded p-4 flex flex-col justify-between shadow-sm">
               <span className="text-[11px] text-red-600 font-bold uppercase tracking-wider">Total Red (Outgoing)</span>
               <span className="text-xl font-black text-red-600 mt-2">
-                ₹{stats.totalRed.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                ₹{stats.totalRed.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
               </span>
             </div>
             <div className={`bg-white border-l-4 ${stats.netPosition >= 0 ? 'border-emerald-500' : 'border-rose-500'} border-t border-r border-b border-gray-200 rounded p-4 flex flex-col justify-between shadow-sm`}>
               <span className="text-[11px] text-gray-600 font-bold uppercase tracking-wider">Net Role Position</span>
               <span className={`text-xl font-black ${stats.netPosition >= 0 ? 'text-emerald-600' : 'text-rose-600'} mt-2`}>
-                {stats.netPosition >= 0 ? "+" : "-"}₹{Math.abs(stats.netPosition).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                {stats.netPosition >= 0 ? "+" : "-"}₹{Math.abs(stats.netPosition).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
               </span>
             </div>
           </div>
@@ -918,7 +981,7 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
                           )}
                           <td className="px-4 py-3.5 border-r border-gray-100 text-center text-gray-600 font-medium">{user.share}%</td>
                           <td className={`px-4 py-3.5 border-r border-gray-100 text-right font-black text-[13px] ${user.netAmt > 0 ? "text-green-600" : user.netAmt < 0 ? "text-red-500" : "text-gray-400"}`}>
-                            {user.netAmt !== 0 ? `₹${user.netAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : "₹0.00"}
+                            {user.netAmt !== 0 ? `₹${user.netAmt.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "₹0.00"}
                           </td>
                           <td className="px-4 py-3.5 border-r border-gray-100 text-center">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${statusClass}`}>

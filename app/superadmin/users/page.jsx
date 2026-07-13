@@ -114,8 +114,8 @@ export default function SuperAdminUsers() {
       });
       const data = await res.json();
       if (res.ok) {
-        const profit = (data.greenEntries || []).map(e => ({ name: e.accountName, amount: e.amount, role: e.role }));
-        const loss = (data.redEntries || []).map(e => ({ name: e.accountName, amount: e.amount, role: e.role }));
+        const profit = (data.greenEntries || []).map(e => ({ name: e.accountName, amount: e.amount, role: e.role, parent: e.parentName || 'None', breakdown: e.breakdown }));
+        const loss = (data.redEntries || []).map(e => ({ name: e.accountName, amount: e.amount, role: e.role, parent: e.parentName || 'None', breakdown: e.breakdown }));
         setDailyReportData({ ...data, profit, loss });
       }
     } catch (err) {
@@ -1482,12 +1482,13 @@ export default function SuperAdminUsers() {
                       <tr>
                         <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-300 w-[140px]">Date</th>
                         <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-300">Event</th>
-                        <th className="px-3 py-2 font-bold text-gray-700 text-right">Amount</th>
+                        <th className="px-3 py-2 font-bold text-gray-700 text-right">Bettor P/L</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {transactionDetails.map((tx, idx) => {
-                        const netAmount = tx.amount; // Positive = Master Profit
+                        // bettorNet: negative = bettor lost, positive = bettor won
+                        const displayAmt = tx.bettorNet ?? tx.amount;
                         return (
                           <tr key={idx} className="hover:bg-gray-50 transition-colors">
                             <td className="px-3 py-2 text-gray-500 border-r border-gray-100">
@@ -1505,18 +1506,21 @@ export default function SuperAdminUsers() {
                                 : (tx.event || tx.description || '').split('|')[0].trim()
                               )}
                             </td>
-                            <td className={`px-3 py-2 text-right font-bold ${netAmount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                              {netAmount.toLocaleString()}
+                            <td className={`px-3 py-2 text-right font-bold ${displayAmt >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                              {displayAmt >= 0 ? '+' : ''}{displayAmt.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                             </td>
                           </tr>
                         );
                       })}
                     </tbody>
                     <tfoot>
-                      <tr className="bg-[#1abc9c] text-white font-bold">
-                        <td colSpan="2" className="px-3 py-2 border-r border-[#16a085] uppercase text-[10px]">Total</td>
+                      <tr className={`font-bold ${transactionDetails.reduce((s, t) => s + (t.bettorNet ?? t.amount), 0) >= 0 ? 'bg-[#1abc9c]' : 'bg-red-500'} text-white`}>
+                        <td colSpan="2" className="px-3 py-2 border-r border-white/20 uppercase text-[10px]">Total</td>
                         <td className="px-3 py-2 text-right">
-                          {transactionDetails.reduce((sum, t) => sum + t.amount, 0).toLocaleString()}
+                          {(() => {
+                            const total = transactionDetails.reduce((sum, t) => sum + (t.bettorNet ?? t.amount), 0);
+                            return `${total >= 0 ? '+' : ''}${total.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+                          })()}
                         </td>
                       </tr>
                     </tfoot>

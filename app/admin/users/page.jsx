@@ -115,8 +115,8 @@ export default function AdminUsers() {
       });
       const data = await res.json();
       if (res.ok) {
-        const profit = (data.greenEntries || []).map(e => ({ name: e.accountName, amount: e.amount, role: e.role }));
-        const loss = (data.redEntries || []).map(e => ({ name: e.accountName, amount: e.amount, role: e.role }));
+        const profit = (data.greenEntries || []).map(e => ({ name: e.accountName, amount: e.amount, role: e.role, parent: e.parentName || 'None', breakdown: e.breakdown }));
+        const loss = (data.redEntries || []).map(e => ({ name: e.accountName, amount: e.amount, role: e.role, parent: e.parentName || 'None', breakdown: e.breakdown }));
         setDailyReportData({ ...data, profit, loss });
       }
     } catch (err) {
@@ -554,7 +554,13 @@ export default function AdminUsers() {
                           <td 
                             className="px-3 py-2 border-r border-gray-100 text-blue-600 font-medium"
                           >
-                            {u.name}
+                            <div className="font-medium text-blue-600">{u.name}</div>
+                            {u.parent && u.parent !== 'None' && (
+                              <div className="text-[10px] text-gray-400 font-normal mt-0.5 flex items-center gap-1">
+                                <span className="text-gray-300">↳</span>
+                                <span className="bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-semibold">{u.parent}</span>
+                              </div>
+                            )}
                           </td>
                           <td 
                             className={`px-3 py-2 font-bold cursor-pointer hover:bg-green-50 transition-all duration-200 border-l border-gray-100 ${u.amount > 0 ? 'text-green-600' : 'text-gray-600'}`}
@@ -637,7 +643,15 @@ export default function AdminUsers() {
                     {filteredDailyLoss.map((u, i) => (
                       <React.Fragment key={`loss-${i}`}>
                         <tr className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="px-3 py-2 border-r border-gray-100 text-red-500 font-bold">{u.name}</td>
+                          <td className="px-3 py-2 border-r border-gray-100">
+                            <div className="font-bold text-red-500">{u.name}</div>
+                            {u.parent && u.parent !== 'None' && (
+                              <div className="text-[10px] text-gray-400 font-normal mt-0.5 flex items-center gap-1">
+                                <span className="text-gray-300">↳</span>
+                                <span className="bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-semibold">{u.parent}</span>
+                              </div>
+                            )}
+                          </td>
                           <td 
                             className="px-3 py-2 text-red-500 font-bold cursor-pointer hover:bg-red-50 transition-all duration-200 border-l border-gray-100"
                             onClick={(e) => {
@@ -1499,12 +1513,13 @@ export default function AdminUsers() {
                       <tr>
                         <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-300 w-[140px]">Date</th>
                         <th className="px-3 py-2 font-bold text-gray-700 border-r border-gray-300">Event</th>
-                        <th className="px-3 py-2 font-bold text-gray-700 text-right">Amount</th>
+                        <th className="px-3 py-2 font-bold text-gray-700 text-right">Bettor P/L</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {transactionDetails.map((tx, idx) => {
-                        const netAmount = tx.amount; // Positive = Master Profit
+                        // bettorNet: negative = bettor lost, positive = bettor won
+                        const displayAmt = tx.bettorNet ?? tx.amount;
                         return (
                           <tr key={idx} className="hover:bg-gray-50 transition-colors">
                             <td className="px-3 py-2 text-gray-500 border-r border-gray-100">
@@ -1522,18 +1537,21 @@ export default function AdminUsers() {
                                 : (tx.event || tx.description || '').split('|')[0].trim()
                               )}
                             </td>
-                            <td className={`px-3 py-2 text-right font-bold ${netAmount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                              {netAmount.toLocaleString()}
+                            <td className={`px-3 py-2 text-right font-bold ${displayAmt >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                              {displayAmt >= 0 ? '+' : ''}{displayAmt.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                             </td>
                           </tr>
                         );
                       })}
                     </tbody>
                     <tfoot>
-                      <tr className="bg-[#1abc9c] text-white font-bold">
-                        <td colSpan="2" className="px-3 py-2 border-r border-[#16a085] uppercase text-[10px]">Total</td>
+                      <tr className={`font-bold ${transactionDetails.reduce((s, t) => s + (t.bettorNet ?? t.amount), 0) >= 0 ? 'bg-[#1abc9c]' : 'bg-red-500'} text-white`}>
+                        <td colSpan="2" className="px-3 py-2 border-r border-white/20 uppercase text-[10px]">Total</td>
                         <td className="px-3 py-2 text-right">
-                          {transactionDetails.reduce((sum, t) => sum + t.amount, 0).toLocaleString()}
+                          {(() => {
+                            const total = transactionDetails.reduce((sum, t) => sum + (t.bettorNet ?? t.amount), 0);
+                            return `${total >= 0 ? '+' : ''}${total.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+                          })()}
                         </td>
                       </tr>
                     </tfoot>
