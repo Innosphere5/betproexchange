@@ -227,7 +227,7 @@ export default function SuperAdminReports() {
          );
  
        case "Final Sheet":
-         return <FinalSheet data={finalSheetData} />;
+         return <FinalSheet data={finalSheetData} reportFilters={{ reportPeriod: 'all' }} />;
 
 
       case "Commission Report":

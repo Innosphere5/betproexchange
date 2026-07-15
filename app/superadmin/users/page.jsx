@@ -774,7 +774,7 @@ export default function SuperAdminUsers() {
         }
 
         const finalAccounts = finalSheetData.accounts || [];
-        const filteredFinalAccounts = finalAccounts.filter(u => (!hideZero || u.net !== 0) && u.role !== 'user');
+        const filteredFinalAccounts = finalAccounts.filter(u => (!hideZero || u.net !== 0));
         
         const positiveAccounts = filteredFinalAccounts.filter(u => u.net >= 0);
         const negativeAccounts = filteredFinalAccounts.filter(u => u.net < 0);

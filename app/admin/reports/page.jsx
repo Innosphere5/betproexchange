@@ -209,7 +209,7 @@ export default function AdminReports() {
         );
 
       case "Final Sheet":
-        return <FinalSheet data={finalSheetData} />;
+        return <FinalSheet data={finalSheetData} reportFilters={{ reportPeriod: 'all' }} />;
 
 
       case "Commission Report":
