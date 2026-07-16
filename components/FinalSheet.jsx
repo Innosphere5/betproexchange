@@ -24,6 +24,8 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
   const [betStatementSearch, setBetStatementSearch] = useState("");
   const [betStatementItemsPerPage] = useState(10);
 
+  const isFinalSheet = reportFilters?.reportPeriod === 'all';
+
   const getAuthToken = () => {
     if (typeof window === "undefined") return null;
     const raw = localStorage.getItem("user_session");
@@ -674,11 +676,11 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
             <div
               className={`font-black ${amountColorClass} text-[16px] cursor-pointer hover:underline hover:opacity-80 transition-all`}
               onClick={() => {
-                if (reportFilters) {
+                if (reportFilters && entry.role === 'user') {
                   fetchSportwise(entry.accountName);
                 }
               }}
-              title={reportFilters ? "Click for sportwise drill-down" : ""}
+              title={reportFilters && entry.role === 'user' ? "Click for sportwise drill-down" : ""}
             >
               ₹{entry.amount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </div>
@@ -765,7 +767,7 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
             { id: "overview", label: "Overview", count: null },
             { id: "admins", label: "All Admins", count: allUsers.filter(u => u.role === "admin").length },
             { id: "masters", label: "All Masters", count: allUsers.filter(u => u.role === "master").length },
-            { id: "bettors", label: "All Bettors", count: allUsers.filter(u => u.role === "user").length }
+            ...(!isFinalSheet ? [{ id: "bettors", label: "All Bettors", count: allUsers.filter(u => u.role === "user").length }] : [])
           ].map(tab => (
             <button
               key={tab.id}

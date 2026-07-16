@@ -41,8 +41,7 @@ export default function SuperAdminHeader({ setIsSidebarOpen }) {
          router.push('/login');
       }
     } catch (err) {
-      console.cls
-      warn("Wallet fetch failed.");
+      console.error("Failed to fetch wallet:", err);
     }
   };
 

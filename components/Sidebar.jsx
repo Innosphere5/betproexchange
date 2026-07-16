@@ -31,7 +31,14 @@ const CasinoIcon = () => (
   </svg>
 );
 
+const PlaneIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17.8 19.2L16 11l3.5-3.5c.8-.8.8-2 0-2.8s-2-.8-2.8 0L13 8.2 4.8 6.4c-.9-.2-1.9.2-2.4 1s-.3 1.9.4 2.4l7.6 4.5-2.2 2.2-3.6-.8c-.6-.1-1.2.1-1.6.6L2 17.5l3.8 1.8 1.8 3.8 1.2-1.2c.4-.4.6-1 .5-1.6l-.8-3.6 2.2-2.2 4.5 7.6c.5.8 1.6 1 2.4.5s1.2-1.5 1-2.4z" />
+  </svg>
+);
+
 const navItems = [
+  { label: "Aviator", icon: <PlaneIcon />, link: "/dashboard/aviator" },
   { label: "Casino", icon: <CasinoIcon />, link: "/dashboard/casino" },
   {
     label: "Cricket",
