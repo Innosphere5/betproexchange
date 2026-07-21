@@ -51,41 +51,73 @@ export default function DashboardContent() {
   return (
     <div className="flex flex-col pb-20 lg:pb-10 font-sans">
 
-      {/* 🚀 PREMIUM BETTING BANNERS (HORIZONTAL SQUARE LAYOUT) */}
-      <div className="grid grid-cols-3 gap-2 md:gap-4 p-2 md:p-4 bg-[#eaedf1]">
-        {/* Cricket Hero */}
-        <div className="relative aspect-square rounded-lg md:rounded-xl overflow-hidden shadow-lg group cursor-pointer border-2 border-transparent hover:border-[#00c766] transition-all">
-          <img src="/images/cricket_banner.png" className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" alt="Cricket Betting" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
-          <div className="absolute bottom-1.5 left-1.5 md:bottom-4 md:left-5">
-            <div className="bg-[#00c766] text-black text-[7px] md:text-[10px] font-black px-1.5 md:px-2 py-0.5 rounded mb-1 inline-block uppercase tracking-widest">Sports</div>
-            <h2 className="text-white text-xs sm:text-base md:text-2xl font-black italic tracking-tighter leading-none">CRICKET</h2>
-          </div>
-        </div>
-
-         {/* Casino Hero */}
-        <div 
-          onClick={() => router.push("/dashboard/casino")}
-          className="relative aspect-square rounded-lg md:rounded-xl overflow-hidden shadow-lg group cursor-pointer border-2 border-transparent hover:border-yellow-500 transition-all font-sans"
-        >
-          <img src="/images/casino_banner.png" className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" alt="Casino" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
-          <div className="absolute bottom-1.5 left-1.5 md:bottom-4 md:left-5">
-            <div className="bg-yellow-500 text-black text-[7px] md:text-[10px] font-black px-1.5 md:px-2 py-0.5 rounded mb-1 inline-block uppercase tracking-widest font-sans">Live</div>
-            <h2 className="text-white text-xs sm:text-base md:text-2xl font-black italic tracking-tighter leading-none uppercase">CASINO</h2>
-          </div>
-        </div>
-
-        {/* Aviator Hero */}
+      {/* 🚀 PREMIUM BETTING BANNERS (HORIZONTAL SQUARE LAYOUT - 5 GAMES, CRICKET 5th) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-3 p-2 md:p-4 bg-[#eaedf1]">
+        {/* 1. Aviator Hero */}
         <div 
           onClick={() => router.push("/dashboard/aviator")}
           className="relative aspect-square rounded-lg md:rounded-xl overflow-hidden shadow-lg group cursor-pointer border-2 border-transparent hover:border-rose-500 transition-all font-sans"
         >
           <img src="/images/aviator_banner.png" className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" alt="Aviator" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
-          <div className="absolute bottom-1.5 left-1.5 md:bottom-4 md:left-5">
-            <div className="bg-rose-500 text-white text-[7px] md:text-[10px] font-black px-1.5 md:px-2 py-0.5 rounded mb-1 inline-block uppercase tracking-widest font-sans">Hot</div>
-            <h2 className="text-white text-xs sm:text-base md:text-2xl font-black italic tracking-tighter leading-none uppercase">AVIATOR</h2>
+          <div className="absolute bottom-1.5 left-1.5 md:bottom-3 md:left-3">
+            <div className="bg-rose-500 text-white text-[7px] md:text-[9px] font-black px-1.5 md:px-2 py-0.5 rounded mb-1 inline-block uppercase tracking-widest font-sans">Hot</div>
+            <h2 className="text-white text-xs sm:text-sm md:text-xl font-black italic tracking-tighter leading-none uppercase">AVIATOR</h2>
+          </div>
+        </div>
+
+        {/* 2. AviatorX Hero */}
+        <div 
+          onClick={() => router.push("/dashboard/aviatorx")}
+          className="relative aspect-square rounded-lg md:rounded-xl overflow-hidden shadow-lg group cursor-pointer border-2 border-transparent hover:border-orange-500 transition-all font-sans"
+        >
+          <img src="/images/aviatorx_banner.png" className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" alt="AviatorX" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
+          <div className="absolute bottom-1.5 left-1.5 md:bottom-3 md:left-3">
+            <div className="bg-orange-500 text-white text-[7px] md:text-[9px] font-black px-1.5 md:px-2 py-0.5 rounded mb-1 inline-block uppercase tracking-widest font-sans">Multi 100x</div>
+            <h2 className="text-white text-xs sm:text-sm md:text-xl font-black italic tracking-tighter leading-none uppercase">AVIATOR X</h2>
+          </div>
+        </div>
+
+        {/* 3. Casino Hero */}
+        <div 
+          onClick={() => router.push("/dashboard/casino")}
+          className="relative aspect-square rounded-lg md:rounded-xl overflow-hidden shadow-lg group cursor-pointer border-2 border-transparent hover:border-yellow-500 transition-all font-sans"
+        >
+          <img src="/images/casino_banner.png" className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" alt="Casino" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
+          <div className="absolute bottom-1.5 left-1.5 md:bottom-3 md:left-3">
+            <div className="bg-yellow-500 text-black text-[7px] md:text-[9px] font-black px-1.5 md:px-2 py-0.5 rounded mb-1 inline-block uppercase tracking-widest font-sans">Live</div>
+            <h2 className="text-white text-xs sm:text-base md:text-xl font-black italic tracking-tighter leading-none uppercase">CASINO</h2>
+          </div>
+        </div>
+
+        {/* 4. Teen Patti Hero */}
+        <div 
+          onClick={() => router.push("/dashboard/teenpatti")}
+          className="relative aspect-square rounded-lg md:rounded-xl overflow-hidden shadow-lg group cursor-pointer border-2 border-transparent hover:border-emerald-400 transition-all font-sans"
+        >
+          <img src="/images/teenpatti_banner.png" className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" alt="Teen Patti" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
+          <div className="absolute bottom-1.5 left-1.5 md:bottom-3 md:left-3">
+            <div className="bg-emerald-500 text-white text-[7px] md:text-[9px] font-black px-1.5 md:px-2 py-0.5 rounded mb-1 inline-block uppercase tracking-widest font-sans">Popular</div>
+            <h2 className="text-white text-xs sm:text-base md:text-xl font-black italic tracking-tighter leading-none uppercase">TEEN PATTI</h2>
+          </div>
+        </div>
+
+        {/* 5. Cricket Hero (POSITIONED 5TH) */}
+        <div 
+          onClick={() => {
+            const el = document.getElementById('cricket-matches-section');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }}
+          className="relative aspect-square rounded-lg md:rounded-xl overflow-hidden shadow-lg group cursor-pointer border-2 border-transparent hover:border-[#00c766] transition-all font-sans"
+        >
+          <img src="/images/cricket_banner.png" className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" alt="Cricket Betting" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
+          <div className="absolute bottom-1.5 left-1.5 md:bottom-3 md:left-3">
+            <div className="bg-[#00c766] text-black text-[7px] md:text-[9px] font-black px-1.5 md:px-2 py-0.5 rounded mb-1 inline-block uppercase tracking-widest font-sans">Sports</div>
+            <h2 className="text-white text-xs sm:text-base md:text-xl font-black italic tracking-tighter leading-none uppercase">CRICKET</h2>
           </div>
         </div>
       </div>
@@ -100,7 +132,7 @@ export default function DashboardContent() {
         {matchRows.map((row) => (
           <div key={row.matchId || row.id}>
             {row.isHeader ? (
-              <div className="flex items-center px-3 py-2 border-b border-gray-300 bg-[#5d7d9a] text-white">
+              <div id="cricket-matches-section" className="flex items-center px-3 py-2 border-b border-gray-300 bg-[#5d7d9a] text-white">
                 <div className="w-6 flex justify-center mr-2">
                   <CricketIcon />
                 </div>
