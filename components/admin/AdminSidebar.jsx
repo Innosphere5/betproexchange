@@ -35,7 +35,8 @@ const navItems = [
   { label: "Users", href: "/admin/users", icon: <Users size={18} className="opacity-80" /> },
   { label: "Current Position", href: "/admin/current-position", icon: <Filter size={18} className="opacity-80" /> },
   { label: "Reports", href: "/admin/reports", icon: <FileText size={18} className="opacity-80" /> },
-  { label: "Bet Lock", href: "/admin/betlock", icon: <Lock size={18} className="opacity-80" /> }
+  { label: "Bet Lock", href: "/admin/betlock", icon: <Lock size={18} className="opacity-80" /> },
+  { label: "Aviator Details", href: "/admin/aviator", icon: <Gamepad2 size={18} className="opacity-80" /> }
 ];
 
 export default function AdminSidebar({ isOpen, setIsOpen }) {

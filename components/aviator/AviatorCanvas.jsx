@@ -1,439 +1,457 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
+import { useAviatorStore } from "../../lib/useAviatorStore";
 
-export default function AviatorCanvas({ phase, elapsedMs, currentMultiplier, crashPoint, timer }) {
+export default function AviatorCanvas() {
+  const containerRef = useRef(null);
   const canvasRef = useRef(null);
-  const animationFrameRef = useRef(null);
-  const particlesRef = useRef([]);
-  const lastTimeRef = useRef(Date.now());
-  const crashFlashRef = useRef(0); // For flash effect on crash
 
-  // Track state in refs for use in the requestAnimationFrame loop without stale closures
-  const stateRef = useRef({ phase, elapsedMs, currentMultiplier, crashPoint, timer });
+  // Read state via Zustand selector to prevent React re-renders on every high-frequency tick
+  const gamePhase = useAviatorStore((s) => s.phase);
+  const gameMultiplier = useAviatorStore((s) => s.multiplier);
+  const gameTimer = useAviatorStore((s) => s.timer);
+  const gameElapsed = useAviatorStore((s) => s.elapsedMs);
+
+  // Use refs to make properties readable inside the PixiJS tickers without triggering re-runs
+  const stateRef = useRef({ phase: 'INIT', multiplier: 1.00, timer: 0, elapsedMs: 0 });
+  
   useEffect(() => {
-    stateRef.current = { phase, elapsedMs, currentMultiplier, crashPoint, timer };
-    if (phase === 'CRASHED') {
-      crashFlashRef.current = 1.0; // Trigger crash flash
-    }
-  }, [phase, elapsedMs, currentMultiplier, crashPoint, timer]);
+    stateRef.current = {
+      phase: gamePhase,
+      multiplier: gameMultiplier,
+      timer: gameTimer,
+      elapsedMs: gameElapsed
+    };
+  }, [gamePhase, gameMultiplier, gameTimer, gameElapsed]);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (typeof window === "undefined" || !canvasRef.current) return;
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    let app = null;
+    let stars = [];
+    let particles = [];
+    let plane = null;
+    let flameLine = null;
+    let gridContainer = null;
+    let mainMultiplierText = null;
+    let subStatusText = null;
+    
+    let cameraShakeTime = 0;
+    let cameraShakeIntensity = 0;
+    let tickCount = 0;
+    let lastPhase = 'INIT';
 
-    // Handle resizing
-    const resizeCanvas = () => {
-      const rect = canvas.parentElement.getBoundingClientRect();
-      canvas.width = rect.width * window.devicePixelRatio;
-      canvas.height = rect.height * window.devicePixelRatio;
-      canvas.style.width = `${rect.width}px`;
-      canvas.style.height = `${rect.height}px`;
-      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-    };
+    const initPixi = async () => {
+      try {
+        const PIXI = await import("pixi.js");
 
-    resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
-
-    // Particle class helper
-    const spawnParticle = (x, y, angle) => {
-      const speed = 1.5 + Math.random() * 2.5;
-      const spread = (Math.random() - 0.5) * 0.4;
-      particlesRef.current.push({
-        x,
-        y,
-        vx: -Math.cos(angle + spread) * speed,
-        vy: -Math.sin(angle + spread) * speed,
-        life: 1.0,
-        decay: 0.02 + Math.random() * 0.03,
-        size: 3 + Math.random() * 5,
-        color: Math.random() > 0.4 ? "#f59e0b" : Math.random() > 0.5 ? "#ef4444" : "#fef08a" // orange, red, yellow
-      });
-    };
-
-    // Animation Loop
-    const draw = () => {
-      const now = Date.now();
-      const dt = (now - lastTimeRef.current) / 1000;
-      lastTimeRef.current = now;
-
-      const { phase: currentPhase, elapsedMs: currentElapsed, currentMultiplier: mult } = stateRef.current;
-      const width = canvas.width / window.devicePixelRatio;
-      const height = canvas.height / window.devicePixelRatio;
-
-      // Clear canvas
-      ctx.clearRect(0, 0, width, height);
-
-      // Draw Dark Background
-      ctx.fillStyle = "#0c1520";
-      ctx.fillRect(0, 0, width, height);
-
-      const startX = 40;
-      const startY = height - 40;
-      const plotWidth = width - startX - 40;
-      const plotHeight = height - startY - 40; // negative height scale
-
-      // Draw Radial Beams in the background
-      const drawRadialBeams = () => {
-        ctx.save();
-        const numBeams = 6;
-        const beamAngleWidth = 0.12; // angle width in radians
-        const maxRadius = Math.max(width, height) * 1.5;
-        const rotationOffset = (now * 0.00008) % (Math.PI * 2);
-        
-        ctx.fillStyle = 'rgba(225, 29, 72, 0.02)'; // subtle rose/pink beams
-        for (let i = 0; i < numBeams; i++) {
-          const baseAngle = (i * (Math.PI / 2) / numBeams) + rotationOffset;
-          ctx.beginPath();
-          ctx.moveTo(startX, startY);
-          ctx.arc(startX, startY, maxRadius, -baseAngle - beamAngleWidth, -baseAngle + beamAngleWidth);
-          ctx.closePath();
-          ctx.fill();
-        }
-        ctx.restore();
-      };
-      drawRadialBeams();
-
-      // Draw Grid lines
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
-      ctx.lineWidth = 1;
-      const gridSize = 40;
-      for (let x = 0; x < width; x += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
-        ctx.stroke();
-      }
-      for (let y = 0; y < height; y += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-        ctx.stroke();
-      }
-
-      // Draw Axis Lines (Bottom and Left borders)
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(startX, 20);
-      ctx.lineTo(startX, startY);
-      ctx.lineTo(width - 20, startY);
-      ctx.stroke();
-
-      // Draw Axis Ticks (dots)
-      ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
-      // Vertical axis dots
-      for (let y = startY - 40; y > 30; y -= 45) {
-        ctx.beginPath();
-        ctx.arc(startX, y, 2.5, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      // Horizontal axis dots
-      for (let x = startX + 45; x < width - 30; x += 55) {
-        ctx.beginPath();
-        ctx.arc(x, startY, 2.5, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Dynamic scales and calculations
-      const t = currentElapsed / 1000;
-      const maxTime = Math.max(8, t);
-
-      // Plane coordinate calculators
-      const getPlaneCoords = (time) => {
-        // Curve: goes up and right
-        const progressX = Math.min(1, time / maxTime);
-        const progressY = Math.min(1, Math.pow(time / maxTime, 1.6));
-        const px = startX + progressX * plotWidth;
-        const py = startY + progressY * plotHeight; // plotHeight is negative
-        return { x: px, y: py };
-      };
-
-      // Angle calculation
-      const getPlaneAngle = (time) => {
-        const c1 = getPlaneCoords(time - 0.05);
-        const c2 = getPlaneCoords(time);
-        return Math.atan2(c2.y - c1.y, c2.x - c1.x);
-      };
-
-      // Draw Static Indicators (Lobby players count pill & cellular connection bars)
-      const drawStatusIndicators = () => {
-        ctx.save();
-        // 👤 199 pill background
-        ctx.fillStyle = "rgba(16, 27, 38, 0.6)";
-        ctx.beginPath();
-        ctx.roundRect(15, 15, 68, 22, 11);
-        ctx.fill();
-
-        // 👤 199 text
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 10px Outfit, Inter, sans-serif";
-        ctx.textAlign = "left";
-        ctx.textBaseline = "middle";
-        ctx.fillText("👤 199", 23, 26);
-
-        // Cellular signal strength bars
-        const barX = width - 35;
-        const barY = 18;
-        ctx.fillStyle = "#22c55e"; // bright green signal
-        ctx.fillRect(barX, barY + 8, 3, 4);
-        ctx.fillRect(barX + 5, barY + 4, 3, 8);
-        ctx.fillRect(barX + 10, barY, 3, 12);
-        ctx.restore();
-      };
-      drawStatusIndicators();
-
-      // Speaker Icon on bottom right
-      const drawSpeakerIcon = () => {
-        ctx.save();
-        const speakerX = width - 30;
-        const speakerY = height - 52;
-        ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
-        ctx.beginPath();
-        ctx.moveTo(speakerX, speakerY + 3);
-        ctx.lineTo(speakerX + 2, speakerY + 3);
-        ctx.lineTo(speakerX + 5, speakerY);
-        ctx.lineTo(speakerX + 5, speakerY + 8);
-        ctx.lineTo(speakerX + 2, speakerY + 5);
-        ctx.lineTo(speakerX, speakerY + 5);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
-        ctx.lineWidth = 1.2;
-        ctx.beginPath();
-        ctx.arc(speakerX + 5, speakerY + 4, 3, -Math.PI / 3, Math.PI / 3);
-        ctx.stroke();
-        ctx.restore();
-      };
-      drawSpeakerIcon();
-
-      // Draw Round ID
-      ctx.save();
-      ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
-      ctx.font = "bold 10px monospace";
-      ctx.textAlign = "right";
-      ctx.textBaseline = "bottom";
-      const displayRoundId = stateRef.current.roundId 
-        ? `Round ID: ${stateRef.current.roundId.replace('AV-', '9040.')}` 
-        : "Round ID: 9040.0AA587B3D";
-      ctx.fillText(displayRoundId, width - 20, height - 12);
-      ctx.restore();
-
-      if (currentPhase === 'BETTING') {
-        // Show Countdown/Lobby screen
-        ctx.fillStyle = "rgba(234, 179, 8, 0.01)";
-        ctx.fillRect(0, 0, width, height);
-
-        // Circular countdown spinner
-        const timerMs = stateRef.current.timer;
-        const totalDuration = 6000; // matching BETTING_DURATION
-        const progress = Math.max(0, timerMs / totalDuration);
-
-        const centerX = width / 2;
-        const centerY = height / 2 - 20;
-        
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
-        ctx.lineWidth = 8;
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, 50, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.strokeStyle = "#e11d48"; // Rose red countdown ring
-        ctx.lineWidth = 8;
-        ctx.lineCap = "round";
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, 50, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
-        ctx.stroke();
-
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "900 24px Outfit, Inter, sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText((timerMs / 1000).toFixed(1) + "s", centerX, centerY - 2);
-
-        ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
-        ctx.font = "bold 10px Outfit, Inter, sans-serif";
-        ctx.fillText("WAITING FOR NEXT ROUND", centerX, centerY + 80);
-
-      } else if (currentPhase === 'FLYING' || currentPhase === 'CRASHED') {
-        const coords = getPlaneCoords(t);
-        const angle = getPlaneAngle(t);
-
-        // 1. Draw glowing curve path
-        ctx.strokeStyle = "rgba(225, 29, 72, 0.85)"; // glowing rose line
-        ctx.lineWidth = 4.5;
-        ctx.shadowColor = "rgba(225, 29, 72, 0.6)";
-        ctx.shadowBlur = 12;
-        ctx.beginPath();
-        ctx.moveTo(startX, startY);
-        
-        // Draw the line as segments
-        const segments = 60;
-        for (let i = 0; i <= segments; i++) {
-          const stepTime = (t * i) / segments;
-          const pt = getPlaneCoords(stepTime);
-          ctx.lineTo(pt.x, pt.y);
-        }
-        ctx.stroke();
-        
-        // Reset shadows
-        ctx.shadowBlur = 0;
-
-        // 2. Draw red/purple shaded area under curve
-        const gradient = ctx.createLinearGradient(startX, startY, startX, 0);
-        gradient.addColorStop(0, "rgba(225, 29, 72, 0.0)");
-        gradient.addColorStop(1, "rgba(225, 29, 72, 0.16)");
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.moveTo(startX, startY);
-        for (let i = 0; i <= segments; i++) {
-          const stepTime = (t * i) / segments;
-          const pt = getPlaneCoords(stepTime);
-          ctx.lineTo(pt.x, pt.y);
-        }
-        ctx.lineTo(coords.x, startY);
-        ctx.closePath();
-        ctx.fill();
-
-        // 3. Update & Draw smoke/sparks particles
-        if (currentPhase === 'FLYING' && Math.random() > 0.2) {
-          spawnParticle(coords.x - Math.cos(angle) * 15, coords.y - Math.sin(angle) * 15, angle);
-        }
-
-        particlesRef.current.forEach((p, idx) => {
-          p.x += p.vx;
-          p.y += p.vy;
-          p.life -= p.decay;
-          if (p.life <= 0) return;
-          
-          ctx.fillStyle = p.color;
-          ctx.globalAlpha = p.life;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
-          ctx.fill();
+        // Create the application
+        app = new PIXI.Application();
+        await app.init({
+          canvas: canvasRef.current,
+          width: 800,
+          height: 400,
+          background: "#080c14",
+          antialias: true,
+          resolution: window.devicePixelRatio || 1,
+          autoDensity: true
         });
-        ctx.globalAlpha = 1.0; // reset
-        particlesRef.current = particlesRef.current.filter(p => p.life > 0);
 
-        // 4. Draw Airplane (Propeller Plane style)
-        if (currentPhase === 'FLYING') {
-          ctx.save();
-          ctx.translate(coords.x, coords.y);
-          ctx.rotate(angle);
+        const width = app.screen.width;
+        const height = app.screen.height;
 
-          const propAngle = (now / 35) % (Math.PI * 2);
-
-          // Draw propeller line at the nose (front is right)
-          ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 1.8;
-          ctx.beginPath();
-          ctx.moveTo(18, -Math.sin(propAngle) * 9);
-          ctx.lineTo(18, Math.sin(propAngle) * 9);
-          ctx.stroke();
-
-          // Draw propeller center spinner
-          ctx.fillStyle = '#f59e0b';
-          ctx.beginPath();
-          ctx.arc(18, 0, 2.5, 0, Math.PI * 2);
-          ctx.fill();
-
-          // Fuselage (body)
-          ctx.fillStyle = '#ff2a5f'; // bpexch plane red
-          ctx.strokeStyle = '#e11d48';
-          ctx.lineWidth = 1.2;
-          ctx.beginPath();
-          ctx.ellipse(0, 0, 14, 5.5, 0, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
-
-          // Cockpit glass
-          ctx.fillStyle = '#93c5fd';
-          ctx.beginPath();
-          ctx.ellipse(3, -2, 5, 2.2, -0.3, 0, Math.PI * 2);
-          ctx.fill();
-
-          // Main top Wing (angled backwards)
-          ctx.fillStyle = '#ff2a5f';
-          ctx.beginPath();
-          ctx.moveTo(-1, -3);
-          ctx.lineTo(-5, -16);
-          ctx.lineTo(1, -16);
-          ctx.lineTo(4, -3);
-          ctx.closePath();
-          ctx.fill();
-          ctx.stroke();
-
-          // Bottom Wing (shadowed/darker red)
-          ctx.fillStyle = '#9f1239';
-          ctx.beginPath();
-          ctx.moveTo(-1, 3);
-          ctx.lineTo(-5, 13);
-          ctx.lineTo(1, 13);
-          ctx.lineTo(4, 3);
-          ctx.closePath();
-          ctx.fill();
-          ctx.stroke();
-
-          // Tail Fin
-          ctx.fillStyle = '#ff2a5f';
-          ctx.beginPath();
-          ctx.moveTo(-10, -2);
-          ctx.lineTo(-16, -9);
-          ctx.lineTo(-12, -9);
-          ctx.lineTo(-7, -2);
-          ctx.closePath();
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.restore();
+        // 1. Draw Cosmic Star Field Background
+        const starsContainer = new PIXI.Container();
+        app.stage.addChild(starsContainer);
+        
+        for (let i = 0; i < 120; i++) {
+          const starG = new PIXI.Graphics();
+          const r = Math.random();
+          const size = r > 0.9 ? 2.5 : r > 0.6 ? 1.5 : 0.8;
+          const alpha = 0.3 + Math.random() * 0.7;
+          
+          starG.circle(0, 0, size).fill({ color: 0xffffff, alpha });
+          starG.x = Math.random() * width;
+          starG.y = Math.random() * height;
+          
+          starsContainer.addChild(starG);
+          stars.push({
+            graphic: starG,
+            speed: size * 0.4,
+            baseAlpha: alpha
+          });
         }
 
-        // 5. Draw big Multiplier inside screen
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
+        // 2. Animated Space Grid Container
+        gridContainer = new PIXI.Container();
+        app.stage.addChild(gridContainer);
 
-        if (currentPhase === 'FLYING') {
-          ctx.fillStyle = "#ffffff";
-          ctx.font = "900 68px Outfit, Inter, sans-serif";
-          ctx.fillText(mult.toFixed(2) + " x", width / 2, height / 2 - 20);
-        } else {
-          // CRASHED state: explosion + "FLEW AWAY"
-          ctx.fillStyle = "#ef4444";
-          ctx.font = "900 48px Outfit, Inter, sans-serif";
-          ctx.fillText("FLEW AWAY", width / 2, height / 2 - 40);
+        const gridG = new PIXI.Graphics();
+        gridContainer.addChild(gridG);
 
-          ctx.fillStyle = "#ffffff";
-          ctx.font = "bold 28px Outfit, Inter, sans-serif";
-          ctx.fillText(`@ ${stateRef.current.crashPoint.toFixed(2)} x`, width / 2, height / 2 + 10);
-
-          // Flash overlay on crash
-          if (crashFlashRef.current > 0) {
-            ctx.fillStyle = `rgba(239, 68, 68, ${0.25 * crashFlashRef.current})`;
-            ctx.fillRect(0, 0, width, height);
-            crashFlashRef.current -= dt * 2.0; // fade flash in 0.5s
+        const drawGrid = (offsetY = 0, offsetX = 0) => {
+          gridG.clear();
+          const gridSize = 50;
+          const strokeStyle = { color: 0x1e293b, width: 1, alpha: 0.15 };
+          
+          // Verticals
+          for (let x = (offsetX % gridSize); x < width; x += gridSize) {
+            gridG.moveTo(x, 0).lineTo(x, height).stroke(strokeStyle);
           }
-        }
-      }
+          // Horizontals
+          for (let y = (offsetY % gridSize); y < height; y += gridSize) {
+            gridG.moveTo(0, y).lineTo(width, y).stroke(strokeStyle);
+          }
+        };
+        drawGrid(0, 0);
 
-      animationFrameRef.current = requestAnimationFrame(draw);
+        // 3. Trajectory Line
+        flameLine = new PIXI.Graphics();
+        app.stage.addChild(flameLine);
+
+        // 4. Aviator Red Plane Container & procedural drawing
+        plane = new PIXI.Container();
+        const planeBody = new PIXI.Graphics();
+        
+        // Crimson Red plane body
+        planeBody.moveTo(25, 0)
+                 .lineTo(20, -5)
+                 .lineTo(0, -6)
+                 .lineTo(-20, -6)
+                 .lineTo(-25, -2)
+                 .lineTo(-25, 2)
+                 .lineTo(-20, 6)
+                 .lineTo(0, 6)
+                 .lineTo(20, 5)
+                 .fill({ color: 0xe11d48 });
+                  
+        // Cockpit canopy (cyan blue gloss)
+        planeBody.moveTo(10, -3)
+                 .lineTo(5, -6)
+                 .lineTo(-2, -6)
+                 .lineTo(-4, -3)
+                 .fill({ color: 0x06b6d4 });
+                  
+        // Wings (rose wing tops)
+        planeBody.moveTo(5, -6)
+                 .lineTo(-5, -28)
+                 .lineTo(-12, -28)
+                 .lineTo(-7, -6)
+                 .fill({ color: 0xbe123c });
+                  
+        planeBody.moveTo(5, 6)
+                 .lineTo(-5, 28)
+                 .lineTo(-12, 28)
+                 .lineTo(-7, 6)
+                 .fill({ color: 0xbe123c });
+                  
+        // Tail Fin (dark rose)
+        planeBody.moveTo(-18, -6)
+                 .lineTo(-26, -16)
+                 .lineTo(-26, -6)
+                 .fill({ color: 0x9f1239 });
+
+        planeBody.moveTo(-18, 6)
+                 .lineTo(-26, 16)
+                 .lineTo(-26, 6)
+                 .fill({ color: 0x9f1239 });
+
+        // Engine Propeller/Exhaust nozzle
+        planeBody.rect(-28, -3, 3, 6).fill({ color: 0x475569 });
+
+        plane.addChild(planeBody);
+        plane.pivot.set(0, 0);
+        plane.x = 100;
+        plane.y = height - 100;
+        plane.visible = false;
+        app.stage.addChild(plane);
+
+        // 5. Main Multiplier HUD Text inside Canvas
+        mainMultiplierText = new PIXI.Text({
+          text: "1.00x",
+          style: {
+            fontFamily: "Outfit, Inter, system-ui, sans-serif",
+            fontSize: 60,
+            fontWeight: "900",
+            fill: "#ffffff",
+            align: "center",
+            dropShadow: {
+              alpha: 0.3,
+              blur: 6,
+              color: "#000000",
+              distance: 3
+            }
+          }
+        });
+        mainMultiplierText.anchor.set(0.5);
+        mainMultiplierText.position.set(width / 2, height / 2 - 25);
+        app.stage.addChild(mainMultiplierText);
+
+        // Subtext (e.g. countdown, crash message)
+        subStatusText = new PIXI.Text({
+          text: "WAITING FOR NEXT ROUND",
+          style: {
+            fontFamily: "Outfit, Inter, system-ui, sans-serif",
+            fontSize: 14,
+            fontWeight: "700",
+            fill: "#64748b",
+            letterSpacing: 2,
+            align: "center"
+          }
+        });
+        subStatusText.anchor.set(0.5);
+        subStatusText.position.set(width / 2, height / 2 + 25);
+        app.stage.addChild(subStatusText);
+
+        // 6. Emitter helper for sparks/exhaust/explosions
+        const spawnFlameParticle = (x, y) => {
+          const particleG = new PIXI.Graphics();
+          const color = Math.random() > 0.5 ? 0xf59e0b : Math.random() > 0.4 ? 0xef4444 : 0xfef08a; // amber, red, yellow
+          const size = 2 + Math.random() * 4;
+          
+          particleG.circle(0, 0, size).fill({ color });
+          particleG.x = x - 25; // Spawn right behind engine
+          particleG.y = y + (Math.random() - 0.5) * 6;
+          
+          const angle = Math.PI + (Math.random() - 0.5) * 0.3; // blow backwards
+          const speed = 2 + Math.random() * 4;
+          
+          app.stage.addChild(particleG);
+          particles.push({
+            graphic: particleG,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 1.0,
+            decay: 0.03 + Math.random() * 0.04
+          });
+        };
+
+        const spawnExplosionBlast = (x, y) => {
+          for (let i = 0; i < 90; i++) {
+            const particleG = new PIXI.Graphics();
+            const color = Math.random() > 0.6 ? 0xef4444 : Math.random() > 0.5 ? 0xf97316 : Math.random() > 0.3 ? 0xfacc15 : 0x6b7280; // red, orange, yellow, grey
+            const size = 3 + Math.random() * 8;
+            
+            particleG.circle(0, 0, size).fill({ color });
+            particleG.x = x;
+            particleG.y = y;
+            
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 1.5 + Math.random() * 6.5;
+            
+            app.stage.addChild(particleG);
+            particles.push({
+              graphic: particleG,
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed,
+              life: 1.0,
+              decay: 0.015 + Math.random() * 0.02
+            });
+          }
+        };
+
+        // 7. Core Tick Loop
+        let gridOffsetX = 0;
+        let gridOffsetY = 0;
+
+        app.ticker.add((ticker) => {
+          tickCount++;
+          const { phase, multiplier, timer, elapsedMs } = stateRef.current;
+          
+          // Capture phase changes for camera shakes/burst triggers
+          if (phase !== lastPhase) {
+            if (phase === 'FLYING') {
+              cameraShakeTime = 25;
+              cameraShakeIntensity = 4;
+            } else if (phase === 'CRASHED') {
+              cameraShakeTime = 40;
+              cameraShakeIntensity = 12;
+              if (plane.visible) {
+                spawnExplosionBlast(plane.x, plane.y);
+              }
+            }
+            lastPhase = phase;
+          }
+
+          // A. Stars Parallax Shift
+          const flightSpeedFactor = phase === 'FLYING' ? Math.min(10, multiplier) : 0.8;
+          stars.forEach(star => {
+            star.graphic.x -= star.speed * flightSpeedFactor;
+            star.graphic.y += star.speed * flightSpeedFactor * 0.3;
+            
+            // Twinkle stars subtly
+            star.graphic.alpha = star.baseAlpha + Math.sin(tickCount * 0.08) * 0.15;
+
+            // Wrap edges
+            if (star.graphic.x < -10) {
+              star.graphic.x = width + 10;
+              star.graphic.y = Math.random() * height;
+            }
+            if (star.graphic.y > height + 10) {
+              star.graphic.y = -10;
+              star.graphic.x = Math.random() * width;
+            }
+          });
+
+          // B. Scroll Coordinates Grid
+          if (phase === 'FLYING') {
+            gridOffsetX -= 1.5 * flightSpeedFactor;
+            gridOffsetY += 0.5 * flightSpeedFactor;
+            drawGrid(gridOffsetY, gridOffsetX);
+          } else {
+            gridOffsetX -= 0.15;
+            gridOffsetY += 0.05;
+            drawGrid(gridOffsetY, gridOffsetX);
+          }
+
+          // C. Particle management
+          for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            p.graphic.x += p.vx;
+            p.graphic.y += p.vy;
+            p.life -= p.decay;
+            p.graphic.alpha = p.life;
+            p.graphic.scale.set(p.life);
+            
+            if (p.life <= 0) {
+              app.stage.removeChild(p.graphic);
+              p.graphic.destroy();
+              particles.splice(i, 1);
+            }
+          }
+
+          // D. Plane Flight Curve Drawing & Mechanics
+          if (phase === 'FLYING') {
+            plane.visible = true;
+            
+            // Calculate progress along bezier flight path (maxing screen space at 8.5 seconds)
+            const t = elapsedMs / 1000;
+            const progress = Math.min(0.9, t / 8.5);
+            
+            // Bezier points
+            const startX = 60;
+            const startY = height - 60;
+            const controlX = width * 0.4;
+            const controlY = height - 60;
+            const endX = width - 80;
+            const endY = 80;
+
+            // Cubic bezier coordinates calculation
+            const u = 1 - progress;
+            const px = u * u * startX + 2 * u * progress * controlX + progress * progress * endX;
+            const py = u * u * startY + 2 * u * progress * controlY + progress * progress * endY;
+
+            // Apply minor micro-vibration
+            const vibrationX = (Math.random() - 0.5) * 1.1;
+            const vibrationY = (Math.random() - 0.5) * 1.1;
+
+            plane.x = px + vibrationX;
+            plane.y = py + vibrationY;
+
+            // Compute tangent angle for dynamic rotation alignment
+            const tx = 2 * (1 - progress) * (controlX - startX) + 2 * progress * (endX - controlX);
+            const ty = 2 * (1 - progress) * (controlY - startY) + 2 * progress * (endY - controlY);
+            plane.rotation = Math.atan2(ty, tx);
+
+            // Draw glowing smoke path trailing from plane tail
+            flameLine.clear();
+            const strokeColor = multiplier > 10.0 ? 0xf59e0b : multiplier > 2.0 ? 0x8b5cf6 : 0x06b6d4; // Gold, purple, cyan
+            flameLine.moveTo(startX, startY);
+            flameLine.quadraticCurveTo(controlX, controlY, px, py);
+            flameLine.stroke({ color: strokeColor, width: 3.5, alpha: 0.65 });
+
+            // Spawn fire spark exhaust tail
+            if (tickCount % 2 === 0) {
+              spawnFlameParticle(px, py);
+            }
+
+            // HUD UI texts
+            mainMultiplierText.text = `${multiplier.toFixed(2)}x`;
+            mainMultiplierText.style.fill = "#ffffff";
+            subStatusText.text = "PLANE IS FLYING... MULTIPLIER LIVE";
+            subStatusText.style.fill = "#10b981";
+          } 
+          else if (phase === 'BETTING') {
+            plane.visible = false;
+            flameLine.clear();
+            
+            // Countdown HUD
+            const secondsLeft = (timer / 1000).toFixed(1);
+            mainMultiplierText.text = `${secondsLeft}s`;
+            mainMultiplierText.style.fill = "#1abc9c";
+            subStatusText.text = "PREPARE FOR PLANE TAKEOFF";
+            subStatusText.style.fill = "#64748b";
+          } 
+          else if (phase === 'CRASHED') {
+            plane.visible = false;
+            
+            mainMultiplierText.text = `FLEW AWAY`;
+            mainMultiplierText.style.fill = "#ef4444";
+            subStatusText.text = `@ ${multiplier.toFixed(2)}x MULTIPLIER`;
+            subStatusText.style.fill = "#f59e0b";
+          } 
+          else {
+            plane.visible = false;
+            flameLine.clear();
+            mainMultiplierText.text = "Aviator";
+            mainMultiplierText.style.fill = "#ffffff";
+            subStatusText.text = "CONNECTING TO ENGINE...";
+            subStatusText.style.fill = "#64748b";
+          }
+
+          // E. Cinematic Camera Shake calculations
+          if (cameraShakeTime > 0) {
+            cameraShakeTime--;
+            const curIntensity = (cameraShakeTime / 40) * cameraShakeIntensity;
+            app.stage.position.set(
+              (Math.random() - 0.5) * curIntensity,
+              (Math.random() - 0.5) * curIntensity
+            );
+          } else {
+            app.stage.position.set(0, 0);
+          }
+        });
+
+        // 8. Handle responsiveness resize automatically
+        const handleResize = () => {
+          if (!containerRef.current || !app) return;
+          const rect = containerRef.current.getBoundingClientRect();
+          app.renderer.resize(rect.width, rect.height);
+          mainMultiplierText.position.set(rect.width / 2, rect.height / 2 - 25);
+          subStatusText.position.set(rect.width / 2, rect.height / 2 + 25);
+        };
+        
+        window.addEventListener("resize", handleResize);
+        setTimeout(handleResize, 100); // trigger quick resize once mounted
+
+      } catch (err) {
+        console.error("Failed to load or execute PixiJS v8 engine:", err);
+      }
     };
 
-    lastTimeRef.current = Date.now();
-    animationFrameRef.current = requestAnimationFrame(draw);
+    initPixi();
 
     return () => {
-      window.removeEventListener("resize", resizeCanvas);
-      cancelAnimationFrame(animationFrameRef.current);
+      if (app) {
+        app.destroy(true, { children: true, texture: true, baseTexture: true });
+      }
     };
   }, []);
 
   return (
-    <div className="relative w-full h-full min-h-[300px] border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
-      <canvas ref={canvasRef} className="block w-full h-full" />
+    <div 
+      ref={containerRef} 
+      className="relative w-full h-[260px] sm:h-[350px] md:h-[400px] bg-[#080c14] border border-[#2c3746] rounded-3xl overflow-hidden shadow-2xl"
+    >
+      {/* Dynamic glow overlays inside panel */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(6,182,212,0.03)_0%,transparent_70%)] pointer-events-none" />
+      <div className="absolute top-4 left-4 flex items-center gap-1.5 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-gray-800 text-[10px] text-gray-400 font-extrabold uppercase select-none z-10">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+        Live Engine Status: 60 FPS
+      </div>
+
+      <canvas ref={canvasRef} className="w-full h-full block" />
     </div>
   );
 }

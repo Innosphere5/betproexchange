@@ -37,9 +37,28 @@ const PlaneIcon = () => (
   </svg>
 );
 
+const RocketIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4.5 16.5c-1.5 1.25-2.5 3.5-2.5 3.5s2.25-1 3.5-2.5" />
+    <path d="M12 5c.5-1.5 2.5-3 2.5-3s-1.5 2-3 2.5" />
+    <path d="M19 12c-1.5.5-3 2.5-3 2.5s2-1.5 2.5-3" />
+    <path d="M9 15l-3-3" />
+    <path d="M12.5 8.5C14.5 6.5 18 6 18 6s-.5 3.5-2.5 5.5c-2 2-3.5 2.5-4 2.5s-2-2.5-2.5-3 1.5-2 3.5-2.5z" />
+  </svg>
+);
+
+const CardsIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="6" width="14" height="14" rx="2" ry="2" />
+    <path d="M6 2h14a2 2 0 0 1 2 2v14" />
+  </svg>
+);
+
 const navItems = [
   { label: "Aviator", icon: <PlaneIcon />, link: "/dashboard/aviator" },
+  { label: "AviatorX", icon: <PlaneIcon />, link: "/dashboard/aviatorx" },
   { label: "Casino", icon: <CasinoIcon />, link: "/dashboard/casino" },
+  { label: "Teen Patti", icon: <CardsIcon />, link: "/dashboard/teenpatti" },
   {
     label: "Cricket",
     icon: <CricketIcon />,
@@ -101,28 +120,41 @@ export default function Sidebar({ isOpen, setIsOpen, onSelectMatch }) {
         <ul className="divide-y divide-[#3b546b]">
           {dynamicNavItems.map((item, idx) => {
             const isSelected = expandedItem === item.label;
+            const content = (
+              <>
+                <div className="text-white opacity-100">{item.icon}</div>
+                <span className="text-[13px] font-bold tracking-normal flex-1">{item.label}</span>
+                {item.submenu && (
+                  isSelected ? <ChevronDown size={14} className="opacity-60" /> : <ChevronRight size={14} className="opacity-60" />
+                )}
+              </>
+            );
+
+            const itemClass = `flex items-center gap-3 px-4 py-3.5 transition-colors w-full text-left ${
+              isSelected ? "bg-[#bf1212]" : "hover:bg-[#3b546b]"
+            }`;
+
             return (
               <li key={idx} className="flex flex-col">
-                <button
-                  onClick={() => setExpandedItem(isSelected ? null : item.label)}
-                  className={`flex items-center gap-3 px-4 py-3.5 transition-colors w-full text-left
-                  ${isSelected ? "bg-[#bf1212]" : "hover:bg-[#3b546b]"}
-                  `}
-                >
-                  <div className="text-white opacity-100">{item.icon}</div>
-
-                  {item.link ? (
-                    <Link href={item.link} onClick={() => setIsOpen(false)} className="text-[13px] font-bold tracking-normal flex-1">
-                      {item.label}
-                    </Link>
-                  ) : (
-                    <span className="text-[13px] font-bold tracking-normal flex-1">{item.label}</span>
-                  )}
-
-                  {item.submenu && (
-                    isSelected ? <ChevronDown size={14} className="opacity-60" /> : <ChevronRight size={14} className="opacity-60" />
-                  )}
-                </button>
+                {item.link ? (
+                  <Link
+                    href={item.link}
+                    onClick={() => {
+                      setIsOpen(false);
+                      setExpandedItem(item.label);
+                    }}
+                    className={itemClass}
+                  >
+                    {content}
+                  </Link>
+                ) : (
+                  <button
+                    onClick={() => setExpandedItem(isSelected ? null : item.label)}
+                    className={itemClass}
+                  >
+                    {content}
+                  </button>
+                )}
 
                 {/* Submenu */}
                 {item.submenu && isSelected && (
