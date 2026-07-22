@@ -74,7 +74,13 @@ export default function AdminUsers() {
     setIsFinalSheetLoading(true);
     const token = getAuthToken();
     try {
-      const res = await fetch(`${getApiUrl()}/api/admin/final-sheet`, {
+      let url = `${getApiUrl()}/api/admin/final-sheet?reportType=${reportPeriod}`;
+      if (reportPeriod === 'daily') url += `&date=${selectedDate}`;
+      else if (reportPeriod === 'monthly') url += `&month=${selectedMonth}`;
+      else if (reportPeriod === 'yearly') url += `&year=${selectedYear}`;
+      else if (reportPeriod === 'range') url += `&startDate=${startDate}&endDate=${endDate}`;
+
+      const res = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
