@@ -2,32 +2,57 @@
 
 export default function BettingBar({ handleBetClick, lock }) {
   return (
-    <div className="bg-[#0b141d] h-[120px] lg:h-[100px] flex items-center justify-between px-4 lg:px-6 shrink-0 relative border-t border-white/5 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
-       {/* Layout for basic Back / Lay grid */}
-       <div className="flex gap-3 lg:gap-4 w-full max-w-3xl mx-auto h-20 lg:h-16">
+    <div className="bg-[#0b121c] h-[110px] lg:h-[95px] flex items-center justify-between px-3 lg:px-6 shrink-0 relative border-t border-slate-800 shadow-[0_-10px_30px_rgba(0,0,0,0.6)] select-none">
+       <div className="flex gap-3 lg:gap-5 w-full max-w-4xl mx-auto h-20 lg:h-16">
+          
+          {/* PLAYER A BET SECTOR */}
           <button 
              onClick={() => handleBetClick('A')}
              disabled={lock}
-             className={`flex-1 rounded-sm flex flex-col items-center justify-center transition-all duration-300 relative overflow-hidden group/btn
-               ${lock ? 'bg-blue-900/10 text-blue-500/20 grayscale' : 'bg-[#1a3a5a] text-blue-400 hover:bg-[#254b73] active:scale-[0.98] shadow-[0_0_20px_rgba(59,130,246,0.1)] border border-blue-500/30'}`}
+             className={`flex-1 rounded-2xl flex flex-col items-center justify-center transition-all duration-300 relative overflow-hidden group/btn border-2
+               ${lock 
+                 ? 'bg-blue-950/20 border-blue-900/30 text-blue-500/30 grayscale cursor-not-allowed' 
+                 : 'bg-gradient-to-r from-[#13273e] via-[#1a3554] to-[#13273e] border-blue-500/40 text-blue-300 hover:border-blue-400 active:scale-[0.98] shadow-[0_0_25px_rgba(59,130,246,0.15)] cursor-pointer'}`}
           >
-             <div className="absolute inset-0 bg-blue-500/5 opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
-             <span className="font-black text-xs tracking-[0.3em] uppercase mb-0.5">Player A</span>
-             <span className="text-xl font-black font-mono">3.50x</span>
-             {!lock && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-blue-500 shadow-[0_0_10px_#3b82f6]"></div>}
+             <div className="absolute inset-0 bg-blue-500/10 opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
+             
+             <div className="flex items-center gap-2 mb-0.5">
+                <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
+                <span className="font-black text-xs lg:text-sm tracking-[0.25em] uppercase text-white">Player A</span>
+             </div>
+
+             <div className="flex items-center gap-1.5">
+                <span className="text-xs text-blue-400 font-bold uppercase">Payout</span>
+                <span className="text-xl lg:text-2xl font-black font-mono text-amber-400 drop-shadow">3.50x</span>
+             </div>
+
+             {!lock && <div className="absolute bottom-0 left-0 w-full h-[4px] bg-blue-500 shadow-[0_0_12px_#3b82f6]"></div>}
           </button>
 
+          {/* PLAYER B BET SECTOR */}
           <button 
              onClick={() => handleBetClick('B')}
              disabled={lock}
-             className={`flex-1 rounded-sm flex flex-col items-center justify-center transition-all duration-300 relative overflow-hidden group/btn
-               ${lock ? 'bg-pink-900/10 text-pink-500/20 grayscale' : 'bg-[#3b1a2e] text-pink-400 hover:bg-[#522541] active:scale-[0.98] shadow-[0_0_20px_rgba(236,72,153,0.1)] border border-pink-500/30'}`}
+             className={`flex-1 rounded-2xl flex flex-col items-center justify-center transition-all duration-300 relative overflow-hidden group/btn border-2
+               ${lock 
+                 ? 'bg-rose-950/20 border-rose-900/30 text-rose-500/30 grayscale cursor-not-allowed' 
+                 : 'bg-gradient-to-r from-[#381628] via-[#4d1f38] to-[#381628] border-rose-500/40 text-rose-300 hover:border-rose-400 active:scale-[0.98] shadow-[0_0_25px_rgba(244,63,94,0.15)] cursor-pointer'}`}
           >
-             <div className="absolute inset-0 bg-pink-500/5 opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
-             <span className="font-black text-xs tracking-[0.3em] uppercase mb-0.5">Player B</span>
-             <span className="text-xl font-black font-mono">2.50x</span>
-             {!lock && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-pink-500 shadow-[0_0_10px_#ec4899]"></div>}
+             <div className="absolute inset-0 bg-rose-500/10 opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
+             
+             <div className="flex items-center gap-2 mb-0.5">
+                <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse"></span>
+                <span className="font-black text-xs lg:text-sm tracking-[0.25em] uppercase text-white">Player B</span>
+             </div>
+
+             <div className="flex items-center gap-1.5">
+                <span className="text-xs text-rose-400 font-bold uppercase">Payout</span>
+                <span className="text-xl lg:text-2xl font-black font-mono text-amber-400 drop-shadow">2.50x</span>
+             </div>
+
+             {!lock && <div className="absolute bottom-0 left-0 w-full h-[4px] bg-rose-500 shadow-[0_0_12px_#f43f5e]"></div>}
           </button>
+
        </div>
     </div>
   );

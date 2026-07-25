@@ -74,7 +74,7 @@ export default function AviatorCanvas({ phase, elapsedMs, currentMultiplier, cra
       const startX = 40;
       const startY = height - 40;
       const plotWidth = width - startX - 40;
-      const plotHeight = height - startY - 40; // negative height scale
+      const plotHeight = 40 - startY; // negative height going upwards
 
       // Draw Radial Beams in the background
       const drawRadialBeams = () => {
