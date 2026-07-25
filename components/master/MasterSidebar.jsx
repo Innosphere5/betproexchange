@@ -1,6 +1,6 @@
 "use client";
 
-import { X, LayoutDashboard, Users, Filter, FileText, Lock, Star, Globe, Gamepad2, ChevronLeft, ChevronDown, Trophy, LogOut } from "lucide-react";
+import { X, LayoutDashboard, Users, Filter, FileText, Lock, Star, Globe, Gamepad2, ChevronLeft, ChevronDown, Trophy, LogOut, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -8,6 +8,7 @@ import { useState } from "react";
 const navItems = [
   { label: "Dashboard", href: "/master/dashboard", icon: <LayoutDashboard size={18} className="opacity-80" /> },
   { label: "Users (Bettors)", href: "/master/users", icon: <Users size={18} className="opacity-80" /> },
+  { label: "Account Ledger", href: "/master/account-ledger", icon: <BookOpen size={18} className="opacity-80" /> },
   { label: "Current Position", href: "/master/current-position", icon: <Filter size={18} className="opacity-80" /> },
   { label: "Reports", href: "/master/reports", icon: <FileText size={18} className="opacity-80" /> }
 ];

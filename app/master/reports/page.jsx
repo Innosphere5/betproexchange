@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Filter, Calendar, Layout, List, CheckSquare, X, TrendingUp, TrendingDown, AlertCircle, ChevronRight, Users } from "lucide-react";
 import { getApiUrl } from "@/lib/apiConfig";
 import FinalSheet from "@/components/FinalSheet";
+import AccountLedger from "@/components/AccountLedger";
 
 export default function MasterReports() {
   const [activeReport, setActiveReport] = useState("Daily Report");
@@ -20,7 +21,7 @@ export default function MasterReports() {
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
 
   const reportTypes = [
-    'Book Detail', 'Book Detail 2', 'Daily PL', 'Daily Report', 'Final Sheet', 'Accounts', 'Commission Report'
+    'Book Detail', 'Book Detail 2', 'Daily PL', 'Daily Report', 'Final Sheet', 'Accounts', 'Account Ledger', 'Commission Report'
   ];
 
   const getAuthToken = () => {
@@ -263,6 +264,10 @@ export default function MasterReports() {
             </div>
           </div>
         );
+
+      case "Accounts":
+      case "Account Ledger":
+        return <AccountLedger />;
 
       default:
         return (

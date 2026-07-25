@@ -88,6 +88,12 @@ export default function SuperAdminHeader({ setIsSidebarOpen }) {
             Users
           </Link>
           <Link
+            href="/superadmin/account-ledger"
+            className={`flex items-center h-full px-4 text-sm hover:text-[#1abc9c] hover:border-b-2 hover:border-[#1abc9c] transition-colors ${pathname === '/superadmin/account-ledger' ? 'text-[#1abc9c] border-b-2 border-[#1abc9c]' : 'text-gray-600'}`}
+          >
+            Account Ledger
+          </Link>
+          <Link
             href="/superadmin/reports"
             className={`flex items-center h-full px-4 text-sm hover:text-[#1abc9c] hover:border-b-2 hover:border-[#1abc9c] transition-colors ${pathname === '/superadmin/reports' ? 'text-[#1abc9c] border-b-2 border-[#1abc9c]' : 'text-gray-600'}`}
           >

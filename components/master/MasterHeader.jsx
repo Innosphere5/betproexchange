@@ -99,6 +99,12 @@ export default function MasterHeader({ setIsSidebarOpen }) {
             Players (Users)
           </Link>
           <Link
+            href="/master/account-ledger"
+            className={`flex items-center h-full px-4 text-sm hover:text-[#f39c12] hover:border-b-2 hover:border-[#f39c12] transition-colors ${pathname === '/master/account-ledger' ? 'text-[#f39c12] border-b-2 border-[#f39c12]' : 'text-gray-600'}`}
+          >
+            Account Ledger
+          </Link>
+          <Link
             href="/master/reports"
             className={`flex items-center h-full px-4 text-sm hover:text-[#f39c12] hover:border-b-2 hover:border-[#f39c12] transition-colors ${pathname === '/master/reports' ? 'text-[#f39c12] border-b-2 border-[#f39c12]' : 'text-gray-600'}`}
           >

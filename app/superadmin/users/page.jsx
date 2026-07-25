@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Filter, Search, BookOpen, Edit2, X, DollarSign, AlertTriangle, Trash2, Calendar, Layout, List } from "lucide-react";
 import { getApiUrl } from "@/lib/apiConfig";
+import Link from "next/link";
 
 export default function SuperAdminUsers() {
   const [users, setUsers] = useState([]);
@@ -1318,10 +1319,10 @@ export default function SuperAdminUsers() {
                 >
                   + New Downline
                 </button>
-                <button className="bg-[#1abc9c] hover:bg-[#16a085] text-white px-3 py-1.5 text-sm font-semibold rounded-sm flex items-center gap-1">
+                <Link href="/superadmin/account-ledger" className="bg-[#1abc9c] hover:bg-[#16a085] text-white px-3 py-1.5 text-sm font-semibold rounded-sm flex items-center gap-1">
                   <BookOpen size={16} />
                   Account Ledger
-                </button>
+                </Link>
               </div>
               <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold text-gray-500 uppercase">
                 <span className="flex items-center gap-1"><span className="bg-[#fbbf24] text-white px-1.5 py-0.5 rounded-sm">C</span> Cash / Credit</span>

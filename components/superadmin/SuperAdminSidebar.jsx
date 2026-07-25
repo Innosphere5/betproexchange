@@ -1,6 +1,6 @@
 "use client";
 
-import { X, LayoutDashboard, Users, Filter, FileText, Lock, Star, Globe, Gamepad2, ChevronLeft, ChevronDown, Trophy, LogOut } from "lucide-react";
+import { X, LayoutDashboard, Users, Filter, FileText, Lock, Star, Globe, Gamepad2, ChevronLeft, ChevronDown, Trophy, LogOut, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -8,6 +8,7 @@ import { useState } from "react";
 const navItems = [
   { label: "Dashboard", href: "/superadmin/dashboard", icon: <LayoutDashboard size={18} className="opacity-80" /> },
   { label: "Users", href: "/superadmin/users", icon: <Users size={18} className="opacity-80" /> },
+  { label: "Account Ledger", href: "/superadmin/account-ledger", icon: <BookOpen size={18} className="opacity-80" /> },
   { label: "Current Position", href: "/superadmin/current-position", icon: <Filter size={18} className="opacity-80" /> },
   { label: "Reports", href: "/superadmin/reports", icon: <FileText size={18} className="opacity-80" /> },
   { label: "Bet Lock", href: "/superadmin/betlock", icon: <Lock size={18} className="opacity-80" /> }
