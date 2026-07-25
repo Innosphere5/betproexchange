@@ -136,10 +136,12 @@ export default function SuperAdminReports() {
 
   useEffect(() => {
     if (activeReport === "Final Sheet") {
+      setReportPeriod("all");
       fetchFinalSheet();
     } else if (activeReport === "Commission Report") {
       fetchCommissionReport();
     } else if (activeReport === "Daily Report") {
+      setReportPeriod("daily");
       fetchDailyReport();
     }
   }, [activeReport, selectedDate, selectedMonth, selectedYear, reportPeriod, startDate, endDate]);
@@ -197,14 +199,14 @@ export default function SuperAdminReports() {
               </div>
               <div className="p-4 flex flex-wrap items-center gap-4">
                 <div className="flex bg-white border border-gray-300 rounded overflow-hidden">
-                  {['daily', 'monthly', 'yearly', 'range'].map((p) => (
+                  {['all', 'daily', 'monthly', 'yearly', 'range'].map((p) => (
                     <button
                       key={p}
                       onClick={() => setReportPeriod(p)}
                       className={`px-3 py-1.5 text-[11px] font-bold uppercase transition-colors border-r last:border-r-0 ${reportPeriod === p ? 'bg-[#1abc9c] text-white border-[#1abc9c]' : 'hover:bg-gray-100 text-gray-600 border-gray-300'
                         }`}
                     >
-                      {p}
+                      {p === 'all' ? 'All Time' : p}
                     </button>
                   ))}
                 </div>

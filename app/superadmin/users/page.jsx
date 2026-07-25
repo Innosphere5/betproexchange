@@ -214,6 +214,7 @@ export default function SuperAdminUsers() {
         setReportLoading(false);
       }
     } else if (activeReportType === "Final Sheet") {
+      if (reportPeriod !== "all") setReportPeriod("all");
       fetchFinalSheet();
     } else if (activeReportType === "Daily Report") {
       fetchDailyReport();
@@ -1143,10 +1144,15 @@ export default function SuperAdminUsers() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="bg-[#3b82f6] px-4 py-3 flex justify-between items-center text-white border-b border-blue-400 font-bold uppercase tracking-tight italic">
-              <h3>User Ledger: {selectedUser?.username}</h3>
+              <h3>Balance Report & Ledger: {selectedUser?.username}</h3>
               <button onClick={() => setIsLedgerModalOpen(false)} className="hover:bg-white/20 p-1 rounded">
                 <X size={20} />
               </button>
+            </div>
+            <div className="bg-[#f8f9fa] px-4 py-2.5 border-b border-gray-200 flex flex-wrap justify-between items-center text-xs text-gray-700 font-semibold gap-2">
+              <div>Total Balance: <span className="font-bold text-gray-900">{selectedUser?.walletBalance?.toLocaleString() || 0} Rs.</span></div>
+              <div>Credit: <span className="font-bold text-blue-600">{selectedUser?.credit?.toLocaleString() || 0} Rs.</span></div>
+              <div>Cash: <span className="font-bold text-green-600">{((selectedUser?.walletBalance || 0) - (selectedUser?.credit || 0)).toLocaleString()} Rs.</span></div>
             </div>
             <div className="p-0 max-h-[400px] overflow-y-auto">
               <table className="w-full text-sm text-left border-collapse">
@@ -1364,7 +1370,14 @@ export default function SuperAdminUsers() {
                     users.map((item) => (
                       <tr key={item._id} className="border-b hover:bg-gray-50 transition-colors text-gray-700 font-medium">
                         <td className={`px-4 py-2 border-r font-bold ${item.status === 'inactive' ? 'text-red-500' : 'text-blue-600'}`}>
-                          {item.username} <span className="text-[10px] bg-gray-800 text-white w-4 h-4 rounded-full inline-flex items-center justify-center ml-1">i</span>
+                          {item.username}{" "}
+                          <span 
+                            onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }}
+                            className="text-[10px] bg-gray-800 hover:bg-blue-600 text-white w-4 h-4 rounded-full inline-flex items-center justify-center ml-1 cursor-pointer transition-colors shadow-sm"
+                            title="View Balance Report"
+                          >
+                            i
+                          </span>
                         </td>
                         <td className="px-4 py-2 border-r uppercase font-bold text-gray-600">{item.role === 'user' ? 'Bettor' : item.role}</td>
                         <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold">{item.credit?.toLocaleString() || 0}</td>
@@ -1405,8 +1418,15 @@ export default function SuperAdminUsers() {
                     users.map((item) => (
                       <tr key={item._id} className="border-b border-gray-200">
                         <td className="p-3 border-r border-gray-200 align-top">
-                          <div className={`font-bold text-[15px] mb-2 ${item.status === 'inactive' ? 'text-red-500 line-through opacity-50' : 'text-gray-900'}`}>
+                          <div className={`font-bold text-[15px] mb-2 flex items-center ${item.status === 'inactive' ? 'text-red-500 line-through opacity-50' : 'text-gray-900'}`}>
                             {item.username}
+                            <span 
+                              onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }}
+                              className="text-[10px] bg-gray-800 hover:bg-blue-600 text-white w-4 h-4 rounded-full inline-flex items-center justify-center ml-1.5 cursor-pointer transition-colors no-underline"
+                              title="View Balance Report"
+                            >
+                              i
+                            </span>
                           </div>
                           <ul className="space-y-1.5 text-gray-700 text-[13px] font-medium">
                             <li className="flex items-center gap-2">
