@@ -51,8 +51,9 @@ export default function SuperAdminUsers() {
 
   const handleSettleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedUser || !settleAmount || parseFloat(settleAmount) <= 0) {
-      alert("Please enter a valid positive settlement amount");
+    const val = parseFloat(settleAmount);
+    if (!selectedUser || !settleAmount || isNaN(val) || val === 0) {
+      alert("Please enter a valid non-zero settlement amount");
       return;
     }
     setIsSettling(true);
@@ -1504,7 +1505,10 @@ export default function SuperAdminUsers() {
                             </li>
                             <li className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
-                              Client (P/L) 0
+                              Client (P/L){" "}
+                              <span className={`font-bold ${(item.clientPL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {(item.clientPL || 0) >= 0 ? `+${(item.clientPL || 0).toLocaleString()}` : (item.clientPL || 0).toLocaleString()}
+                              </span>
                             </li>
                             <li className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>

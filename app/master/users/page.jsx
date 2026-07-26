@@ -40,8 +40,9 @@ export default function MasterUsers() {
 
   const handleSettleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedUser || !settleAmount || parseFloat(settleAmount) <= 0) {
-      alert("Please enter a valid positive settlement amount");
+    const val = parseFloat(settleAmount);
+    if (!selectedUser || !settleAmount || isNaN(val) || val === 0) {
+      alert("Please enter a valid non-zero settlement amount");
       return;
     }
     setIsSettling(true);
@@ -719,10 +720,10 @@ export default function MasterUsers() {
 
         const finalAccounts = finalSheetData.accounts || [];
         const filteredFinalAccounts = finalAccounts.filter(u => (!hideZero || u.net !== 0));
-        
+
         const positiveAccounts = filteredFinalAccounts.filter(u => u.net >= 0);
         const negativeAccounts = filteredFinalAccounts.filter(u => u.net < 0);
-        
+
         const totalPositiveNet = positiveAccounts.reduce((sum, u) => sum + u.net, 0);
         const totalNegativeNet = negativeAccounts.reduce((sum, u) => sum + u.net, 0);
 
@@ -1351,7 +1352,7 @@ export default function MasterUsers() {
                       <tr key={item._id} className="bg-white border-b border-gray-200 hover:bg-gray-50">
                         <td className="px-4 py-2 font-bold text-gray-800 border-r border-gray-200 flex items-center gap-1 whitespace-nowrap">
                           {item.username}
-                          <span 
+                          <span
                             onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }}
                             className="w-4 h-4 bg-gray-800 hover:bg-blue-600 text-white rounded-full inline-flex items-center justify-center text-[10px] cursor-pointer transition-colors shadow-sm"
                             title="View Balance Report"
@@ -1434,7 +1435,7 @@ export default function MasterUsers() {
                         <td className="p-3 border-r border-gray-200 align-top">
                           <div className={`font-bold text-[15px] mb-2 flex items-center ${item.status === 'inactive' ? 'text-red-500 line-through opacity-50' : 'text-gray-900'}`}>
                             {item.username}
-                            <span 
+                            <span
                               onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }}
                               className="w-4 h-4 bg-gray-800 hover:bg-blue-600 text-white rounded-full inline-flex items-center justify-center text-[10px] ml-1.5 cursor-pointer transition-colors no-underline"
                               title="View Balance Report"
@@ -1453,7 +1454,10 @@ export default function MasterUsers() {
                             </li>
                             <li className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
-                              Client (P/L) 0
+                              Client (P/L){" "}
+                              <span className={`font-bold ${(item.clientPL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {(item.clientPL || 0) >= 0 ? `+${(item.clientPL || 0).toLocaleString()}` : (item.clientPL || 0).toLocaleString()}
+                              </span>
                             </li>
                             <li className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
