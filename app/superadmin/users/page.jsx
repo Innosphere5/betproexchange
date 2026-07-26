@@ -16,6 +16,7 @@ export default function SuperAdminUsers() {
   const [newPassword, setNewPassword] = useState("");
   const [newType, setNewType] = useState("user");
   const [initialBalance, setInitialBalance] = useState("0");
+  const [newBalanceType, setNewBalanceType] = useState("cash");
   const [newShare, setNewShare] = useState("0");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -41,6 +42,52 @@ export default function SuperAdminUsers() {
   const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
   const [ledgerTransactions, setLedgerTransactions] = useState([]);
   const [isLedgerLoading, setIsLedgerLoading] = useState(false);
+
+  // Settle Account Modal State
+  const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
+  const [settleAmount, setSettleAmount] = useState("");
+  const [settleDescription, setSettleDescription] = useState("P/L to Cash transfer");
+  const [isSettling, setIsSettling] = useState(false);
+
+  const handleSettleSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedUser || !settleAmount || parseFloat(settleAmount) <= 0) {
+      alert("Please enter a valid positive settlement amount");
+      return;
+    }
+    setIsSettling(true);
+    const token = getAuthToken();
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/settle-account`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          targetUsername: selectedUser.username,
+          amount: parseFloat(settleAmount),
+          description: settleDescription || "P/L to Cash transfer"
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert("Account settled successfully!");
+        setIsSettleModalOpen(false);
+        setSettleAmount("");
+        setSelectedUser(null);
+        fetchUsers();
+      } else {
+        alert(data.error || "Failed to settle account");
+      }
+    } catch (err) {
+      console.error("Settle Account Error:", err);
+      alert("An error occurred while settling account");
+    } finally {
+      setIsSettling(false);
+    }
+  };
+
 
   const getAuthToken = () => {
     const raw = localStorage.getItem("user_session");
@@ -269,6 +316,7 @@ export default function SuperAdminUsers() {
           password: newPassword, 
           role: newType,
           initialBalance: parseFloat(initialBalance),
+          balanceType: newBalanceType,
           share: parseFloat(newShare) || 0
         })
       });
@@ -278,6 +326,8 @@ export default function SuperAdminUsers() {
         setIsModalOpen(false);
         setNewUsername("");
         setNewPassword("");
+        setInitialBalance("0");
+        setNewBalanceType("cash");
         setInitialBalance("0");
         setNewShare("0");
         fetchUsers();
@@ -1000,6 +1050,17 @@ export default function SuperAdminUsers() {
                 </select>
               </div>
               <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Balance Type</label>
+                <select
+                  value={newBalanceType}
+                  onChange={(e) => setNewBalanceType(e.target.value)}
+                  className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#1abc9c] font-bold text-gray-700 mb-2"
+                >
+                  <option value="cash">Cash</option>
+                  <option value="credit">Credit</option>
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Initial Balance</label>
                 <input
                   type="number"
@@ -1307,9 +1368,9 @@ export default function SuperAdminUsers() {
                 <tbody>
                   <tr>
                     <td className="px-4 py-3 text-blue-600">{users.reduce((sum, u) => sum + (u.credit || 0), 0).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-gray-800">{users.reduce((sum, u) => sum + ((u.walletBalance || 0) - (u.credit || 0)), 0).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-green-700 font-bold">{users.reduce((sum, u) => sum + (u.walletBalance || 0), 0).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-red-600">0</td>
+                    <td className="px-4 py-3 text-gray-800">{users.reduce((sum, u) => sum + Math.max(0, (u.walletBalance || 0) - (u.credit || 0)), 0).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-green-700 font-bold">{users.reduce((sum, u) => sum + Math.max(0, (u.walletBalance || 0) - (u.credit || 0)), 0).toLocaleString()}</td>
+                    <td className={`px-4 py-3 font-bold ${users.reduce((sum, u) => sum + (u.clientPL || 0), 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>{users.reduce((sum, u) => sum + (u.clientPL || 0), 0).toLocaleString()}</td>
                     <td className="px-4 py-3 text-gray-800">{users.length}</td>
                   </tr>
                 </tbody>
@@ -1336,6 +1397,7 @@ export default function SuperAdminUsers() {
                 <span className="flex items-center gap-1"><span className="bg-[#3b82f6] text-white px-1.5 py-0.5 rounded-sm">L</span> Ledger</span>
                 <span className="flex items-center gap-1"><span className="bg-[#10b981] text-white px-1.5 py-0.5 rounded-sm">A</span> Active</span>
                 <span className="flex items-center gap-1"><span className="bg-gray-400 text-white px-1.5 py-0.5 rounded-sm text-[8px] flex items-center justify-center">D</span> InActive</span>
+                <span className="flex items-center gap-1"><span className="bg-[#f87171] text-white px-1.5 py-0.5 rounded-sm font-bold">S</span> Settle Account</span>
               </div>
             </div>
 
@@ -1381,17 +1443,20 @@ export default function SuperAdminUsers() {
                         </td>
                         <td className="px-4 py-2 border-r uppercase font-bold text-gray-600">{item.role === 'user' ? 'Bettor' : item.role}</td>
                         <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold">{item.credit?.toLocaleString() || 0}</td>
-                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold">{((item.walletBalance || 0) - (item.credit || 0)).toLocaleString()}</td>
-                        <td className="px-4 py-2 border-r">-</td>
+                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold">{Math.max(0, (item.walletBalance || 0) - (item.credit || 0)).toLocaleString()}</td>
+                        <td className={`px-4 py-2 border-r border-gray-200 font-bold ${(item.clientPL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {(item.clientPL || 0) >= 0 ? `+${(item.clientPL || 0).toLocaleString()}` : (item.clientPL || 0).toLocaleString()}
+                        </td>
                         <td className="px-4 py-2 border-r font-bold text-orange-600">{(item.role === 'master' || item.role === 'admin') ? `${item.share}%` : '-'}</td>
                         <td className="px-4 py-2 border-r font-bold text-blue-600">{item.downlineCount || 0}</td>
-                        <td className="px-4 py-2 border-r font-bold text-[#1abc9c]">{item.walletBalance?.toLocaleString()}</td>
+                        <td className="px-4 py-2 border-r font-bold text-[#1abc9c]">{((item.walletBalance || 0) - (item.credit || 0)).toLocaleString()}</td>
                         <td className="px-4 py-2 flex gap-1">
                           <button onClick={() => { setSelectedUser(item); setActiveTab("cash"); setIsLoadModalOpen(true); }} className="bg-[#fbbf24] text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold hover:brightness-95 active:scale-95 transition-all">C</button>
                           <button onClick={() => { setSelectedUser(item); setEditShare(item.share || "0"); setIsEditModalOpen(true); }} className="bg-[#1abc9c] text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center hover:brightness-95 active:scale-95 transition-all"><Edit2 size={14} /></button>
                           <button onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }} className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center shadow-sm">L</button>
                           <button onClick={() => handleToggleStatus(item.username, item.status)} className={`p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold text-white transition-all hover:brightness-95 active:scale-95 ${item.status === 'inactive' ? 'bg-gray-400' : 'bg-[#10b981]'}`}>A</button>
                           <button onClick={() => { setUserToDelete(item); setIsDeleteModalOpen(true); }} className="border border-red-500 text-red-500 p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold hover:bg-red-50 active:scale-95 transition-all">D</button>
+                          <button onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }} className="bg-[#f87171] hover:bg-red-500 text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold shadow-sm transition-all active:scale-95" title="Settle P/L Account">S</button>
                         </td>
                       </tr>
                     ))
@@ -1461,6 +1526,7 @@ export default function SuperAdminUsers() {
                                 <button onClick={() => { setSelectedUser(item); setEditShare(item.share || "0"); setEditPassword(""); setIsEditModalOpen(true); }} className="bg-[#1abc9c] hover:bg-[#16a085] text-white w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Edit"><Edit2 size={13} /></button>
                                 <button onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }} className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Ledger">L</button>
                                 <button onClick={() => handleToggleStatus(item.username, item.status)} className={`font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm ${item.status === 'inactive' ? 'bg-gray-400 text-white' : 'bg-[#10b981] text-white hover:bg-green-600'}`} title={item.status === 'inactive' ? 'Activate' : 'Deactivate'}>A</button>
+                                <button onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }} className="bg-[#f87171] hover:bg-red-500 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Settle P/L Account">S</button>
                               </div>
                             </li>
                           </ul>
@@ -1480,6 +1546,69 @@ export default function SuperAdminUsers() {
       ) : (
         renderReportUI()
       )}
+
+      {/* Settle P/L Account Modal */}
+      {isSettleModalOpen && selectedUser && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-md shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200 animate-in zoom-in duration-200">
+            {/* Modal Header */}
+            <div className="bg-[#f8f9fa] border-b border-gray-200 px-5 py-4 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-gray-800">Settle P/L Account</h3>
+              <button
+                onClick={() => { setIsSettleModalOpen(false); setSelectedUser(null); }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleSettleSubmit} className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Amount
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="0.00"
+                  value={settleAmount}
+                  onChange={(e) => setSettleAmount(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1abc9c] focus:border-transparent text-sm font-medium"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1.5 font-medium">
+                  Max amount to transfer: {Math.abs(selectedUser.clientPL || selectedUser.walletBalance || 0).toLocaleString()} Rs.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Description
+                </label>
+                <input
+                  type="text"
+                  value={settleDescription}
+                  onChange={(e) => setSettleDescription(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1abc9c] focus:border-transparent text-sm font-medium"
+                  required
+                />
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isSettling}
+                  className="bg-[#1abc9c] hover:bg-[#16a085] text-white px-6 py-2 rounded text-sm font-semibold transition-colors disabled:opacity-50 shadow-sm"
+                >
+                  {isSettling ? "Submitting..." : "Submit"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
 
       {detailsView && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] flex items-center justify-center p-4">
