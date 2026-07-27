@@ -7,15 +7,24 @@ import { getApiUrl } from "../../../lib/apiConfig";
 export default function ProfitLossPage() {
   const [plData, setPlData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAccessDenied, setIsAccessDenied] = useState(false);
 
   const fetchPL = async () => {
     setIsLoading(true);
     try {
       const session = JSON.parse(localStorage.getItem('user_session') || '{}');
+      if (session.role === 'user') {
+        setIsAccessDenied(true);
+        setIsLoading(false);
+        return;
+      }
+
       const response = await fetch(`${getApiUrl()}/api/user/profit-loss`, {
         headers: { 'Authorization': `Bearer ${session.token}` }
       });
-      if (response.ok) {
+      if (response.status === 403) {
+        setIsAccessDenied(true);
+      } else if (response.ok) {
         const data = await response.json();
         setPlData(data);
       }
@@ -29,6 +38,19 @@ export default function ProfitLossPage() {
   useEffect(() => {
     fetchPL();
   }, []);
+
+  if (isAccessDenied) {
+    return (
+      <div className="p-4 md:p-8 flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md text-center shadow-sm">
+          <h2 className="text-xl font-bold text-red-700 mb-2">Access Restricted</h2>
+          <p className="text-sm text-red-600 font-medium">
+            Client Profit & Loss and Settlement features are restricted for Bettor accounts. This feature is only allowed for Master, Admin, and SuperAdmin roles.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-3 lg:p-4 space-y-4">

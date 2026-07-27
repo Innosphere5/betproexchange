@@ -95,22 +95,28 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
 
 
             {/* Dropdown Menu */}
-            {isDropdownOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setIsDropdownOpen(false)}
-                />
-                <div className="absolute right-0 top-[120%] mt-1 w-[150px] bg-white border border-gray-200 shadow-[0_4px_12px_rgba(0,0,0,0.15)] z-50 rounded-sm py-1 font-normal text-[13px] text-gray-700">
-                  <Link href="/dashboard/statement" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Statement</Link>
-                  <Link href="/dashboard/result" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Result</Link>
-                  <Link href="/dashboard/profit-loss" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Profit Loss</Link>
-                  <Link href="/dashboard/bets" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Bet History</Link>
-                  <Link href="/dashboard/profile" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Profile</Link>
-                  <div className="block px-4 py-2 hover:bg-gray-100 cursor-pointer text-[#dc3545] font-bold border-t border-gray-100" onClick={handleLogout}>Logout</div>
-                </div>
-              </>
-            )}
+            {isDropdownOpen && (() => {
+              const sessionUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user_session') || '{}') : {};
+              const userRole = sessionUser.role || 'user';
+              return (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsDropdownOpen(false)}
+                  />
+                  <div className="absolute right-0 top-[120%] mt-1 w-[150px] bg-white border border-gray-200 shadow-[0_4px_12px_rgba(0,0,0,0.15)] z-50 rounded-sm py-1 font-normal text-[13px] text-gray-700">
+                    <Link href="/dashboard/statement" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Statement</Link>
+                    <Link href="/dashboard/result" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Result</Link>
+                    {userRole !== 'user' && (
+                      <Link href="/dashboard/profit-loss" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Profit Loss</Link>
+                    )}
+                    <Link href="/dashboard/bets" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Bet History</Link>
+                    <Link href="/dashboard/profile" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Profile</Link>
+                    <div className="block px-4 py-2 hover:bg-gray-100 cursor-pointer text-[#dc3545] font-bold border-t border-gray-100" onClick={handleLogout}>Logout</div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>

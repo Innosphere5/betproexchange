@@ -1445,8 +1445,14 @@ export default function SuperAdminUsers() {
                         <td className="px-4 py-2 border-r uppercase font-bold text-gray-600">{item.role === 'user' ? 'Bettor' : item.role}</td>
                         <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold">{item.credit?.toLocaleString() || 0}</td>
                         <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold">{Math.max(0, (item.walletBalance || 0) - (item.credit || 0)).toLocaleString()}</td>
-                        <td className={`px-4 py-2 border-r border-gray-200 font-bold ${(item.clientPL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {(item.clientPL || 0) >= 0 ? `+${(item.clientPL || 0).toLocaleString()}` : (item.clientPL || 0).toLocaleString()}
+                        <td className="px-4 py-2 border-r border-gray-200">
+                          {item.role === 'user' ? (
+                            <span className="text-gray-400 font-normal">-</span>
+                          ) : (
+                            <span className={`font-bold ${(item.clientPL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {(item.clientPL || 0) >= 0 ? `+${(item.clientPL || 0).toLocaleString()}` : (item.clientPL || 0).toLocaleString()}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-2 border-r font-bold text-orange-600">{(item.role === 'master' || item.role === 'admin') ? `${item.share}%` : '-'}</td>
                         <td className="px-4 py-2 border-r font-bold text-blue-600">{item.downlineCount || 0}</td>
@@ -1457,7 +1463,9 @@ export default function SuperAdminUsers() {
                           <button onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }} className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center shadow-sm">L</button>
                           <button onClick={() => handleToggleStatus(item.username, item.status)} className={`p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold text-white transition-all hover:brightness-95 active:scale-95 ${item.status === 'inactive' ? 'bg-gray-400' : 'bg-[#10b981]'}`}>A</button>
                           <button onClick={() => { setUserToDelete(item); setIsDeleteModalOpen(true); }} className="border border-red-500 text-red-500 p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold hover:bg-red-50 active:scale-95 transition-all">D</button>
-                          <button onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }} className="bg-[#f87171] hover:bg-red-500 text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold shadow-sm transition-all active:scale-95" title="Settle P/L Account">S</button>
+                          {item.role !== 'user' && (
+                            <button onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }} className="bg-[#f87171] hover:bg-red-500 text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold shadow-sm transition-all active:scale-95" title="Settle P/L Account">S</button>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -1506,9 +1514,13 @@ export default function SuperAdminUsers() {
                             <li className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
                               Client (P/L){" "}
-                              <span className={`font-bold ${(item.clientPL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                {(item.clientPL || 0) >= 0 ? `+${(item.clientPL || 0).toLocaleString()}` : (item.clientPL || 0).toLocaleString()}
-                              </span>
+                              {item.role === 'user' ? (
+                                <span className="text-gray-400 font-normal">-</span>
+                              ) : (
+                                <span className={`font-bold ${(item.clientPL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  {(item.clientPL || 0) >= 0 ? `+${(item.clientPL || 0).toLocaleString()}` : (item.clientPL || 0).toLocaleString()}
+                                </span>
+                              )}
                             </li>
                             <li className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
@@ -1530,7 +1542,9 @@ export default function SuperAdminUsers() {
                                 <button onClick={() => { setSelectedUser(item); setEditShare(item.share || "0"); setEditPassword(""); setIsEditModalOpen(true); }} className="bg-[#1abc9c] hover:bg-[#16a085] text-white w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Edit"><Edit2 size={13} /></button>
                                 <button onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }} className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Ledger">L</button>
                                 <button onClick={() => handleToggleStatus(item.username, item.status)} className={`font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm ${item.status === 'inactive' ? 'bg-gray-400 text-white' : 'bg-[#10b981] text-white hover:bg-green-600'}`} title={item.status === 'inactive' ? 'Activate' : 'Deactivate'}>A</button>
-                                <button onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }} className="bg-[#f87171] hover:bg-red-500 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Settle P/L Account">S</button>
+                                {item.role !== 'user' && (
+                                  <button onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }} className="bg-[#f87171] hover:bg-red-500 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Settle P/L Account">S</button>
+                                )}
                               </div>
                             </li>
                           </ul>
