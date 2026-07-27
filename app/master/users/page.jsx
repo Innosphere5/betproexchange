@@ -232,19 +232,34 @@ export default function MasterUsers() {
     }
   };
 
+  const [breadcrumbs, setBreadcrumbs] = useState([]);
+  const [currentParentInfo, setCurrentParentInfo] = useState(null);
+
   // Fetch users from Backend
-  const fetchUsers = async () => {
+  const fetchUsers = async (targetUsername = null) => {
     setIsLoading(true);
     const token = getAuthToken();
     if (!token) return;
 
     try {
-      const res = await fetch(`${getApiUrl()}/api/admin/downline`, {
+      let url = `${getApiUrl()}/api/admin/downline`;
+      if (targetUsername) {
+        url += `?username=${encodeURIComponent(targetUsername)}`;
+      }
+      const res = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
       if (res.ok) {
-        setUsers(data);
+        if (Array.isArray(data)) {
+          setUsers(data);
+          setBreadcrumbs([]);
+          setCurrentParentInfo(null);
+        } else {
+          setUsers(data.users || []);
+          setBreadcrumbs(data.breadcrumbs || []);
+          setCurrentParentInfo(data.parentInfo || null);
+        }
       } else {
         console.error("Error fetching users:", data.error);
       }
@@ -1260,28 +1275,63 @@ export default function MasterUsers() {
 
           {/* Main Clients List Panel */}
           <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden flex flex-col">
-            <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px]">
-              Master - Clients List | Default
+            <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px] flex items-center justify-between">
+              <span>
+                {currentParentInfo ? `${currentParentInfo.role.toUpperCase()} (${currentParentInfo.username}) - Clients List` : 'Master - Clients List | Default'}
+              </span>
+              {breadcrumbs && breadcrumbs.length > 1 && (
+                <button
+                  onClick={() => fetchUsers(breadcrumbs[breadcrumbs.length - 2].username)}
+                  className="bg-[#f39c12] hover:bg-orange-600 text-white text-[11px] font-bold px-2 py-0.5 rounded transition-all flex items-center gap-1 shadow-sm"
+                >
+                  ← Up Level
+                </button>
+              )}
             </div>
+
+            {/* Breadcrumbs Trail */}
+            {breadcrumbs && breadcrumbs.length > 0 && (
+              <div className="bg-gray-50 border-b border-gray-200 px-3 py-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-gray-700">
+                <span className="text-gray-400 font-bold uppercase text-[10px]">Hierarchy:</span>
+                {breadcrumbs.map((b, idx) => {
+                  const isLast = idx === breadcrumbs.length - 1;
+                  return (
+                    <React.Fragment key={b._id || b.username}>
+                      {idx > 0 && <span className="text-gray-300 font-bold">/</span>}
+                      {isLast ? (
+                        <span className="text-[#f39c12] font-bold underline bg-orange-50 px-2 py-0.5 rounded">
+                          {b.username} ({b.role === 'user' ? 'Bettor' : b.role})
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => fetchUsers(b.username)}
+                          className="text-blue-600 hover:text-blue-800 hover:underline transition-colors bg-white px-2 py-0.5 rounded border border-gray-200 shadow-xs"
+                        >
+                          {b.username} ({b.role === 'user' ? 'Bettor' : b.role})
+                        </button>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Summary Table */}
             <div className="border-b border-gray-200">
               <table className="w-full text-sm font-bold text-left">
                 <thead>
                   <tr className="bg-white border-b border-gray-200">
-                    <th className="px-4 py-2 text-gray-800">Credit</th>
+                    <th className="px-4 py-2 text-gray-800">Credit Remaining</th>
                     <th className="px-4 py-2 text-gray-800">Cash</th>
-                    <th className="px-4 py-2 text-gray-800 text-orange-600">Total</th>
                     <th className="px-4 py-2 text-gray-800">P/L Downline</th>
                     <th className="px-4 py-2 text-gray-800">Users</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td className="px-4 py-3 text-blue-600">{users.reduce((sum, u) => sum + (u.credit || 0), 0).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-gray-800">{users.reduce((sum, u) => sum + Math.max(0, (u.walletBalance || 0) - (u.credit || 0)), 0).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-orange-600 font-bold">{users.reduce((sum, u) => sum + Math.max(0, (u.walletBalance || 0) - (u.credit || 0)), 0).toLocaleString()}</td>
-                    <td className={`px-4 py-3 font-bold ${users.reduce((sum, u) => sum + (u.clientPL || 0), 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>{users.reduce((sum, u) => sum + (u.clientPL || 0), 0).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-blue-600">{((currentParentInfo?.credit || 0) - users.reduce((sum, u) => sum + (u.credit || 0), 0)).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-gray-800">{((currentParentInfo?.walletBalance || 0) - (currentParentInfo?.credit || 0)).toLocaleString()}</td>
+                    <td className={`px-4 py-3 font-bold ${(currentParentInfo?.clientPL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>{(currentParentInfo?.clientPL || 0).toLocaleString()}</td>
                     <td className="px-4 py-3 text-gray-800">{users.length}</td>
                   </tr>
                 </tbody>
@@ -1326,11 +1376,11 @@ export default function MasterUsers() {
                     <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Username</th>
                     <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Type</th>
                     <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Credit</th>
-                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200 text-blue-600">Cash</th>
+                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200 text-blue-600">Balance</th>
                     <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Client (P/L)</th>
                     <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Share</th>
-                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Accounts</th>
-                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200 text-[#f39c12]">Total Bal.</th>
+                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200">Exposure</th>
+                    <th className="px-4 py-2.5 font-bold text-gray-800 border-r border-gray-200 text-[#f39c12]">Available Balance</th>
                     <th className="px-4 py-2.5 font-bold text-gray-800">Options</th>
                   </tr>
                 </thead>
@@ -1351,7 +1401,20 @@ export default function MasterUsers() {
                     users.map((item) => (
                       <tr key={item._id} className="bg-white border-b border-gray-200 hover:bg-gray-50">
                         <td className="px-4 py-2 font-bold text-gray-800 border-r border-gray-200 flex items-center gap-1 whitespace-nowrap">
-                          {item.username}
+                          {item.role !== 'user' ? (
+                            <button
+                              onClick={() => fetchUsers(item.username)}
+                              className="text-blue-600 hover:text-blue-800 hover:underline font-bold text-left inline-flex items-center gap-1 transition-colors group"
+                              title={`Click to view ${item.username}'s client accounts`}
+                            >
+                              <span>{item.username}</span>
+                              <span className="text-[10px] bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white px-1.5 py-0.5 rounded transition-colors border border-blue-200">
+                                ↳ Clients ({item.downlineCount || 0})
+                              </span>
+                            </button>
+                          ) : (
+                            <span>{item.username}</span>
+                          )}
                           <span
                             onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }}
                             className="w-4 h-4 bg-gray-800 hover:bg-blue-600 text-white rounded-full inline-flex items-center justify-center text-[10px] cursor-pointer transition-colors shadow-sm"
@@ -1364,18 +1427,15 @@ export default function MasterUsers() {
                         <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold">{item.credit?.toLocaleString() || 0}</td>
                         <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold">{Math.max(0, (item.walletBalance || 0) - (item.credit || 0)).toLocaleString()}</td>
                         <td className="px-4 py-2 border-r border-gray-200">
-                          {item.role === 'user' ? (
-                            <span className="text-gray-400 font-normal">-</span>
-                          ) : (
-                            <span className={`font-bold ${(item.clientPL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {(item.clientPL || 0) >= 0 ? `+${(item.clientPL || 0).toLocaleString()}` : (item.clientPL || 0).toLocaleString()}
-                            </span>
-                          )}
+                          <span className={`font-bold ${(item.clientPL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {(item.clientPL || 0) >= 0 ? `+${(item.clientPL || 0).toLocaleString()}` : (item.clientPL || 0).toLocaleString()}
+                          </span>
                         </td>
-                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
-                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200">-</td>
-                        <td className="px-4 py-2 text-blue-600 border-r border-gray-200 font-bold">{item.downlineCount || 0}</td>
-                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold text-[#f39c12]">{((item.walletBalance || 0) - (item.credit || 0)).toLocaleString()}</td>
+                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200">{(item.role === 'master' || item.role === 'admin') ? `${item.share || 0}%` : '-'}</td>
+                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold">-</td>
+                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold text-[#f39c12]">
+                          {item.role === 'user' ? (item.walletBalance || 0).toLocaleString() : (item.clientPL || 0).toLocaleString()}
+                        </td>
                         <td className="px-4 py-2 flex items-center gap-1">
                           {item.role === 'user' && (
                             <button
@@ -1441,8 +1501,20 @@ export default function MasterUsers() {
                     users.map((item) => (
                       <tr key={item._id} className="border-b border-gray-200">
                         <td className="p-3 border-r border-gray-200 align-top">
-                          <div className={`font-bold text-[15px] mb-2 flex items-center ${item.status === 'inactive' ? 'text-red-500 line-through opacity-50' : 'text-gray-900'}`}>
-                            {item.username}
+                          <div className={`font-bold text-[15px] mb-2 flex items-center flex-wrap gap-1 ${item.status === 'inactive' ? 'text-red-500 line-through opacity-50' : 'text-gray-900'}`}>
+                            {item.role !== 'user' ? (
+                              <button
+                                onClick={() => fetchUsers(item.username)}
+                                className="text-blue-600 hover:text-blue-800 hover:underline font-bold text-left inline-flex items-center gap-1"
+                              >
+                                <span>{item.username}</span>
+                                <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-200">
+                                  ↳ Clients ({item.downlineCount || 0})
+                                </span>
+                              </button>
+                            ) : (
+                              <span>{item.username}</span>
+                            )}
                             <span
                               onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }}
                               className="w-4 h-4 bg-gray-800 hover:bg-blue-600 text-white rounded-full inline-flex items-center justify-center text-[10px] ml-1.5 cursor-pointer transition-colors no-underline"
@@ -1460,15 +1532,13 @@ export default function MasterUsers() {
                               <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
                               Cash {((item.walletBalance || 0) - (item.credit || 0)).toLocaleString()}
                             </li>
-                            {item.role !== 'user' && (
-                              <li className="flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
-                                Client (P/L){" "}
-                                <span className={`font-bold ${(item.clientPL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                  {(item.clientPL || 0) >= 0 ? `+${(item.clientPL || 0).toLocaleString()}` : (item.clientPL || 0).toLocaleString()}
-                                </span>
-                              </li>
-                            )}
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
+                              Client (P/L){" "}
+                              <span className={`font-bold ${(item.clientPL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {(item.clientPL || 0) >= 0 ? `+${(item.clientPL || 0).toLocaleString()}` : (item.clientPL || 0).toLocaleString()}
+                              </span>
+                            </li>
                             <li className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
                               Share {item.share || 0}
@@ -1479,7 +1549,7 @@ export default function MasterUsers() {
                             </li>
                             <li className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
-                              Total Balance {item.walletBalance?.toLocaleString() || 0}
+                              Available Balance {item.role === 'user' ? (item.walletBalance?.toLocaleString() || 0) : (item.clientPL?.toLocaleString() || 0)}
                             </li>
                             <li className="flex items-center gap-2 mt-2">
                               <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
