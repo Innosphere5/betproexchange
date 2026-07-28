@@ -116,6 +116,39 @@ export default function SuperAdminReports() {
     }
   };
 
+  const handleResetSystem = async () => {
+    const confirmation = window.prompt("WARNING: This will permanently delete all user accounts (Admins, Masters, Bettors), bets, transactions, and report ledgers. Type 'RESET' to confirm clean start:");
+    if (confirmation !== 'RESET') {
+      if (confirmation !== null) alert("Reset cancelled. Confirmation text did not match 'RESET'.");
+      return;
+    }
+
+    setIsLoading(true);
+    const token = getAuthToken();
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/reset-system`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message);
+        fetchDailyReport();
+        fetchFinalSheet();
+      } else {
+        alert(data.error || "Failed to perform system reset");
+      }
+    } catch (err) {
+      console.error("Error resetting system:", err);
+      alert("Error performing system reset");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const fetchCommissionReport = async () => {
     setIsLoading(true);
     const token = getAuthToken();
@@ -227,6 +260,9 @@ export default function SuperAdminReports() {
                   )}
                 </div>
                 <button onClick={fetchDailyReport} className="bg-[#1abc9c] hover:bg-[#16a085] text-white text-[12px] font-bold px-4 py-1 rounded shadow-sm">Submit</button>
+                <button onClick={handleResetSystem} className="ml-auto bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold px-3 py-1 rounded shadow-sm transition-colors flex items-center gap-1">
+                  <span>⚠️ Full System Reset (Clean Start)</span>
+                </button>
               </div>
             </div>
 

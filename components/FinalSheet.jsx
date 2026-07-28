@@ -766,8 +766,10 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
           {[
             { id: "overview", label: "Overview", count: null },
             { id: "admins", label: "All Admins", count: allUsers.filter(u => u.role === "admin").length },
-            { id: "masters", label: "All Masters", count: allUsers.filter(u => u.role === "master").length },
-            ...(!isFinalSheet || allUsers.filter(u => u.role === "user").length > 0 ? [{ id: "bettors", label: "All Bettors", count: allUsers.filter(u => u.role === "user").length }] : [])
+            ...(!isFinalSheet ? [
+              { id: "masters", label: "All Masters", count: allUsers.filter(u => u.role === "master").length },
+              { id: "bettors", label: "All Bettors", count: allUsers.filter(u => u.role === "user").length }
+            ] : [])
           ].map(tab => (
             <button
               key={tab.id}
