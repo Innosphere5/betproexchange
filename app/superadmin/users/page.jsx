@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Filter, Search, BookOpen, Edit2, X, DollarSign, AlertTriangle, Trash2, Calendar, Layout, List } from "lucide-react";
+import { Filter, Search, BookOpen, Edit2, X, DollarSign, AlertTriangle, Trash2, Calendar, Layout, List, RotateCcw } from "lucide-react";
 import { getApiUrl } from "@/lib/apiConfig";
 import Link from "next/link";
 
@@ -48,6 +48,46 @@ export default function SuperAdminUsers() {
   const [settleAmount, setSettleAmount] = useState("");
   const [settleDescription, setSettleDescription] = useState("P/L to Cash transfer");
   const [isSettling, setIsSettling] = useState(false);
+
+  // System Account Reset Modal State
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [resetMode, setResetMode] = useState("balances"); // "balances" or "full"
+  const [isResetting, setIsResetting] = useState(false);
+
+  const handleSystemReset = async (e) => {
+    e.preventDefault();
+    const confirmMsg = resetMode === 'full' 
+      ? "WARNING: This will DELETE all downline user accounts and reset SuperAdmin to 1,000,000,000. Are you sure?"
+      : "This will reset all account balances to their credit limits and clear all P/L ledgers. Are you sure?";
+    
+    if (!window.confirm(confirmMsg)) return;
+
+    setIsResetting(true);
+    const token = getAuthToken();
+    try {
+      const res = await fetch(`${getApiUrl()}/api/admin/reset-all-accounts`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ mode: resetMode })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || "System reset completed successfully!");
+        setIsResetModalOpen(false);
+        fetchUsers();
+      } else {
+        alert(data.error || "Failed to reset system accounts");
+      }
+    } catch (err) {
+      console.error("System Reset Error:", err);
+      alert("An error occurred during system reset");
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   const handleSettleSubmit = async (e) => {
     e.preventDefault();
@@ -1441,6 +1481,13 @@ export default function SuperAdminUsers() {
                   <BookOpen size={16} />
                   Account Ledger
                 </Link>
+                <button
+                  onClick={() => setIsResetModalOpen(true)}
+                  className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 text-sm font-semibold rounded-sm flex items-center gap-1 shadow-sm transition-all"
+                >
+                  <RotateCcw size={16} />
+                  System Reset
+                </button>
               </div>
               <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold text-gray-500 uppercase">
                 <span className="flex items-center gap-1"><span className="bg-[#fbbf24] text-white px-1.5 py-0.5 rounded-sm">C</span> Cash / Credit</span>
@@ -1779,6 +1826,90 @@ export default function SuperAdminUsers() {
                 Close View
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* System Reset Modal */}
+      {isResetModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100 animate-in fade-in zoom-in duration-200">
+            <div className="bg-red-600 px-6 py-4 flex items-center justify-between text-white">
+              <div className="flex items-center gap-2 font-bold text-lg">
+                <RotateCcw size={20} />
+                <span>System Account Reset</span>
+              </div>
+              <button 
+                onClick={() => setIsResetModalOpen(false)}
+                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSystemReset} className="p-6 space-y-4">
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs flex gap-2 items-start">
+                <AlertTriangle size={18} className="shrink-0 mt-0.5 text-red-600" />
+                <div>
+                  <p className="font-bold">Caution!</p>
+                  <p>Resetting system accounts will clear active transactions and reset balances. This operation cannot be undone.</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                  Select Reset Mode
+                </label>
+                <div className="space-y-2">
+                  <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${resetMode === 'balances' ? 'border-red-500 bg-red-50/50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                    <input 
+                      type="radio" 
+                      name="resetMode" 
+                      value="balances" 
+                      checked={resetMode === 'balances'} 
+                      onChange={() => setResetMode('balances')}
+                      className="mt-1 text-red-600 focus:ring-red-500"
+                    />
+                    <div>
+                      <div className="text-sm font-bold text-gray-900">Reset Account Balances & P/L</div>
+                      <div className="text-xs text-gray-500">Resets all account balances back to their assigned credit limit. Keeps hierarchy accounts intact.</div>
+                    </div>
+                  </label>
+
+                  <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${resetMode === 'full' ? 'border-red-500 bg-red-50/50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                    <input 
+                      type="radio" 
+                      name="resetMode" 
+                      value="full" 
+                      checked={resetMode === 'full'} 
+                      onChange={() => setResetMode('full')}
+                      className="mt-1 text-red-600 focus:ring-red-500"
+                    />
+                    <div>
+                      <div className="text-sm font-bold text-red-700">Full System Reset (Wipe All Downlines)</div>
+                      <div className="text-xs text-gray-500">Deletes all downline user accounts (Admins, Masters, Bettors) and resets SuperAdmin to 1,000,000,000.</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="pt-4 flex items-center justify-end gap-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setIsResetModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isResetting}
+                  className="px-5 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 rounded-lg transition-all shadow-md flex items-center gap-2"
+                >
+                  {isResetting ? "Resetting..." : "Confirm Reset"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
