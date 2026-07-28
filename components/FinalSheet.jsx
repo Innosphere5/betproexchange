@@ -187,6 +187,7 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
   const tabData = useMemo(() => {
     let roleFilter = "";
     if (activeTab === "admins") roleFilter = "admin";
+    else if (activeTab === "supermasters") roleFilter = "supermaster";
     else if (activeTab === "masters") roleFilter = "master";
     else if (activeTab === "bettors") roleFilter = "user";
 
@@ -241,6 +242,7 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
   const stats = useMemo(() => {
     let roleFilter = "";
     if (activeTab === "admins") roleFilter = "admin";
+    else if (activeTab === "supermasters") roleFilter = "supermaster";
     else if (activeTab === "masters") roleFilter = "master";
     else if (activeTab === "bettors") roleFilter = "user";
 
@@ -766,6 +768,7 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
           {[
             { id: "overview", label: "Overview", count: null },
             { id: "admins", label: "All Admins", count: allUsers.filter(u => u.role === "admin").length },
+            { id: "supermasters", label: "All SuperMasters", count: allUsers.filter(u => u.role === "supermaster").length },
             ...(!isFinalSheet ? [
               { id: "masters", label: "All Masters", count: allUsers.filter(u => u.role === "master").length },
               { id: "bettors", label: "All Bettors", count: allUsers.filter(u => u.role === "user").length }

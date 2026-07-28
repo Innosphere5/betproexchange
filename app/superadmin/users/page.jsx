@@ -1101,6 +1101,7 @@ export default function SuperAdminUsers() {
                   className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#1abc9c]"
                 >
                   <option value="admin">Admin</option>
+                  <option value="supermaster">SuperMaster</option>
                   <option value="master">Master</option>
                   <option value="user">User (Bettor)</option>
                 </select>
@@ -1126,7 +1127,7 @@ export default function SuperAdminUsers() {
                   className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#1abc9c]"
                 />
               </div>
-              {(newType === "master" || newType === "admin") && (
+              {(newType === "master" || newType === "admin" || newType === "supermaster") && (
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Share (%) (0-100)</label>
                   <input
@@ -1560,7 +1561,7 @@ export default function SuperAdminUsers() {
                             {(item.clientPL || 0) >= 0 ? `+${(item.clientPL || 0).toLocaleString()}` : (item.clientPL || 0).toLocaleString()}
                           </span>
                         </td>
-                        <td className="px-4 py-2 border-r font-bold text-orange-600">{(item.role === 'master' || item.role === 'admin') ? `${item.share}%` : '-'}</td>
+                        <td className="px-4 py-2 border-r font-bold text-orange-600">{(item.role === 'master' || item.role === 'admin' || item.role === 'supermaster') ? `${item.share}%` : '-'}</td>
                         <td className="px-4 py-2 border-r font-bold text-gray-600">-</td>
                         <td className="px-4 py-2 border-r font-bold text-[#1abc9c]">
                           {item.role === 'user' ? (item.walletBalance || 0).toLocaleString() : (item.clientPL || 0).toLocaleString()}

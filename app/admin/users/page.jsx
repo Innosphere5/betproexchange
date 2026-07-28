@@ -1026,8 +1026,9 @@ export default function AdminUsers() {
                   onChange={(e) => setNewType(e.target.value)}
                   className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#1abc9c]"
                 >
-                  <option value="user">Bettor (User)</option>
+                  <option value="supermaster">SuperMaster</option>
                   <option value="master">Master</option>
+                  <option value="user">Bettor (User)</option>
                 </select>
               </div>
               <div>
@@ -1051,7 +1052,7 @@ export default function AdminUsers() {
                   className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#1abc9c]"
                 />
               </div>
-              {newType === "master" && (
+              {(newType === "master" || newType === "supermaster") && (
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Share (%) (0-{adminShare > 0 ? adminShare - 1 : 0})</label>
                   <input
@@ -1543,7 +1544,7 @@ export default function AdminUsers() {
                             {(item.clientPL || 0) >= 0 ? `+${(item.clientPL || 0).toLocaleString()}` : (item.clientPL || 0).toLocaleString()}
                           </span>
                         </td>
-                        <td className="px-4 py-2 text-orange-600 border-r border-gray-200">{item.role === 'master' ? `${item.share || 0}%` : '-'}</td>
+                        <td className="px-4 py-2 text-orange-600 border-r border-gray-200">{(item.role === 'master' || item.role === 'supermaster') ? `${item.share || 0}%` : '-'}</td>
                         <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold">-</td>
                         <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold text-[#1abc9c]">
                           {item.role === 'user' ? (item.walletBalance || 0).toLocaleString() : (item.clientPL || 0).toLocaleString()}

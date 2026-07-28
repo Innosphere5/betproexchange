@@ -9,6 +9,9 @@ const SUPERADMIN_PATHS = ['/superadmin'];
 // Routes only admins can access
 const ADMIN_PATHS = ['/admin'];
 
+// Routes only supermasters can access
+const SUPERMASTER_PATHS = ['/supermaster'];
+
 // Routes only masters can access
 const MASTER_PATHS = ['/master'];
 
@@ -58,7 +61,7 @@ export function middleware(request) {
 
   // Superadmin trying to access other panels → allow only /superadmin
   if (role === 'superadmin') {
-    if (USER_PATHS.some((p) => pathname.startsWith(p)) || ADMIN_PATHS.some((p) => pathname.startsWith(p)) || MASTER_PATHS.some((p) => pathname.startsWith(p))) {
+    if (USER_PATHS.some((p) => pathname.startsWith(p)) || ADMIN_PATHS.some((p) => pathname.startsWith(p)) || SUPERMASTER_PATHS.some((p) => pathname.startsWith(p)) || MASTER_PATHS.some((p) => pathname.startsWith(p))) {
       return NextResponse.redirect(new URL('/superadmin/dashboard', request.url));
     }
     return NextResponse.next();
@@ -66,22 +69,30 @@ export function middleware(request) {
 
   // Admin trying to access other panels → allow only /admin
   if (role === 'admin') {
-    if (USER_PATHS.some((p) => pathname.startsWith(p)) || MASTER_PATHS.some((p) => pathname.startsWith(p)) || SUPERADMIN_PATHS.some((p) => pathname.startsWith(p))) {
+    if (USER_PATHS.some((p) => pathname.startsWith(p)) || SUPERMASTER_PATHS.some((p) => pathname.startsWith(p)) || MASTER_PATHS.some((p) => pathname.startsWith(p)) || SUPERADMIN_PATHS.some((p) => pathname.startsWith(p))) {
       return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+    }
+    return NextResponse.next();
+  }
+
+  // Supermaster trying to access other panels → allow only /supermaster
+  if (role === 'supermaster') {
+    if (USER_PATHS.some((p) => pathname.startsWith(p)) || ADMIN_PATHS.some((p) => pathname.startsWith(p)) || MASTER_PATHS.some((p) => pathname.startsWith(p)) || SUPERADMIN_PATHS.some((p) => pathname.startsWith(p))) {
+      return NextResponse.redirect(new URL('/supermaster/dashboard', request.url));
     }
     return NextResponse.next();
   }
 
   // Master trying to access other panels → allow only /master
   if (role === 'master') {
-    if (USER_PATHS.some((p) => pathname.startsWith(p)) || ADMIN_PATHS.some((p) => pathname.startsWith(p)) || SUPERADMIN_PATHS.some((p) => pathname.startsWith(p))) {
+    if (USER_PATHS.some((p) => pathname.startsWith(p)) || ADMIN_PATHS.some((p) => pathname.startsWith(p)) || SUPERMASTER_PATHS.some((p) => pathname.startsWith(p)) || SUPERADMIN_PATHS.some((p) => pathname.startsWith(p))) {
       return NextResponse.redirect(new URL('/master/dashboard', request.url));
     }
     return NextResponse.next();
   }
 
   // Regular User trying to access privileged panels → redirect to dashboard
-  if (SUPERADMIN_PATHS.some((p) => pathname.startsWith(p)) || ADMIN_PATHS.some((p) => pathname.startsWith(p)) || MASTER_PATHS.some((p) => pathname.startsWith(p))) {
+  if (SUPERADMIN_PATHS.some((p) => pathname.startsWith(p)) || ADMIN_PATHS.some((p) => pathname.startsWith(p)) || SUPERMASTER_PATHS.some((p) => pathname.startsWith(p)) || MASTER_PATHS.some((p) => pathname.startsWith(p))) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 

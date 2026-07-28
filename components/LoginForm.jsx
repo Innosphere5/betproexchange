@@ -49,6 +49,8 @@ export default function LoginForm() {
             window.location.href = '/superadmin/users';
           } else if (data.user.role === 'admin') {
             window.location.href = '/admin/users';
+          } else if (data.user.role === 'supermaster') {
+            window.location.href = '/supermaster/users';
           } else if (data.user.role === 'master') {
             window.location.href = '/master/users';
           } else {
