@@ -662,7 +662,7 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
                 {entry.accountName}
               </div>
               <div className={`text-[10px] ${roleColor} font-medium mt-0.5 capitalize flex flex-col gap-0.5`}>
-                <span>{entry.role === 'user' ? 'Bettor' : entry.role}</span>
+                <span>{entry.role === 'user' ? 'Bettor' : (entry.role === 'cash' ? 'Cash' : entry.role)}</span>
                 {entry.parentName && (
                   <span className={`text-[10px] text-blue-500 font-bold italic transition-all duration-300 ${showParentFor === entry.accountName
                       ? 'opacity-100 max-h-10'
