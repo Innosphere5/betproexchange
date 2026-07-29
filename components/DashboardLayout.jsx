@@ -16,7 +16,20 @@ export const DashboardContext = createContext();
 export const useDashboard = () => {
     const context = useContext(DashboardContext);
     if (!context) {
-        throw new Error("useDashboard must be used within a DashboardLayout");
+        return {
+            currentView: 'home',
+            selectedMatchId: null,
+            betSelection: null,
+            cricketMatches: [],
+            walletBalance: 0,
+            creditBalance: 0,
+            socket: null,
+            fetchWallet: () => {},
+            handleSelectMatch: () => {},
+            handleSelectOutcome: () => {},
+            clearBetSelection: () => {},
+            goToHome: () => {}
+        };
     }
     return context;
 };

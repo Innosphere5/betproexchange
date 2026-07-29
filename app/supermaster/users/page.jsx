@@ -68,6 +68,7 @@ export default function SuperMasterUsers() {
         setSettleAmount("");
         setSelectedUser(null);
         fetchUsers();
+        window.dispatchEvent(new Event('wallet-updated'));
       } else {
         alert(data.error || "Failed to settle account");
       }
@@ -304,6 +305,7 @@ export default function SuperMasterUsers() {
         setNewBalanceType("cash");
         setNewShare("0");
         fetchUsers();
+        window.dispatchEvent(new Event('wallet-updated'));
       } else {
         alert(data.error || "Failed to create user");
       }
@@ -356,6 +358,7 @@ export default function SuperMasterUsers() {
         setWithdrawDescription("");
         setSelectedUser(null);
         fetchUsers();
+        window.dispatchEvent(new Event('wallet-updated'));
       } else {
         alert(data.error || `Failed to ${mode} balance`);
       }

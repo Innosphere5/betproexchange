@@ -67,6 +67,7 @@ export default function MasterUsers() {
         setSettleAmount("");
         setSelectedUser(null);
         fetchUsers();
+        window.dispatchEvent(new Event('wallet-updated'));
       } else {
         alert(data.error || "Failed to settle account");
       }
@@ -304,6 +305,7 @@ export default function MasterUsers() {
         setInitialBalance("0");
         setNewBalanceType("cash");
         fetchUsers();
+        window.dispatchEvent(new Event('wallet-updated'));
       } else {
         alert(data.error || "Failed to create user");
       }
@@ -350,6 +352,7 @@ export default function MasterUsers() {
         setWithdrawDescription("");
         setSelectedUser(null);
         fetchUsers();
+        window.dispatchEvent(new Event('wallet-updated'));
       } else {
         alert(data.error || `Failed to ${mode} balance`);
       }

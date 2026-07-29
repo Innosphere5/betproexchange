@@ -47,7 +47,16 @@ export default function MasterHeader({ setIsSidebarOpen }) {
     fetchWallet();
     // Poll every 30 seconds for balance updates
     const interval = setInterval(fetchWallet, 30000);
-    return () => clearInterval(interval);
+
+    const handleWalletUpdated = () => {
+      fetchWallet();
+    };
+    window.addEventListener('wallet-updated', handleWalletUpdated);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('wallet-updated', handleWalletUpdated);
+    };
   }, []);
 
   const handleLogout = () => {

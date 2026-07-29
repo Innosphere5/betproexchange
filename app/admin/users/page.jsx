@@ -77,6 +77,8 @@ export default function AdminUsers() {
         setSettleAmount("");
         setSelectedUser(null);
         fetchUsers();
+        fetchUserProfile();
+        window.dispatchEvent(new Event('wallet-updated'));
       } else {
         alert(data.error || "Failed to settle account");
       }
@@ -327,6 +329,8 @@ export default function AdminUsers() {
         setInitialBalance("0");
         setNewShare("0");
         fetchUsers();
+        fetchUserProfile();
+        window.dispatchEvent(new Event('wallet-updated'));
       } else {
         alert(data.error || "Failed to create user");
       }
@@ -381,6 +385,8 @@ export default function AdminUsers() {
         setWithdrawDescription("");
         setSelectedUser(null);
         fetchUsers();
+        fetchUserProfile();
+        window.dispatchEvent(new Event('wallet-updated'));
       } else {
         alert(data.error || `Failed to ${mode} balance`);
       }
