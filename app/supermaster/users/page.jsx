@@ -13,7 +13,7 @@ export default function SuperMasterUsers() {
   // Form State
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [newType, setNewType] = useState("user");
+  const [newType, setNewType] = useState("master");
   const [initialBalance, setInitialBalance] = useState("0");
   const [newBalanceType, setNewBalanceType] = useState("cash");
   const [newShare, setNewShare] = useState("0");
@@ -882,11 +882,13 @@ export default function SuperMasterUsers() {
               </div>
               {newType === "master" && (
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Master Share (%) (0-85)</label>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">
+                    Master Share (%) (0-{(currentParentInfo && currentParentInfo.share !== undefined) ? currentParentInfo.share : 85})
+                  </label>
                   <input
                     type="number"
                     min="0"
-                    max="85"
+                    max={(currentParentInfo && currentParentInfo.share !== undefined) ? currentParentInfo.share : 85}
                     value={newShare}
                     onChange={(e) => setNewShare(e.target.value)}
                     placeholder="Enter share percentage"

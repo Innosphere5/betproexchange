@@ -14,7 +14,7 @@ export default function SuperAdminUsers() {
   // Form State
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [newType, setNewType] = useState("user");
+  const [newType, setNewType] = useState("admin");
   const [initialBalance, setInitialBalance] = useState("0");
   const [newBalanceType, setNewBalanceType] = useState("cash");
   const [newShare, setNewShare] = useState("0");
@@ -1104,8 +1104,6 @@ export default function SuperAdminUsers() {
                   className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#1abc9c]"
                 >
                   <option value="admin">Admin</option>
-                  <option value="supermaster">SuperMaster</option>
-                  <option value="master">Master</option>
                   <option value="user">User (Bettor)</option>
                 </select>
               </div>
@@ -1130,13 +1128,13 @@ export default function SuperAdminUsers() {
                   className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#1abc9c]"
                 />
               </div>
-              {(newType === "master" || newType === "admin" || newType === "supermaster") && (
+              {newType === "admin" && (
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Share (%) (0-100)</label>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Share (%) (0-85)</label>
                   <input
                     type="number"
                     min="0"
-                    max="100"
+                    max="85"
                     value={newShare}
                     onChange={(e) => setNewShare(e.target.value)}
                     placeholder="Enter share percentage"
