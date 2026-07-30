@@ -1324,6 +1324,105 @@ export default function SuperMasterUsers() {
               </div>
             </div>
 
+            {/* Mobile View (Cards) */}
+            <div className="block md:hidden p-3 space-y-3 bg-gray-50">
+              <div className="bg-[#f39c12] px-3 py-1.5 flex items-center justify-between text-white text-xs font-bold rounded-sm">
+                <span>Player / Client Accounts ({users.length})</span>
+              </div>
+              {isLoading ? (
+                <div className="p-6 text-center text-gray-500 font-medium bg-white rounded border border-gray-200">
+                  Loading users...
+                </div>
+              ) : users.length === 0 ? (
+                <div className="p-6 text-center text-gray-500 font-medium bg-white rounded border border-gray-200">
+                  No users found. Click "New Player" to create one.
+                </div>
+              ) : (
+                users.map((item) => (
+                  <div key={item._id} className="bg-white border border-gray-300 rounded-sm shadow-sm p-3.5 space-y-2.5">
+                    {/* Header */}
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                      <div className="flex items-center gap-1.5">
+                        {item.role !== 'user' ? (
+                          <button
+                            onClick={() => fetchUsers(item.username)}
+                            className="text-blue-600 font-bold text-sm hover:underline text-left flex items-center gap-1"
+                          >
+                            <span>{item.username}</span>
+                            <span className="text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-200">
+                              ↳ Clients ({item.downlineCount || 0})
+                            </span>
+                          </button>
+                        ) : (
+                          <span className="font-bold text-sm text-gray-900">{item.username}</span>
+                        )}
+                        <span
+                          onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }}
+                          className="w-4 h-4 bg-gray-800 text-white rounded-full inline-flex items-center justify-center text-[10px] cursor-pointer"
+                          title="View Balance Report"
+                        >
+                          i
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-gray-100 text-gray-700">
+                          {item.role === 'user' ? 'Bettor' : item.role}
+                        </span>
+                        <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${item.status === 'inactive' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                          {item.status || 'active'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 gap-2 text-xs bg-gray-50 p-2.5 rounded border border-gray-100">
+                      <div>
+                        <span className="text-gray-500 block text-[10px] font-semibold uppercase">Credit</span>
+                        <span className="font-bold text-gray-800">{item.credit?.toLocaleString() || 0}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 block text-[10px] font-semibold uppercase">Cash Balance</span>
+                        <span className="font-bold text-blue-600">{Math.max(0, (item.walletBalance || 0) - (item.credit || 0)).toLocaleString()}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 block text-[10px] font-semibold uppercase">Client P/L</span>
+                        <span className={`font-bold ${(item.clientPL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {(item.clientPL || 0) >= 0 ? `+${(item.clientPL || 0).toLocaleString()}` : (item.clientPL || 0).toLocaleString()}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 block text-[10px] font-semibold uppercase">Available Bal</span>
+                        <span className="font-bold text-[#f39c12]">
+                          {item.role === 'user' ? (item.walletBalance || 0).toLocaleString() : (item.clientPL || 0).toLocaleString()}
+                        </span>
+                      </div>
+                      {(item.role === 'master' || item.role === 'supermaster') && (
+                        <div>
+                          <span className="text-gray-500 block text-[10px] font-semibold uppercase">Share</span>
+                          <span className="font-bold text-orange-600">{item.share || 0}%</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Options Row */}
+                    <div className="flex items-center justify-between pt-1 border-t border-gray-100">
+                      <span className="text-[11px] font-bold text-gray-500 uppercase">Actions:</span>
+                      <div className="flex items-center gap-1.5">
+                        <button onClick={() => { setSelectedUser(item); setActiveTab("cash"); setIsLoadModalOpen(true); }} className="bg-[#fbbf24] hover:bg-yellow-500 text-white font-bold text-xs px-2 py-1 rounded shadow-xs" title="Add/Reduce Cash">C</button>
+                        <button onClick={() => { setSelectedUser(item); setEditShare(item.share || "0"); setEditPassword(""); setIsEditModalOpen(true); }} className="bg-[#1abc9c] hover:bg-[#16a085] text-white text-xs p-1 rounded shadow-xs" title="Edit"><Edit2 size={13} /></button>
+                        <button onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }} className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold text-xs px-2 py-1 rounded shadow-xs" title="Ledger">L</button>
+                        <button onClick={() => handleToggleStatus(item.username, item.status)} className={`font-bold text-xs px-2 py-1 rounded shadow-xs ${item.status === 'inactive' ? 'bg-gray-400 text-white' : 'bg-[#10b981] text-white'}`} title="Toggle Status">A</button>
+                        <button onClick={() => { setUserToDelete(item); setIsDeleteModalOpen(true); }} className="border border-red-500 text-red-500 font-bold text-xs px-2 py-1 rounded shadow-xs" title="Delete">D</button>
+                        {item.role !== 'user' && (
+                          <button onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }} className="bg-[#f87171] hover:bg-red-500 text-white text-xs px-2 py-1 rounded font-bold shadow-xs" title="Settle P/L">S</button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
             {/* Main Table (Desktop) */}
             <div className="overflow-x-auto hidden md:block">
               <div className="bg-[#f39c12] px-4 py-2 flex items-center">
