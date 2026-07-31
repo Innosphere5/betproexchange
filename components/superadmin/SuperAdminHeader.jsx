@@ -38,7 +38,7 @@ export default function SuperAdminHeader({ setIsSidebarOpen }) {
         const data = await res.json();
         setWalletBalance(data.balance);
       } else if (res.status === 401) {
-         router.push('/login');
+         router.replace('/login');
       }
     } catch (err) {
       console.error("Failed to fetch wallet:", err);
@@ -63,7 +63,7 @@ export default function SuperAdminHeader({ setIsSidebarOpen }) {
   const handleLogout = () => {
     localStorage.removeItem("user_session");
     document.cookie = 'user_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
-    window.location.href = "/login";
+    window.location.replace("/login");
   };
 
   return (

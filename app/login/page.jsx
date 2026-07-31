@@ -15,11 +15,13 @@ export default function LoginPage() {
         const session = JSON.parse(raw);
         if (session) {
           if (session.role === 'superadmin') {
-            router.replace('/superadmin/dashboard');
+            router.replace('/superadmin/users');
           } else if (session.role === 'admin') {
-            router.replace('/admin/dashboard');
+            router.replace('/admin/users');
+          } else if (session.role === 'supermaster') {
+            router.replace('/supermaster/users');
           } else if (session.role === 'master') {
-            router.replace('/master/dashboard');
+            router.replace('/master/users');
           } else if (session.role) {
             router.replace('/dashboard');
           }

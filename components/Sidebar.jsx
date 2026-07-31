@@ -189,7 +189,7 @@ export default function Sidebar({ isOpen, setIsOpen, onSelectMatch }) {
           onClick={() => {
             localStorage.removeItem("user_session");
             document.cookie = 'user_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
-            window.location.href = "/login";
+            window.location.replace("/login");
           }}
           className="flex items-center gap-3 w-full px-4 py-3 bg-red-600/20 hover:bg-red-600/40 text-red-400 font-bold rounded-lg transition-colors border border-red-500/30"
         >

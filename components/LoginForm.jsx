@@ -44,17 +44,17 @@ export default function LoginForm() {
           expires.setDate(expires.getDate() + 7);
           document.cookie = `user_session=${encodeURIComponent(JSON.stringify(sessionData))}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
 
-          // Redirect based on role
+          // Redirect based on role using replace so /login is not left in history
           if (data.user.role === 'superadmin') {
-            window.location.href = '/superadmin/users';
+            window.location.replace('/superadmin/users');
           } else if (data.user.role === 'admin') {
-            window.location.href = '/admin/users';
+            window.location.replace('/admin/users');
           } else if (data.user.role === 'supermaster') {
-            window.location.href = '/supermaster/users';
+            window.location.replace('/supermaster/users');
           } else if (data.user.role === 'master') {
-            window.location.href = '/master/users';
+            window.location.replace('/master/users');
           } else {
-            window.location.href = '/dashboard';
+            window.location.replace('/dashboard');
           }
         } else {
           setError(data.error || 'Invalid username or password.');

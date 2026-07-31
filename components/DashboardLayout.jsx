@@ -97,7 +97,7 @@ export default function DashboardLayout({ children }) {
         setWalletBalance(data.balance);
         setCreditBalance(data.credit);
       } else if (res.status === 401) {
-        router.push('/login');
+        router.replace('/login');
       }
     } catch (err) {
       console.error("Failed to fetch wallet:", err);

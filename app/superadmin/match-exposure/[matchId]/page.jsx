@@ -17,7 +17,7 @@ export default function MatchExposurePage() {
     setError(null);
     const raw = localStorage.getItem("user_session");
     if (!raw) {
-        router.push("/login");
+        router.replace("/login");
         return;
     }
     const token = JSON.parse(raw).token;

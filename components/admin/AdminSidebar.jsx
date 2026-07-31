@@ -138,7 +138,7 @@ export default function AdminSidebar({ isOpen, setIsOpen }) {
           onClick={() => {
             localStorage.removeItem("user_session");
             document.cookie = 'user_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
-            window.location.href = "/login";
+            window.location.replace("/login");
           }}
         >
           <LogOut size={16} />

@@ -14,7 +14,7 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
     localStorage.removeItem("user_session");
     // Expire the session cookie so Next.js middleware stops it server-side
     document.cookie = 'user_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
-    window.location.href = "/login";
+    window.location.replace("/login");
   };
 
   return (

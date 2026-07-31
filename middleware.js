@@ -1,30 +1,26 @@
 import { NextResponse } from 'next/server';
 
-// Routes that are always public (no auth needed)
-const PUBLIC_PATHS = ['/login'];
-
 // Routes only superadmins can access
 const SUPERADMIN_PATHS = ['/superadmin'];
-
 // Routes only admins can access
 const ADMIN_PATHS = ['/admin'];
-
 // Routes only supermasters can access
 const SUPERMASTER_PATHS = ['/supermaster'];
-
 // Routes only masters can access
 const MASTER_PATHS = ['/master'];
-
 // Routes only users (non-admin/non-master) can access
 const USER_PATHS = ['/dashboard'];
 
+function getRoleLandingUrl(role, requestUrl) {
+  if (role === 'superadmin') return new URL('/superadmin/users', requestUrl);
+  if (role === 'admin') return new URL('/admin/users', requestUrl);
+  if (role === 'supermaster') return new URL('/supermaster/users', requestUrl);
+  if (role === 'master') return new URL('/master/users', requestUrl);
+  return new URL('/dashboard', requestUrl);
+}
+
 export function middleware(request) {
   const { pathname } = request.nextUrl;
-
-  // Allow public paths through
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next();
-  }
 
   // Allow Next.js internals and static files through
   if (
@@ -39,59 +35,73 @@ export function middleware(request) {
   // Read session cookie
   const sessionCookie = request.cookies.get('user_session')?.value;
 
-  // No session — redirect to login
-  if (!sessionCookie) {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(loginUrl);
+  let session = null;
+  if (sessionCookie) {
+    try {
+      session = JSON.parse(sessionCookie);
+    } catch {
+      session = null;
+    }
   }
 
-  let session;
-  try {
-    session = JSON.parse(sessionCookie);
-  } catch {
-    // Corrupt cookie — clear it and redirect to login
+  // If user is accessing /login or /
+  if (pathname === '/login' || pathname === '/') {
+    if (session?.role) {
+      // Already logged in — redirect to role landing page
+      return NextResponse.redirect(getRoleLandingUrl(session.role, request.url));
+    }
+    if (pathname === '/') {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+    return NextResponse.next();
+  }
+
+  // No session for protected routes — redirect to login
+  if (!session || !session.token) {
     const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('redirect', pathname);
     const response = NextResponse.redirect(loginUrl);
-    response.cookies.delete('user_session');
+    if (sessionCookie) {
+      response.cookies.delete('user_session');
+    }
     return response;
   }
 
-  const role = session?.role;
+  const role = session.role;
 
-  // Superadmin trying to access other panels → allow only /superadmin
+  // Superadmin trying to access other panels → redirect to /superadmin/users
   if (role === 'superadmin') {
     if (USER_PATHS.some((p) => pathname.startsWith(p)) || ADMIN_PATHS.some((p) => pathname.startsWith(p)) || SUPERMASTER_PATHS.some((p) => pathname.startsWith(p)) || MASTER_PATHS.some((p) => pathname.startsWith(p))) {
-      return NextResponse.redirect(new URL('/superadmin/dashboard', request.url));
+      return NextResponse.redirect(new URL('/superadmin/users', request.url));
     }
     return NextResponse.next();
   }
 
-  // Admin trying to access other panels → allow only /admin
+  // Admin trying to access other panels → redirect to /admin/users
   if (role === 'admin') {
     if (USER_PATHS.some((p) => pathname.startsWith(p)) || SUPERMASTER_PATHS.some((p) => pathname.startsWith(p)) || MASTER_PATHS.some((p) => pathname.startsWith(p)) || SUPERADMIN_PATHS.some((p) => pathname.startsWith(p))) {
-      return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+      return NextResponse.redirect(new URL('/admin/users', request.url));
     }
     return NextResponse.next();
   }
 
-  // Supermaster trying to access other panels → allow only /supermaster
+  // Supermaster trying to access other panels → redirect to /supermaster/users
   if (role === 'supermaster') {
     if (USER_PATHS.some((p) => pathname.startsWith(p)) || ADMIN_PATHS.some((p) => pathname.startsWith(p)) || MASTER_PATHS.some((p) => pathname.startsWith(p)) || SUPERADMIN_PATHS.some((p) => pathname.startsWith(p))) {
-      return NextResponse.redirect(new URL('/supermaster/dashboard', request.url));
+      return NextResponse.redirect(new URL('/supermaster/users', request.url));
     }
     return NextResponse.next();
   }
 
-  // Master trying to access other panels → allow only /master
+  // Master trying to access other panels → redirect to /master/users
   if (role === 'master') {
     if (USER_PATHS.some((p) => pathname.startsWith(p)) || ADMIN_PATHS.some((p) => pathname.startsWith(p)) || SUPERMASTER_PATHS.some((p) => pathname.startsWith(p)) || SUPERADMIN_PATHS.some((p) => pathname.startsWith(p))) {
-      return NextResponse.redirect(new URL('/master/dashboard', request.url));
+      return NextResponse.redirect(new URL('/master/users', request.url));
     }
     return NextResponse.next();
   }
 
-  // Regular User trying to access privileged panels → redirect to dashboard
+  // Regular User trying to access privileged panels → redirect to /dashboard
   if (SUPERADMIN_PATHS.some((p) => pathname.startsWith(p)) || ADMIN_PATHS.some((p) => pathname.startsWith(p)) || SUPERMASTER_PATHS.some((p) => pathname.startsWith(p)) || MASTER_PATHS.some((p) => pathname.startsWith(p))) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }

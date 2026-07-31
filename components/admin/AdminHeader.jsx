@@ -39,7 +39,7 @@ export default function AdminHeader({ setIsSidebarOpen }) {
         setWalletBalance(data.balance);
       } else if (res.status === 401) {
          // Token expired or invalid
-         router.push('/login');
+         router.replace('/login');
       }
     } catch (err) {
       console.warn("Wallet fetch failed. Backend server might be offline or URL is incorrect.");
@@ -65,7 +65,7 @@ export default function AdminHeader({ setIsSidebarOpen }) {
   const handleLogout = () => {
     localStorage.removeItem("user_session");
     document.cookie = 'user_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
-    window.location.href = "/login";
+    window.location.replace("/login");
   };
 
   return (
