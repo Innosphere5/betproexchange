@@ -1553,8 +1553,14 @@ export default function AdminUsers() {
                         </td>
                         <td className="px-4 py-2 text-orange-600 border-r border-gray-200">{(item.role === 'master' || item.role === 'supermaster') ? `${item.share || 0}%` : '-'}</td>
                         <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold">-</td>
-                        <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold text-[#1abc9c]">
-                          {item.role === 'user' ? (item.walletBalance || 0).toLocaleString() : (item.clientPL || 0).toLocaleString()}
+                        <td className="px-4 py-2 border-r border-gray-200 font-bold">
+                          {item.role === 'user' ? (
+                            <span className="text-gray-700">{(item.walletBalance || 0).toLocaleString()}</span>
+                          ) : (
+                            <span className={`font-bold ${(item.sharePL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {(item.sharePL || 0) >= 0 ? `+${(item.sharePL || 0).toLocaleString()}` : (item.sharePL || 0).toLocaleString()}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-2 flex items-center gap-1">
                           <button onClick={() => { setSelectedUser(item); setActiveTab("cash"); setIsLoadModalOpen(true); }} className="bg-[#fbbf24] hover:bg-yellow-500 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all hover:scale-110 active:scale-90" title="Add/Reduce Cash">C</button>
@@ -1639,7 +1645,14 @@ export default function AdminUsers() {
                             </li>
                             <li className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
-                              Available Balance {item.role === 'user' ? (item.walletBalance?.toLocaleString() || 0) : (item.clientPL?.toLocaleString() || 0)}
+                              Available Balance{" "}
+                              {item.role === 'user' ? (
+                                <span>{(item.walletBalance || 0).toLocaleString()}</span>
+                              ) : (
+                                <span className={`font-bold ${(item.sharePL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  {(item.sharePL || 0) >= 0 ? `+${(item.sharePL || 0).toLocaleString()}` : (item.sharePL || 0).toLocaleString()}
+                                </span>
+                              )}
                             </li>
                             <li className="flex items-center gap-2 mt-2">
                               <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
@@ -1703,7 +1716,7 @@ export default function AdminUsers() {
                   required
                 />
                 <p className="text-xs text-gray-500 mt-1.5 font-medium">
-                  Max amount to transfer: {Math.abs(selectedUser.clientPL || selectedUser.walletBalance || 0).toLocaleString()} Rs.
+                  Max amount to transfer: {Math.abs(selectedUser.sharePL || selectedUser.clientPL || selectedUser.walletBalance || 0).toLocaleString()} Rs.
                 </p>
               </div>
 
