@@ -341,6 +341,11 @@ export default function SuperAdminUsers() {
           setBreadcrumbs(data.breadcrumbs || []);
           setCurrentParentInfo(data.parentInfo || null);
         }
+      } else if (res.status === 401 || data.error === 'User not found' || data.error === 'Token is not valid') {
+        console.warn("Session invalid or user not found. Redirecting to login...");
+        localStorage.removeItem("user_session");
+        document.cookie = 'user_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
+        window.location.replace("/login");
       } else {
         console.error("Error fetching users:", data.error);
       }
@@ -1569,7 +1574,7 @@ export default function SuperAdminUsers() {
                             <span className="text-gray-700">{(item.walletBalance || 0).toLocaleString()}</span>
                           ) : (
                             <span className={`font-bold ${(item.sharePL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {(item.sharePL || 0) >= 0 ? `+${(item.sharePL || 0).toLocaleString()}` : (item.sharePL || 0).toLocaleString()}
+                              {(item.sharePL || 0).toLocaleString()}
                             </span>
                           )}
                         </td>
@@ -1661,7 +1666,7 @@ export default function SuperAdminUsers() {
                                 <span>{(item.walletBalance || 0).toLocaleString()}</span>
                               ) : (
                                 <span className={`font-bold ${(item.sharePL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                  {(item.sharePL || 0) >= 0 ? `+${(item.sharePL || 0).toLocaleString()}` : (item.sharePL || 0).toLocaleString()}
+                                  {(item.sharePL || 0).toLocaleString()}
                                 </span>
                               )}
                             </li>
