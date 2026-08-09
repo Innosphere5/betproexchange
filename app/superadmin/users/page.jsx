@@ -4,9 +4,13 @@ import React, { useState, useEffect } from "react";
 import { Filter, Search, BookOpen, Edit2, X, DollarSign, AlertTriangle, Trash2, Calendar, Layout, List, RotateCcw } from "lucide-react";
 import { getApiUrl } from "@/lib/apiConfig";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 export default function SuperAdminUsers() {
+  const searchParams = useSearchParams();
   const [users, setUsers] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [showParentFor, setShowParentFor] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -357,8 +361,36 @@ export default function SuperAdminUsers() {
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    const query = searchParams ? searchParams.get("search") : null;
+    if (query) {
+      setSearchQuery(query);
+      fetchUsers(query);
+    } else {
+      fetchUsers();
+    }
+  }, [searchParams]);
+
+  const handleSearchSubmit = (overrideQuery) => {
+    const queryToUse = typeof overrideQuery === "string" ? overrideQuery : searchQuery;
+    const trimmed = queryToUse.trim();
+    setShowSuggestions(false);
+    if (trimmed) {
+      fetchUsers(trimmed);
+    } else {
+      fetchUsers();
+    }
+    setTimeout(() => {
+      document.getElementById("clients-list-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 150);
+  };
+
+  const matchingSuggestions = users.filter(u =>
+    searchQuery.trim() && u.username.toLowerCase().includes(searchQuery.trim().toLowerCase())
+  );
+
+  const displayUsers = users.filter(u => 
+    !searchQuery.trim() || u.username.toLowerCase().includes(searchQuery.trim().toLowerCase())
+  );
 
   const handleCreateUser = async (e) => {
     e.preventDefault();
@@ -1393,25 +1425,119 @@ export default function SuperAdminUsers() {
         <>
           {/* Search Users Panel */}
           <div className="bg-white border border-gray-300 shadow-sm rounded-sm">
-            <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 flex items-center font-bold text-gray-800 text-[13px]">
-              <Filter size={16} className="mr-2 text-gray-700" />
-              Search-Users
+            <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 flex items-center justify-between font-bold text-gray-800 text-[13px]">
+              <div className="flex items-center">
+                <Filter size={16} className="mr-2 text-gray-700" />
+                Search-Users
+              </div>
+              {searchQuery && (
+                <span className="text-[11px] font-normal text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                  Filtered: "{searchQuery}"
+                </span>
+              )}
             </div>
-            <div className="p-4 flex items-center gap-0 w-full max-w-lg">
-              <input
-                type="text"
-                placeholder="Username"
-                className="border border-gray-300 px-3 py-1.5 focus:outline-none focus:border-[#1abc9c] w-64 text-sm"
-              />
-              <button className="bg-[#1abc9c] hover:bg-[#16a085] text-white px-3 py-1.5 flex items-center gap-1 text-sm font-semibold">
-                <Search size={14} />
-                Search
-              </button>
+            <div className="p-3 sm:p-4">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full max-w-xl">
+                <div className="relative flex-1">
+                  <Search size={16} className="absolute left-3 top-2.5 text-gray-400 z-10" />
+                  <input
+                    type="text"
+                    placeholder="Search by username..."
+                    value={searchQuery}
+                    onFocus={() => setShowSuggestions(true)}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setShowSuggestions(true);
+                    }}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
+                    className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1abc9c]/30 focus:border-[#1abc9c] transition-all bg-white shadow-xs"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => {
+                        setSearchQuery("");
+                        setShowSuggestions(false);
+                        fetchUsers();
+                      }}
+                      className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600 transition-colors p-0.5 rounded-full hover:bg-gray-100 z-10"
+                      title="Clear search"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+
+                  {/* Live Suggestions Dropdown */}
+                  {showSuggestions && searchQuery.trim() && (
+                    <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto divide-y divide-gray-100">
+                      {matchingSuggestions.length > 0 ? (
+                        matchingSuggestions.map(u => (
+                          <div
+                            key={u._id || u.username}
+                            onClick={() => {
+                              setSearchQuery(u.username);
+                              handleSearchSubmit(u.username);
+                            }}
+                            className="p-2.5 hover:bg-teal-50 cursor-pointer flex items-center justify-between transition-colors group"
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-full bg-teal-100 text-[#1abc9c] font-bold text-xs flex items-center justify-center uppercase">
+                                {u.username[0]}
+                              </div>
+                              <div>
+                                <div className="font-bold text-xs text-gray-900 flex items-center gap-1.5">
+                                  <span>{u.username}</span>
+                                  <span className="text-[9px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded uppercase font-bold border border-gray-200">
+                                    {u.role === 'user' ? 'Bettor' : u.role}
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-gray-500 font-medium">
+                                  Credit: ₹{(u.credit || 0).toLocaleString()} | Balance: ₹{Math.max(0, (u.walletBalance || 0) - (u.credit || 0)).toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+                            <span className="text-[10px] bg-[#1abc9c] text-white px-2 py-1 rounded font-semibold group-hover:bg-[#16a085] transition-colors">
+                              View →
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div 
+                          onClick={() => handleSearchSubmit()}
+                          className="p-3 text-center text-xs text-gray-500 hover:text-gray-700 cursor-pointer italic hover:bg-gray-50"
+                        >
+                          No local match. Click to search downline tree for "{searchQuery}" →
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => handleSearchSubmit()}
+                    className="flex-1 sm:flex-none bg-[#1abc9c] hover:bg-[#16a085] text-white px-4 py-2 flex items-center justify-center gap-1.5 text-sm font-bold rounded-md shadow-xs transition-all active:scale-95 cursor-pointer"
+                  >
+                    <Search size={15} />
+                    <span>Search</span>
+                  </button>
+                  {searchQuery && (
+                    <button
+                      onClick={() => {
+                        setSearchQuery("");
+                        setShowSuggestions(false);
+                        fetchUsers();
+                      }}
+                      className="bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 px-3 py-2 text-sm font-semibold rounded-md transition-all active:scale-95 cursor-pointer"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Main Clients List Panel */}
-          <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden flex flex-col">
+          <div id="clients-list-panel" className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden flex flex-col scroll-mt-4">
             <div className="bg-[#f2f2f2] border-b border-gray-300 px-3 py-2 font-bold text-gray-800 text-[13px] flex items-center justify-between">
               <span>
                 {currentParentInfo ? `${currentParentInfo.role.toUpperCase()} (${currentParentInfo.username}) - Clients List` : 'SuperAdmin - Clients List | Default'}
@@ -1531,10 +1657,10 @@ export default function SuperAdminUsers() {
                 <tbody>
                   {isLoading ? (
                     <tr><td colSpan="9" className="p-10 text-center text-gray-500">Loading...</td></tr>
-                  ) : users.length === 0 ? (
+                  ) : displayUsers.length === 0 ? (
                     <tr><td colSpan="9" className="p-10 text-center text-gray-500 font-medium">No users found.</td></tr>
                   ) : (
-                    users.map((item) => (
+                    displayUsers.map((item) => (
                       <tr key={item._id} className="border-b hover:bg-gray-50 transition-colors text-gray-700 font-medium">
                         <td className={`px-4 py-2 border-r font-bold ${item.status === 'inactive' ? 'text-red-500' : 'text-blue-600'}`}>
                           {item.role !== 'user' ? (
@@ -1607,10 +1733,10 @@ export default function SuperAdminUsers() {
                 <tbody>
                   {isLoading ? (
                     <tr><td colSpan="2" className="p-10 text-center text-gray-500">Loading...</td></tr>
-                  ) : users.length === 0 ? (
+                  ) : displayUsers.length === 0 ? (
                     <tr><td colSpan="2" className="p-10 text-center text-gray-500 font-medium">No users found.</td></tr>
                   ) : (
-                    users.map((item) => (
+                    displayUsers.map((item) => (
                       <tr key={item._id} className="border-b border-gray-200">
                         <td className="p-3 border-r border-gray-200 align-top">
                           <div className={`font-bold text-[15px] mb-2 flex items-center flex-wrap gap-1 ${item.status === 'inactive' ? 'text-red-500 line-through opacity-50' : 'text-gray-900'}`}>
@@ -1720,7 +1846,7 @@ export default function SuperAdminUsers() {
             <form onSubmit={handleSettleSubmit} className="p-6 space-y-5">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Amount
+                  Settlement Amount
                 </label>
                 <input
                   type="number"
@@ -1731,9 +1857,26 @@ export default function SuperAdminUsers() {
                   className="w-full border border-gray-300 rounded px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1abc9c] focus:border-transparent text-sm font-medium"
                   required
                 />
-                <p className="text-xs text-gray-500 mt-1.5 font-medium">
-                  Max amount to transfer: {Math.abs(selectedUser.sharePL || selectedUser.clientPL || selectedUser.walletBalance || 0).toLocaleString()} Rs.
-                </p>
+                <div className="mt-2 text-xs text-gray-600 bg-gray-50 p-2.5 rounded border border-gray-200 space-y-1">
+                  <div className="flex justify-between font-semibold">
+                    <span>{selectedUser.role === 'user' ? 'Current Client P/L:' : 'Available Balance (Share P/L):'}</span>
+                    {selectedUser.role === 'user' ? (
+                      <span className={(selectedUser.clientPL || 0) >= 0 ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
+                        {(selectedUser.clientPL || 0) >= 0 ? `+${(selectedUser.clientPL || 0).toLocaleString()} (Green)` : `${(selectedUser.clientPL || 0).toLocaleString()} (Red)`}
+                      </span>
+                    ) : (
+                      <span className={(selectedUser.sharePL || 0) >= 0 ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
+                        {(selectedUser.sharePL || 0) >= 0 ? `+${(selectedUser.sharePL || 0).toLocaleString()} (Green)` : `${(selectedUser.sharePL || 0).toLocaleString()} (Red)`}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-gray-500 italic">
+                    {selectedUser.role === 'user'
+                      ? 'Entering an amount automatically clears Green or Red Client P/L towards 0.00.'
+                      : 'Entering an amount automatically settles the Agent\'s Available Balance (Share P/L) towards 0.00.'
+                    }
+                  </p>
+                </div>
               </div>
 
               <div>

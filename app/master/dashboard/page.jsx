@@ -3,11 +3,23 @@
 import { useState, useEffect } from "react";
 import { Filter, Search } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { getApiUrl } from "@/lib/apiConfig";
 
 export default function MasterDashboard() {
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
   const [matches, setMatches] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const handleSearch = (e) => {
+    e?.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/master/users?search=${encodeURIComponent(searchQuery.trim())}`);
+    } else {
+      router.push("/master/users");
+    }
+  };
 
   const fetchStats = async () => {
     setIsLoading(true);
@@ -44,19 +56,24 @@ export default function MasterDashboard() {
           Search-Users
         </div>
         {/* Panel Body */}
-        <div className="p-4">
-          <div className="flex items-center gap-0 w-full max-w-lg">
-            <input 
-              type="text" 
-              placeholder="Username" 
-              className="border border-gray-300 px-3 py-1.5 focus:outline-none focus:border-[#f39c12] w-64 text-sm"
-            />
-            <button className="bg-[#f39c12] hover:bg-orange-600 text-white px-3 py-1.5 flex items-center gap-1 text-sm font-semibold transition-colors">
-              <Search size={14} />
-              Search
+        <form onSubmit={handleSearch} className="p-3 sm:p-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full max-w-xl">
+            <div className="relative flex-1">
+              <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
+              <input 
+                type="text" 
+                placeholder="Search by username..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#f39c12]/30 focus:border-[#f39c12] transition-all bg-white shadow-xs"
+              />
+            </div>
+            <button type="submit" className="bg-[#f39c12] hover:bg-orange-600 text-white px-4 py-2 flex items-center justify-center gap-1.5 text-sm font-bold rounded-md shadow-xs transition-all active:scale-95 cursor-pointer">
+              <Search size={15} />
+              <span>Search</span>
             </button>
           </div>
-        </div>
+        </form>
       </div>
 
       {/* Sport Highlights Panel */}

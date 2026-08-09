@@ -154,8 +154,16 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
 
   const isSuperAdmin = viewer === "SUPERADMIN";
 
-  const filteredGreen = greenEntries.filter(e => !hideZero || e.amount !== 0);
-  const filteredRed = redEntries.filter(e => !hideZero || e.amount !== 0);
+  const filteredGreen = greenEntries.filter(e => {
+    const passZero = !hideZero || e.amount !== 0;
+    const passSearch = !searchTerm || (e.accountName && e.accountName.toLowerCase().includes(searchTerm.toLowerCase())) || (e.parentName && e.parentName.toLowerCase().includes(searchTerm.toLowerCase()));
+    return passZero && passSearch;
+  });
+  const filteredRed = redEntries.filter(e => {
+    const passZero = !hideZero || e.amount !== 0;
+    const passSearch = !searchTerm || (e.accountName && e.accountName.toLowerCase().includes(searchTerm.toLowerCase())) || (e.parentName && e.parentName.toLowerCase().includes(searchTerm.toLowerCase()));
+    return passZero && passSearch;
+  });
 
   // Sorting Handler
   const requestSort = (key) => {
@@ -703,18 +711,33 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
               {viewer} — Final Settlement Sheet
             </span>
           </div>
-          <div className="flex items-center gap-1 font-normal text-gray-400 text-[11px]">
-            <input
-              type="checkbox"
-              id="hideZeroFS"
-              checked={hideZero}
-              onChange={e => {
-                setHideZero(e.target.checked);
-                setCurrentPage(1);
-              }}
-              className="w-3 h-3 accent-[#1abc9c]"
-            />
-            <label htmlFor="hideZeroFS" className="cursor-pointer text-gray-300">Hide Zero</label>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search accounts..."
+                value={searchTerm}
+                onChange={e => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="pl-7 pr-3 py-1 text-xs border border-gray-700 bg-[#252542] text-white placeholder-gray-400 rounded outline-none focus:border-[#1abc9c] w-36 sm:w-48 transition-all"
+              />
+            </div>
+            <div className="flex items-center gap-1 font-normal text-gray-400 text-[11px]">
+              <input
+                type="checkbox"
+                id="hideZeroFS"
+                checked={hideZero}
+                onChange={e => {
+                  setHideZero(e.target.checked);
+                  setCurrentPage(1);
+                }}
+                className="w-3 h-3 accent-[#1abc9c]"
+              />
+              <label htmlFor="hideZeroFS" className="cursor-pointer text-gray-300">Hide Zero</label>
+            </div>
           </div>
         </div>
 
