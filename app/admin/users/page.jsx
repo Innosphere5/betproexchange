@@ -1,5 +1,6 @@
 "use client";
 
+// Next.js HMR trigger: Balance Upline updated in Summary Table
 import React, { useState, useEffect } from "react";
 import { Filter, Search, BookOpen, Edit2, X, DollarSign, AlertTriangle, Trash2, Calendar, Layout, List } from "lucide-react";
 import { getApiUrl } from "@/lib/apiConfig";
@@ -1565,6 +1566,7 @@ export default function AdminUsers() {
                   <tr className="bg-white border-b border-gray-200">
                     <th className="px-4 py-2 text-gray-800">Credit Remaining</th>
                     <th className="px-4 py-2 text-gray-800">Cash</th>
+                    <th className="px-4 py-2 text-gray-800">Balance Upline</th>
                     <th className="px-4 py-2 text-gray-800">P/L Downline</th>
                     <th className="px-4 py-2 text-gray-800">Users</th>
                   </tr>
@@ -1573,7 +1575,16 @@ export default function AdminUsers() {
                   <tr>
                     <td className="px-4 py-3 text-blue-600">{((currentParentInfo?.credit || 0) - users.reduce((sum, u) => sum + (u.credit || 0), 0)).toLocaleString()}</td>
                     <td className="px-4 py-3 text-gray-800">{((currentParentInfo?.walletBalance || 0) - (currentParentInfo?.credit || 0)).toLocaleString()}</td>
-                    <td className={`px-4 py-3 font-bold ${(currentParentInfo?.clientPL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>{(currentParentInfo?.clientPL || 0).toLocaleString()}</td>
+                    <td className={`px-4 py-3 font-bold ${((currentParentInfo?.balanceUpline ?? currentParentInfo?.clientPL) || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {((currentParentInfo?.balanceUpline ?? currentParentInfo?.clientPL) || 0) >= 0 
+                        ? `+${((currentParentInfo?.balanceUpline ?? currentParentInfo?.clientPL) || 0).toLocaleString()}` 
+                        : ((currentParentInfo?.balanceUpline ?? currentParentInfo?.clientPL) || 0).toLocaleString()}
+                    </td>
+                    <td className={`px-4 py-3 font-bold ${((currentParentInfo?.plDownline ?? currentParentInfo?.sharePL) || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {((currentParentInfo?.plDownline ?? currentParentInfo?.sharePL) || 0) >= 0 
+                        ? `+${((currentParentInfo?.plDownline ?? currentParentInfo?.sharePL) || 0).toLocaleString()}` 
+                        : ((currentParentInfo?.plDownline ?? currentParentInfo?.sharePL) || 0).toLocaleString()}
+                    </td>
                     <td className="px-4 py-3 text-gray-800">{users.length}</td>
                   </tr>
                 </tbody>
@@ -1609,7 +1620,6 @@ export default function AdminUsers() {
               <span className="text-sm text-gray-700 font-medium">Search:</span>
               <input type="text" className="border border-gray-300 px-2 py-1 w-48 text-sm focus:outline-none focus:border-[#1abc9c]" />
             </div>
-
             {/* Main Table (Desktop) */}
             <div className="overflow-x-auto hidden md:block">
               <div className="bg-[#1abc9c] px-4 py-2 flex items-center">
@@ -1678,8 +1688,8 @@ export default function AdminUsers() {
                         <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold">{item.credit?.toLocaleString() || 0}</td>
                         <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold">{Math.max(0, (item.walletBalance || 0) - (item.credit || 0)).toLocaleString()}</td>
                         <td className="px-4 py-2 border-r border-gray-200">
-                          <span className={`font-bold ${(item.clientPL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {(item.clientPL || 0) >= 0 ? `+${(item.clientPL || 0).toLocaleString()}` : (item.clientPL || 0).toLocaleString()}
+                          <span className={`font-bold ${((item.clientPL) || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {((item.clientPL) || 0) >= 0 ? `+${((item.clientPL) || 0).toLocaleString()}` : ((item.clientPL) || 0).toLocaleString()}
                           </span>
                         </td>
                         <td className="px-4 py-2 text-orange-600 border-r border-gray-200">{(item.role === 'master' || item.role === 'supermaster') ? `${item.share || 0}%` : '-'}</td>

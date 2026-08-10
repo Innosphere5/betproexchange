@@ -1457,6 +1457,7 @@ export default function MasterUsers() {
                   <tr className="bg-white border-b border-gray-200">
                     <th className="px-4 py-2 text-gray-800">Credit Remaining</th>
                     <th className="px-4 py-2 text-gray-800">Cash</th>
+                    <th className="px-4 py-2 text-gray-800">Balance Upline</th>
                     <th className="px-4 py-2 text-gray-800">P/L Downline</th>
                     <th className="px-4 py-2 text-gray-800">Users</th>
                   </tr>
@@ -1465,7 +1466,16 @@ export default function MasterUsers() {
                   <tr>
                     <td className="px-4 py-3 text-blue-600">{((currentParentInfo?.credit || 0) - users.reduce((sum, u) => sum + (u.credit || 0), 0)).toLocaleString()}</td>
                     <td className="px-4 py-3 text-gray-800">{((currentParentInfo?.walletBalance || 0) - (currentParentInfo?.credit || 0)).toLocaleString()}</td>
-                    <td className={`px-4 py-3 font-bold ${(currentParentInfo?.clientPL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>{(currentParentInfo?.clientPL || 0).toLocaleString()}</td>
+                    <td className={`px-4 py-3 font-bold ${((currentParentInfo?.balanceUpline ?? currentParentInfo?.clientPL) || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {((currentParentInfo?.balanceUpline ?? currentParentInfo?.clientPL) || 0) >= 0 
+                        ? `+${((currentParentInfo?.balanceUpline ?? currentParentInfo?.clientPL) || 0).toLocaleString()}` 
+                        : ((currentParentInfo?.balanceUpline ?? currentParentInfo?.clientPL) || 0).toLocaleString()}
+                    </td>
+                    <td className={`px-4 py-3 font-bold ${((currentParentInfo?.plDownline ?? currentParentInfo?.sharePL) || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {((currentParentInfo?.plDownline ?? currentParentInfo?.sharePL) || 0) >= 0 
+                        ? `+${((currentParentInfo?.plDownline ?? currentParentInfo?.sharePL) || 0).toLocaleString()}` 
+                        : ((currentParentInfo?.plDownline ?? currentParentInfo?.sharePL) || 0).toLocaleString()}
+                    </td>
                     <td className="px-4 py-3 text-gray-800">{users.length}</td>
                   </tr>
                 </tbody>
