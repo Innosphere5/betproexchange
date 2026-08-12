@@ -329,8 +329,8 @@ export default function MasterUsers() {
           username: newUsername,
           password: newPassword,
           role: newType,
-          initialBalance: parseFloat(initialBalance),
-          balanceType: newBalanceType
+          initialBalance: 0,
+          balanceType: "cash"
         })
       });
 
@@ -977,27 +977,6 @@ export default function MasterUsers() {
                   className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#f39c12]"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Balance Type</label>
-                <select
-                  value={newBalanceType}
-                  onChange={(e) => setNewBalanceType(e.target.value)}
-                  className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#f39c12] font-bold text-gray-700 mb-2"
-                >
-                  <option value="cash">Cash</option>
-                  <option value="credit">Credit</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Initial Balance</label>
-                <input
-                  type="number"
-                  value={initialBalance}
-                  onChange={(e) => setInitialBalance(e.target.value)}
-                  placeholder="Enter initial balance"
-                  className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#f39c12]"
-                />
-              </div>
               <button
                 type="submit"
                 disabled={isSaving}
@@ -1581,8 +1560,10 @@ export default function MasterUsers() {
                           {item.role === 'user' ? (
                             <span className="text-gray-700">{(item.walletBalance || 0).toLocaleString()}</span>
                           ) : (
-                            <span className={`font-bold ${(item.sharePL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {(item.sharePL || 0).toLocaleString()}
+                            <span className={`font-bold ${((item.availableBalance ?? item.sharePL) || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {((item.availableBalance ?? item.sharePL) || 0) >= 0 
+                                ? `+${((item.availableBalance ?? item.sharePL) || 0).toLocaleString()}` 
+                                : ((item.availableBalance ?? item.sharePL) || 0).toLocaleString()}
                             </span>
                           )}
                         </td>
@@ -1616,15 +1597,13 @@ export default function MasterUsers() {
                           >
                             D
                           </button>
-                          {item.role !== 'user' && (
-                            <button
-                              onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }}
-                              className="bg-[#f87171] hover:bg-red-500 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all active:scale-90 shadow-sm"
-                              title="Settle P/L Account"
-                            >
-                              S
-                            </button>
-                          )}
+                          <button
+                            onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }}
+                            className="bg-[#f87171] hover:bg-red-500 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all active:scale-90 shadow-sm"
+                            title="Settle P/L Account"
+                          >
+                            S
+                          </button>
                         </td>
                       </tr>
                     ))
@@ -1718,9 +1697,7 @@ export default function MasterUsers() {
                                 <button onClick={() => { setSelectedUser(item); setEditPassword(""); setIsEditModalOpen(true); }} className="bg-[#1abc9c] hover:bg-[#16a085] text-white w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Edit"><Edit2 size={13} /></button>
                                 <button onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }} className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Ledger">L</button>
                                 <button onClick={() => { setUserToDelete(item); setIsDeleteModalOpen(true); }} className="border border-red-500 text-red-500 font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm hover:bg-red-500 hover:text-white" title="Delete">D</button>
-                                {item.role !== 'user' && (
-                                  <button onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }} className="bg-[#f87171] hover:bg-red-500 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Settle P/L Account">S</button>
-                                )}
+                                <button onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }} className="bg-[#f87171] hover:bg-red-500 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Settle P/L Account">S</button>
                               </div>
                             </li>
                           </ul>

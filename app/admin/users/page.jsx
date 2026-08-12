@@ -351,8 +351,8 @@ export default function AdminUsers() {
           username: newUsername, 
           password: newPassword, 
           role: newType,
-          initialBalance: parseFloat(initialBalance),
-          balanceType: newBalanceType,
+          initialBalance: 0,
+          balanceType: "cash",
           share: parseFloat(newShare) || 0
         })
       });
@@ -364,7 +364,6 @@ export default function AdminUsers() {
         setNewPassword("");
         setInitialBalance("0");
         setNewBalanceType("cash");
-        setInitialBalance("0");
         setNewShare("0");
         fetchUsers();
         fetchUserProfile();
@@ -1074,27 +1073,6 @@ export default function AdminUsers() {
                   <option value="user">User (Bettor)</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Balance Type</label>
-                <select
-                  value={newBalanceType}
-                  onChange={(e) => setNewBalanceType(e.target.value)}
-                  className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#1abc9c] font-bold text-gray-700 mb-2"
-                >
-                  <option value="cash">Cash</option>
-                  <option value="credit">Credit</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Initial Balance</label>
-                <input
-                  type="number"
-                  value={initialBalance}
-                  onChange={(e) => setInitialBalance(e.target.value)}
-                  placeholder="Enter initial balance"
-                  className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#1abc9c]"
-                />
-              </div>
               {newType === "supermaster" && (
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">
@@ -1698,8 +1676,10 @@ export default function AdminUsers() {
                           {item.role === 'user' ? (
                             <span className="text-gray-700">{(item.walletBalance || 0).toLocaleString()}</span>
                           ) : (
-                            <span className={`font-bold ${(item.sharePL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {(item.sharePL || 0).toLocaleString()}
+                            <span className={`font-bold ${((item.availableBalance ?? item.sharePL) || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {((item.availableBalance ?? item.sharePL) || 0) >= 0 
+                                ? `+${((item.availableBalance ?? item.sharePL) || 0).toLocaleString()}` 
+                                : ((item.availableBalance ?? item.sharePL) || 0).toLocaleString()}
                             </span>
                           )}
                         </td>
@@ -1709,9 +1689,7 @@ export default function AdminUsers() {
                           <button onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }} className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center shadow-sm">L</button>
                           <button onClick={() => handleToggleStatus(item.username, item.status)} className={`font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all ${item.status === 'inactive' ? 'bg-gray-400 text-white' : 'bg-[#10b981] text-white hover:bg-green-600'}`} title={item.status === 'inactive' ? 'Set Active' : 'Set InActive'}>A</button>
                           <button onClick={() => { setUserToDelete(item); setIsDeleteModalOpen(true); }} className="border border-red-500 text-red-500 hover:bg-red-500 hover:text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all" title="Delete Permanently">D</button>
-                          {item.role !== 'user' && (
-                            <button onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }} className="bg-[#f87171] hover:bg-red-500 text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold shadow-sm transition-all active:scale-95" title="Settle P/L Account">S</button>
-                          )}
+                          <button onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }} className="bg-[#f87171] hover:bg-red-500 text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold shadow-sm transition-all active:scale-95" title="Settle P/L Account">S</button>
                         </td>
                       </tr>
                     ))
@@ -1803,9 +1781,7 @@ export default function AdminUsers() {
                                 <button onClick={() => { setSelectedUser(item); setEditShare(item.share || "0"); setEditPassword(""); setIsEditModalOpen(true); }} className="bg-[#1abc9c] hover:bg-[#16a085] text-white w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Edit"><Edit2 size={13} /></button>
                                 <button onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }} className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Ledger">L</button>
                                 <button onClick={() => handleToggleStatus(item.username, item.status)} className={`font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm ${item.status === 'inactive' ? 'bg-gray-400 text-white' : 'bg-[#10b981] text-white hover:bg-green-600'}`} title={item.status === 'inactive' ? 'Activate' : 'Deactivate'}>A</button>
-                                {item.role !== 'user' && (
-                                  <button onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }} className="bg-[#f87171] hover:bg-red-500 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Settle P/L Account">S</button>
-                                )}
+                                <button onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }} className="bg-[#f87171] hover:bg-red-500 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Settle P/L Account">S</button>
                               </div>
                             </li>
                           </ul>
