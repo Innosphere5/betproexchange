@@ -357,7 +357,9 @@ export default function MasterUsers() {
   const handleBalanceUpdate = async (e, mode, tab) => {
     e.preventDefault();
     const amount = mode === "add" ? depositAmount : withdrawAmount;
-    const desc = mode === "add" ? depositDescription : withdrawDescription;
+    const desc = mode === "add" 
+      ? (depositDescription || `${tab === 'cash' ? 'Cash' : 'Credit'} deposit in ${selectedUser?.username}`) 
+      : (withdrawDescription || `${tab === 'cash' ? 'Cash' : 'Credit'} withdrawn from ${selectedUser?.username}`);
 
     if (!selectedUser || !amount) return;
 
@@ -1095,16 +1097,7 @@ export default function MasterUsers() {
                   Deposit {activeTab === 'cash' ? 'Cash' : 'Credit'} in {selectedUser?.username} account
                 </div>
                 <div className="p-4 space-y-3">
-                  <div className="flex items-center">
-                    <label className="w-32 text-sm font-bold text-gray-700">Description</label>
-                    <input
-                      type="text"
-                      value={depositDescription}
-                      onChange={(e) => setDepositDescription(e.target.value)}
-                      placeholder={`${activeTab === 'cash' ? 'Cash' : 'Credit'} deposit in ${selectedUser?.username}`}
-                      className="flex-1 border border-gray-300 px-3 py-1.5 rounded-sm focus:outline-none focus:border-[#1abc9c] text-sm"
-                    />
-                  </div>
+
                   <div className="flex items-center">
                     <label className="w-32 text-sm font-bold text-gray-700">Amount</label>
                     <div className="flex-1 flex items-center">
@@ -1135,16 +1128,7 @@ export default function MasterUsers() {
                   Withdraw {activeTab === 'cash' ? 'cash' : 'Credit'} from {selectedUser?.username} account
                 </div>
                 <div className="p-4 space-y-3">
-                  <div className="flex items-center">
-                    <label className="w-32 text-sm font-bold text-gray-700">Description</label>
-                    <input
-                      type="text"
-                      value={withdrawDescription}
-                      onChange={(e) => setWithdrawDescription(e.target.value)}
-                      placeholder={`${activeTab === 'cash' ? 'Cash' : 'Credit'} withdrawn from ${selectedUser?.username}`}
-                      className="flex-1 border border-gray-300 px-3 py-1.5 rounded-sm focus:outline-none focus:border-[#e74c3c] text-sm"
-                    />
-                  </div>
+
                   <div className="flex items-center">
                     <label className="w-32 text-sm font-bold text-gray-700">Amount</label>
                     <div className="flex-1 flex items-center">
@@ -1769,18 +1753,7 @@ export default function MasterUsers() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Description
-                </label>
-                <input
-                  type="text"
-                  value={settleDescription}
-                  onChange={(e) => setSettleDescription(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1abc9c] focus:border-transparent text-sm font-medium"
-                  required
-                />
-              </div>
+
 
               <div className="pt-2">
                 <button

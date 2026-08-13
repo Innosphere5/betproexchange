@@ -440,7 +440,9 @@ export default function SuperAdminUsers() {
   const handleBalanceUpdate = async (e, mode, tab) => {
     e.preventDefault();
     const amount = mode === "add" ? depositAmount : withdrawAmount;
-    const desc = mode === "add" ? depositDescription : withdrawDescription;
+    const desc = mode === "add" 
+      ? (depositDescription || `${tab === 'cash' ? 'Cash' : 'Credit'} deposit in ${selectedUser?.username}`) 
+      : (withdrawDescription || `${tab === 'cash' ? 'Cash' : 'Credit'} withdrawn from ${selectedUser?.username}`);
 
     if (!selectedUser || !amount) return;
 
@@ -1866,18 +1868,7 @@ export default function SuperAdminUsers() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Description
-                </label>
-                <input
-                  type="text"
-                  value={settleDescription}
-                  onChange={(e) => setSettleDescription(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1abc9c] focus:border-transparent text-sm font-medium"
-                  required
-                />
-              </div>
+
 
               <div className="pt-2">
                 <button

@@ -358,7 +358,9 @@ export default function SuperMasterUsers() {
     e.preventDefault();
     if (!selectedUser) return;
     const amount = mode === "add" ? depositAmount : withdrawAmount;
-    const desc = mode === "add" ? depositDescription : withdrawDescription;
+    const desc = mode === "add" 
+      ? (depositDescription || `${tab === 'cash' ? 'Cash' : 'Credit'} deposit in ${selectedUser?.username}`) 
+      : (withdrawDescription || `${tab === 'cash' ? 'Cash' : 'Credit'} withdrawn from ${selectedUser?.username}`);
 
     if (!amount || parseFloat(amount) <= 0) {
       alert("Please enter a valid amount");
@@ -1135,15 +1137,7 @@ export default function SuperMasterUsers() {
                   className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-red-500"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
-                <input
-                  type="text"
-                  value={settleDescription}
-                  onChange={(e) => setSettleDescription(e.target.value)}
-                  className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-red-500"
-                />
-              </div>
+
               <button
                 type="submit"
                 disabled={isSettling}
@@ -1703,18 +1697,7 @@ export default function SuperMasterUsers() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Description
-                </label>
-                <input
-                  type="text"
-                  value={settleDescription}
-                  onChange={(e) => setSettleDescription(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1abc9c] focus:border-transparent text-sm font-medium"
-                  required
-                />
-              </div>
+
 
               <div className="pt-2">
                 <button
