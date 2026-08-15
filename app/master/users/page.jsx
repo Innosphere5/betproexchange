@@ -1739,8 +1739,8 @@ export default function MasterUsers() {
                         {(selectedUser.clientPL || 0) >= 0 ? `+${(selectedUser.clientPL || 0).toLocaleString()} (Green)` : `${(selectedUser.clientPL || 0).toLocaleString()} (Red)`}
                       </span>
                     ) : (
-                      <span className={(selectedUser.sharePL || 0) >= 0 ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
-                        {(selectedUser.sharePL || 0) >= 0 ? `+${(selectedUser.sharePL || 0).toLocaleString()} (Green)` : `${(selectedUser.sharePL || 0).toLocaleString()} (Red)`}
+                      <span className={((selectedUser.availableBalance ?? selectedUser.sharePL) || 0) >= 0 ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
+                        {((selectedUser.availableBalance ?? selectedUser.sharePL) || 0) >= 0 ? `+${((selectedUser.availableBalance ?? selectedUser.sharePL) || 0).toLocaleString()} (Green)` : `${((selectedUser.availableBalance ?? selectedUser.sharePL) || 0).toLocaleString()} (Red)`}
                       </span>
                     )}
                   </div>
