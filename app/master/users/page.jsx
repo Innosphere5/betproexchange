@@ -1541,15 +1541,11 @@ export default function MasterUsers() {
                         <td className="px-4 py-2 text-gray-600 border-r border-gray-200">{(item.role === 'master' || item.role === 'admin') ? `${item.share || 0}%` : '-'}</td>
                         <td className="px-4 py-2 text-gray-600 border-r border-gray-200 font-bold">-</td>
                         <td className="px-4 py-2 border-r border-gray-200 font-bold">
-                          {item.role === 'user' ? (
-                            <span className="text-gray-700">{(item.walletBalance || 0).toLocaleString()}</span>
-                          ) : (
-                            <span className={`font-bold ${((item.availableBalance ?? item.sharePL) || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {((item.availableBalance ?? item.sharePL) || 0) >= 0 
-                                ? `+${((item.availableBalance ?? item.sharePL) || 0).toLocaleString()}` 
-                                : ((item.availableBalance ?? item.sharePL) || 0).toLocaleString()}
-                            </span>
-                          )}
+                          <span className={`font-bold ${(item.availableBalance || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {(item.availableBalance || 0) >= 0 
+                              ? `+${(item.availableBalance || 0).toLocaleString()}` 
+                              : (item.availableBalance || 0).toLocaleString()}
+                          </span>
                         </td>
                         <td className="px-4 py-2 flex items-center gap-1">
                           {item.role === 'user' && (
@@ -1663,13 +1659,11 @@ export default function MasterUsers() {
                             <li className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
                               Available Balance{" "}
-                              {item.role === 'user' ? (
-                                <span>{(item.walletBalance || 0).toLocaleString()}</span>
-                              ) : (
-                                <span className={`font-bold ${(item.sharePL || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                  {(item.sharePL || 0).toLocaleString()}
-                                </span>
-                              )}
+                              <span className={`font-bold ${(item.availableBalance || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {(item.availableBalance || 0) >= 0 
+                                  ? `+${(item.availableBalance || 0).toLocaleString()}` 
+                                  : (item.availableBalance || 0).toLocaleString()}
+                              </span>
                             </li>
                             <li className="flex items-center gap-2 mt-2">
                               <span className="w-1.5 h-1.5 bg-gray-900 rounded-full"></span>
