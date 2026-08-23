@@ -23,6 +23,7 @@ export default function SuperAdminUsers() {
   const [initialBalance, setInitialBalance] = useState("0");
   const [newBalanceType, setNewBalanceType] = useState("cash");
   const [newShare, setNewShare] = useState("0");
+  const [allowSettlement, setAllowSettlement] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   // Load Balance Modal State
@@ -38,6 +39,7 @@ export default function SuperAdminUsers() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editShare, setEditShare] = useState("0");
   const [editPassword, setEditPassword] = useState("");
+  const [editAllowSettlement, setEditAllowSettlement] = useState(true);
 
   // Delete Confirmation Modal State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -412,7 +414,8 @@ export default function SuperAdminUsers() {
           role: newType,
           initialBalance: 0,
           balanceType: "cash",
-          share: parseFloat(newShare) || 0
+          share: parseFloat(newShare) || 0,
+          allowSettlement: newType === 'user' ? false : allowSettlement
         })
       });
       
@@ -424,6 +427,7 @@ export default function SuperAdminUsers() {
         setInitialBalance("0");
         setNewBalanceType("cash");
         setNewShare("0");
+        setAllowSettlement(true);
         fetchUsers();
         window.dispatchEvent(new Event('wallet-updated'));
       } else {
@@ -538,7 +542,9 @@ export default function SuperAdminUsers() {
         },
         body: JSON.stringify({
           targetUsername: selectedUser.username,
-          newPassword: editPassword
+          newPassword: editPassword,
+          share: parseFloat(editShare) || 0,
+          allowSettlement: editAllowSettlement
         })
       });
 
@@ -1160,6 +1166,20 @@ export default function SuperAdminUsers() {
                   />
                 </div>
               )}
+              {newType === "admin" && (
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="allowSettlement"
+                    checked={allowSettlement}
+                    onChange={(e) => setAllowSettlement(e.target.checked)}
+                    className="w-4 h-4 text-[#1abc9c] border-gray-300 rounded focus:ring-[#1abc9c] accent-[#1abc9c] cursor-pointer"
+                  />
+                  <label htmlFor="allowSettlement" className="text-sm font-bold text-gray-700 cursor-pointer">
+                    Enable S Settlement
+                  </label>
+                </div>
+              )}
               <button
                 type="submit"
                 disabled={isSaving}
@@ -1369,6 +1389,20 @@ export default function SuperAdminUsers() {
                   className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#1abc9c]"
                 />
               </div>
+              {selectedUser?.role !== 'user' && (
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="editAllowSettlement"
+                    checked={editAllowSettlement}
+                    onChange={(e) => setEditAllowSettlement(e.target.checked)}
+                    className="w-4 h-4 text-[#1abc9c] border-gray-300 rounded focus:ring-[#1abc9c] accent-[#1abc9c] cursor-pointer"
+                  />
+                  <label htmlFor="editAllowSettlement" className="text-sm font-bold text-gray-700 cursor-pointer">
+                    Enable S Settlement
+                  </label>
+                </div>
+              )}
               <div className="pt-2">
                 <button type="submit" disabled={isSaving} className="w-full bg-[#1abc9c] hover:bg-[#16a085] text-white font-black py-3 rounded-lg shadow-md transition-all disabled:opacity-50 uppercase tracking-widest">
                   {isSaving ? "Updating..." : "Update User"}
@@ -1695,11 +1729,13 @@ export default function SuperAdminUsers() {
                         </td>
                         <td className="px-4 py-2 flex gap-1">
                           <button onClick={() => { setSelectedUser(item); setActiveTab("cash"); setIsLoadModalOpen(true); }} className="bg-[#fbbf24] text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold hover:brightness-95 active:scale-95 transition-all">C</button>
-                          <button onClick={() => { setSelectedUser(item); setEditShare(item.share || "0"); setIsEditModalOpen(true); }} className="bg-[#1abc9c] text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center hover:brightness-95 active:scale-95 transition-all"><Edit2 size={14} /></button>
+                          <button onClick={() => { setSelectedUser(item); setEditShare(item.share || "0"); setEditPassword(""); setEditAllowSettlement(item.allowSettlement !== false); setIsEditModalOpen(true); }} className="bg-[#1abc9c] text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center hover:brightness-95 active:scale-95 transition-all"><Edit2 size={14} /></button>
                           <button onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }} className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center shadow-sm">L</button>
                           <button onClick={() => handleToggleStatus(item.username, item.status)} className={`p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold text-white transition-all hover:brightness-95 active:scale-95 ${item.status === 'inactive' ? 'bg-gray-400' : 'bg-[#10b981]'}`}>A</button>
                           <button onClick={() => { setUserToDelete(item); setIsDeleteModalOpen(true); }} className="border border-red-500 text-red-500 p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold hover:bg-red-50 active:scale-95 transition-all">D</button>
-                          <button onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }} className="bg-[#f87171] hover:bg-red-500 text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold shadow-sm transition-all active:scale-95" title="Settle P/L Account">S</button>
+                          {item.role !== 'user' && (
+                            <button onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }} className="bg-[#f87171] hover:bg-red-500 text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold shadow-sm transition-all active:scale-95" title="Settle P/L Account">S</button>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -1786,10 +1822,12 @@ export default function SuperAdminUsers() {
                               Options
                               <div className="flex flex-wrap gap-1 ml-1">
                                 <button onClick={() => { setSelectedUser(item); setActiveTab("cash"); setIsLoadModalOpen(true); }} className="bg-[#fbbf24] hover:bg-yellow-500 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Cash/Credit">C</button>
-                                <button onClick={() => { setSelectedUser(item); setEditShare(item.share || "0"); setEditPassword(""); setIsEditModalOpen(true); }} className="bg-[#1abc9c] hover:bg-[#16a085] text-white w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Edit"><Edit2 size={13} /></button>
+                                <button onClick={() => { setSelectedUser(item); setEditShare(item.share || "0"); setEditPassword(""); setEditAllowSettlement(item.allowSettlement !== false); setIsEditModalOpen(true); }} className="bg-[#1abc9c] hover:bg-[#16a085] text-white w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Edit"><Edit2 size={13} /></button>
                                 <button onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }} className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Ledger">L</button>
                                 <button onClick={() => handleToggleStatus(item.username, item.status)} className={`font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm ${item.status === 'inactive' ? 'bg-gray-400 text-white' : 'bg-[#10b981] text-white hover:bg-green-600'}`} title={item.status === 'inactive' ? 'Activate' : 'Deactivate'}>A</button>
-                                <button onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }} className="bg-[#f87171] hover:bg-red-500 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Settle P/L Account">S</button>
+                                {item.role !== 'user' && (
+                                  <button onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }} className="bg-[#f87171] hover:bg-red-500 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Settle P/L Account">S</button>
+                                )}
                               </div>
                             </li>
                           </ul>

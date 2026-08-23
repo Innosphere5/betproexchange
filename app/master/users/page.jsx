@@ -20,6 +20,7 @@ export default function MasterUsers() {
   const [newType, setNewType] = useState("user");
   const [initialBalance, setInitialBalance] = useState("0");
   const [newBalanceType, setNewBalanceType] = useState("cash");
+  const [allowSettlement, setAllowSettlement] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   // Load Balance Modal State
@@ -91,6 +92,7 @@ export default function MasterUsers() {
   // Edit Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editPassword, setEditPassword] = useState("");
+  const [editAllowSettlement, setEditAllowSettlement] = useState(true);
 
   const [activeReportType, setActiveReportType] = useState("Accounts");
   const [hideZero, setHideZero] = useState(false);
@@ -330,7 +332,8 @@ export default function MasterUsers() {
           password: newPassword,
           role: newType,
           initialBalance: 0,
-          balanceType: "cash"
+          balanceType: "cash",
+          allowSettlement: false
         })
       });
 
@@ -341,6 +344,7 @@ export default function MasterUsers() {
         setNewPassword("");
         setInitialBalance("0");
         setNewBalanceType("cash");
+        setAllowSettlement(true);
         fetchUsers();
         window.dispatchEvent(new Event('wallet-updated'));
       } else {
@@ -447,7 +451,8 @@ export default function MasterUsers() {
         },
         body: JSON.stringify({
           targetUsername: selectedUser.username,
-          newPassword: editPassword
+          newPassword: editPassword,
+          allowSettlement: editAllowSettlement
         })
       });
 
@@ -1465,7 +1470,6 @@ export default function MasterUsers() {
                 <span className="flex items-center gap-1"><span className="bg-[#3b82f6] text-white px-1.5 py-0.5 rounded-sm">L</span> Ledger</span>
                 <span className="flex items-center gap-1"><span className="bg-[#10b981] text-white px-1.5 py-0.5 rounded-sm">A</span> Active</span>
                 <span className="flex items-center gap-1"><span className="border text-red-500 border-red-500 bg-white px-1.5 py-0.5 rounded-sm">D</span> InActive</span>
-                <span className="flex items-center gap-1"><span className="bg-[#f87171] text-white px-1.5 py-0.5 rounded-sm font-bold">S</span> Settle Account</span>
               </div>
             </div>
 
@@ -1558,7 +1562,7 @@ export default function MasterUsers() {
                             </button>
                           )}
                           <button
-                            onClick={() => { setSelectedUser(item); setEditPassword(""); setIsEditModalOpen(true); }}
+                            onClick={() => { setSelectedUser(item); setEditPassword(""); setEditAllowSettlement(item.allowSettlement !== false); setIsEditModalOpen(true); }}
                             className="bg-[#1abc9c] hover:bg-teal-700 text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all hover:scale-110 active:scale-90 shadow-sm"
                             title="Edit Player Info"
                           >
@@ -1577,13 +1581,15 @@ export default function MasterUsers() {
                           >
                             D
                           </button>
-                          <button
-                            onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }}
-                            className="bg-[#f87171] hover:bg-red-500 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all active:scale-90 shadow-sm"
-                            title="Settle P/L Account"
-                          >
-                            S
-                          </button>
+                          {item.role !== 'user' && item.allowSettlement !== false && (
+                            <button
+                              onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }}
+                              className="bg-[#f87171] hover:bg-red-500 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all active:scale-90 shadow-sm"
+                              title="Settle P/L Account"
+                            >
+                              S
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -1672,10 +1678,12 @@ export default function MasterUsers() {
                                 {item.role === 'user' && (
                                   <button onClick={() => { setSelectedUser(item); setActiveTab("cash"); setIsLoadModalOpen(true); }} className="bg-[#fbbf24] hover:bg-yellow-500 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Cash/Credit">C</button>
                                 )}
-                                <button onClick={() => { setSelectedUser(item); setEditPassword(""); setIsEditModalOpen(true); }} className="bg-[#1abc9c] hover:bg-[#16a085] text-white w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Edit"><Edit2 size={13} /></button>
+                                <button onClick={() => { setSelectedUser(item); setEditPassword(""); setEditAllowSettlement(item.allowSettlement !== false); setIsEditModalOpen(true); }} className="bg-[#1abc9c] hover:bg-[#16a085] text-white w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Edit"><Edit2 size={13} /></button>
                                 <button onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }} className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Ledger">L</button>
                                 <button onClick={() => { setUserToDelete(item); setIsDeleteModalOpen(true); }} className="border border-red-500 text-red-500 font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm hover:bg-red-500 hover:text-white" title="Delete">D</button>
-                                <button onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }} className="bg-[#f87171] hover:bg-red-500 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Settle P/L Account">S</button>
+                                {item.role !== 'user' && item.allowSettlement !== false && (
+                                  <button onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }} className="bg-[#f87171] hover:bg-red-500 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Settle P/L Account">S</button>
+                                )}
                               </div>
                             </li>
                           </ul>
