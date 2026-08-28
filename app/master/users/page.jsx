@@ -43,6 +43,18 @@ export default function MasterUsers() {
   const [settleDescription, setSettleDescription] = useState("P/L to Cash transfer");
   const [isSettling, setIsSettling] = useState(false);
 
+  const openSettleModal = (user) => {
+    const avail = user.availableBalance ?? user.sharePL ?? 0;
+    if (avail === 0) {
+      alert(`Settlement available balance for ${user.username} is 0.00. Nothing to settle until new profit/loss arrives.`);
+      return;
+    }
+    setSelectedUser(user);
+    setSettleAmount(String(Math.abs(avail)));
+    setSettleDescription("P/L to Cash transfer");
+    setIsSettleModalOpen(true);
+  };
+
   const handleSettleSubmit = async (e) => {
     e.preventDefault();
     const val = parseFloat(settleAmount);
@@ -1583,7 +1595,7 @@ export default function MasterUsers() {
                           </button>
                           {item.role !== 'user' && item.allowSettlement !== false && (
                             <button
-                              onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }}
+                              onClick={() => openSettleModal(item)}
                               className="bg-[#f87171] hover:bg-red-500 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all active:scale-90 shadow-sm"
                               title="Settle P/L Account"
                             >
@@ -1682,7 +1694,7 @@ export default function MasterUsers() {
                                 <button onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }} className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Ledger">L</button>
                                 <button onClick={() => { setUserToDelete(item); setIsDeleteModalOpen(true); }} className="border border-red-500 text-red-500 font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm hover:bg-red-500 hover:text-white" title="Delete">D</button>
                                 {item.role !== 'user' && item.allowSettlement !== false && (
-                                  <button onClick={() => { setSelectedUser(item); setSettleAmount(""); setSettleDescription("P/L to Cash transfer"); setIsSettleModalOpen(true); }} className="bg-[#f87171] hover:bg-red-500 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Settle P/L Account">S</button>
+                                  <button onClick={() => openSettleModal(item)} className="bg-[#f87171] hover:bg-red-500 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Settle P/L Account">S</button>
                                 )}
                               </div>
                             </li>
