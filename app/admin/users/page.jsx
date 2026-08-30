@@ -52,6 +52,8 @@ export default function AdminUsers() {
   // Settle Account Modal State
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
   const [settleAmount, setSettleAmount] = useState("");
+  const [settleDescription, setSettleDescription] = useState("P/L to Cash transfer");
+  const [isSettling, setIsSettling] = useState(false);
   const openSettleModal = (user) => {
     const avail = user.availableBalance ?? user.sharePL ?? 0;
     if (avail === 0) {
@@ -1710,7 +1712,7 @@ export default function AdminUsers() {
                           <button onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }} className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center shadow-sm">L</button>
                           <button onClick={() => handleToggleStatus(item.username, item.status)} className={`font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all ${item.status === 'inactive' ? 'bg-gray-400 text-white' : 'bg-[#10b981] text-white hover:bg-green-600'}`} title={item.status === 'inactive' ? 'Set Active' : 'Set InActive'}>A</button>
                           <button onClick={() => { setUserToDelete(item); setIsDeleteModalOpen(true); }} className="border border-red-500 text-red-500 hover:bg-red-500 hover:text-white font-bold p-1 rounded-sm w-7 h-7 flex items-center justify-center transition-all" title="Delete Permanently">D</button>
-                          {item.role !== 'user' && (
+                          {item.allowSettlement !== false && (
                             <button onClick={() => openSettleModal(item)} className="bg-[#f87171] hover:bg-red-500 text-white p-1 rounded-sm w-7 h-7 flex items-center justify-center font-bold shadow-sm transition-all active:scale-95" title="Settle P/L Account">S</button>
                           )}
                         </td>
@@ -1802,7 +1804,7 @@ export default function AdminUsers() {
                                 <button onClick={() => { setSelectedUser(item); setEditShare(item.share || "0"); setEditPassword(""); setEditAllowSettlement(item.allowSettlement !== false); setIsEditModalOpen(true); }} className="bg-[#1abc9c] hover:bg-[#16a085] text-white w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Edit"><Edit2 size={13} /></button>
                                 <button onClick={() => { setSelectedUser(item); fetchUserStatement(item.username); }} className="bg-[#3b82f6] hover:bg-blue-600 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Ledger">L</button>
                                 <button onClick={() => handleToggleStatus(item.username, item.status)} className={`font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm ${item.status === 'inactive' ? 'bg-gray-400 text-white' : 'bg-[#10b981] text-white hover:bg-green-600'}`} title={item.status === 'inactive' ? 'Activate' : 'Deactivate'}>A</button>
-                                {item.role !== 'user' && (
+                                {item.allowSettlement !== false && (
                                   <button onClick={() => openSettleModal(item)} className="bg-[#f87171] hover:bg-red-500 text-white font-bold w-7 h-7 rounded-sm flex items-center justify-center transition-all shadow-sm" title="Settle P/L Account">S</button>
                                 )}
                               </div>
