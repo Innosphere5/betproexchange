@@ -26,6 +26,18 @@ export default function SuperAdminUsers() {
   const [allowSettlement, setAllowSettlement] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Dynamic share limit based on logged-in SuperAdmin's share (e.g., 85 for adnan, 97 for MD97FS, 100 for MD202FS)
+  const [maxShareLimit, setMaxShareLimit] = useState(85);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("user_session");
+      if (raw) {
+        const session = JSON.parse(raw);
+        if (session?.share) setMaxShareLimit(session.share);
+      }
+    } catch {}
+  }, []);
+
   // Load Balance Modal State
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("cash"); // "cash" or "credit"
@@ -1166,11 +1178,11 @@ export default function SuperAdminUsers() {
               </div>
               {newType === "admin" && (
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Share (%) (0-85)</label>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Share (%) (0-{maxShareLimit})</label>
                   <input
                     type="number"
                     min="0"
-                    max="85"
+                    max={maxShareLimit}
                     value={newShare}
                     onChange={(e) => setNewShare(e.target.value)}
                     placeholder="Enter share percentage"

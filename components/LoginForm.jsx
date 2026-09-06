@@ -32,6 +32,7 @@ export default function LoginForm() {
             token: data.token,
             username: data.user.username,
             role: data.user.role,
+            share: data.user.share || 0,
             loggedInAt: new Date().toISOString()
           };
 
