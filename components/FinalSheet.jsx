@@ -779,7 +779,7 @@ export default function FinalSheet({ data, onAccountClick, reportFilters }) {
           <div className="flex items-center gap-1.5 ml-auto">
             <div className="w-2.5 h-2.5 rounded-full bg-orange-400"></div>
             <span className="text-gray-500">
-              Platform Fee: <span className="font-bold text-orange-500">5%</span>
+              Platform Fee: <span className="font-bold text-orange-500">{data?.masterInfo?.platformFeeRate ? `${(data.masterInfo.platformFeeRate * 100).toFixed(0)}%` : '2%'}</span>
             </span>
           </div>
         </div>

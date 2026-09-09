@@ -23,6 +23,22 @@ export default function SuperAdminReports() {
     'Book Detail', 'Book Detail 2', 'Daily PL', 'Daily Report', 'Final Sheet', 'Accounts', 'Commission Report'
   ];
 
+  const [currentUser, setCurrentUser] = useState(null);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("user_session");
+      if (raw) setCurrentUser(JSON.parse(raw));
+    } catch {}
+  }, []);
+
+  const isResetAllowed = !(
+    currentUser?.share >= 97 ||
+    currentUser?.share === 97 ||
+    currentUser?.share === 100 ||
+    currentUser?.username?.toLowerCase() === 'md97fs' ||
+    currentUser?.username?.toLowerCase() === 'md202fs'
+  );
+
   const getAuthToken = () => {
     const raw = localStorage.getItem("user_session");
     if (!raw) return null;
@@ -260,9 +276,11 @@ export default function SuperAdminReports() {
                   )}
                 </div>
                 <button onClick={fetchDailyReport} className="bg-[#1abc9c] hover:bg-[#16a085] text-white text-[12px] font-bold px-4 py-1 rounded shadow-sm">Submit</button>
-                <button onClick={handleResetSystem} className="ml-auto bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold px-3 py-1 rounded shadow-sm transition-colors flex items-center gap-1">
-                  <span>⚠️ Full System Reset (Clean Start)</span>
-                </button>
+                {isResetAllowed && (
+                  <button onClick={handleResetSystem} className="ml-auto bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold px-3 py-1 rounded shadow-sm transition-colors flex items-center gap-1">
+                    <span>⚠️ Full System Reset (Clean Start)</span>
+                  </button>
+                )}
               </div>
             </div>
 

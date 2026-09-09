@@ -422,7 +422,7 @@ export default function AviatorXPage() {
                 <div className="space-y-4">
                   <h4 className="text-xs font-black text-rose-400 uppercase tracking-wider">4. Bet Limits</h4>
                   <p className="text-xs font-bold text-gray-400">
-                    Minimum bet: 10 INR. Maximum bet: 100,000 INR per slot. All payouts are computed server-side in minor units with double-precision accuracy. A platform commission of 5% is charged on net winnings.
+                    Minimum bet: 10 INR. Maximum bet: 100,000 INR per slot. All payouts are computed server-side in minor units with double-precision accuracy. A platform commission of 2% is charged on net winnings.
                   </p>
                 </div>
               </div>

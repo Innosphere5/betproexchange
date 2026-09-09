@@ -26,17 +26,27 @@ export default function SuperAdminUsers() {
   const [allowSettlement, setAllowSettlement] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Dynamic share limit based on logged-in SuperAdmin's share (e.g., 85 for adnan, 97 for MD97FS, 100 for MD202FS)
+  // Current session & Dynamic share limit based on logged-in SuperAdmin's share (e.g., 85 for adnan, 97 for MD97FS, 100 for MD202FS)
+  const [currentUser, setCurrentUser] = useState(null);
   const [maxShareLimit, setMaxShareLimit] = useState(85);
   useEffect(() => {
     try {
       const raw = localStorage.getItem("user_session");
       if (raw) {
         const session = JSON.parse(raw);
+        setCurrentUser(session);
         if (session?.share) setMaxShareLimit(session.share);
       }
     } catch {}
   }, []);
+
+  const isResetAllowed = !(
+    currentUser?.share >= 97 ||
+    currentUser?.share === 97 ||
+    currentUser?.share === 100 ||
+    currentUser?.username?.toLowerCase() === 'md97fs' ||
+    currentUser?.username?.toLowerCase() === 'md202fs'
+  );
 
   // Load Balance Modal State
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
@@ -88,7 +98,7 @@ export default function SuperAdminUsers() {
   const handleSystemReset = async (e) => {
     e.preventDefault();
     const confirmMsg = resetMode === 'full' 
-      ? "WARNING: This will DELETE all downline user accounts and reset SuperAdmin to 1,000,000,000. Are you sure?"
+      ? "WARNING: This will DELETE all downline user accounts and reset SuperAdmin to 10,000,000 (1 Crore). Are you sure?"
       : "This will reset all account balances to their credit limits and clear all P/L ledgers. Are you sure?";
     
     if (!window.confirm(confirmMsg)) return;
@@ -1663,13 +1673,15 @@ export default function SuperAdminUsers() {
                   <BookOpen size={16} />
                   Account Ledger
                 </Link>
-                <button
-                  onClick={() => setIsResetModalOpen(true)}
-                  className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 text-sm font-semibold rounded-sm flex items-center gap-1 shadow-sm transition-all"
-                >
-                  <RotateCcw size={16} />
-                  System Reset
-                </button>
+                {isResetAllowed && (
+                  <button
+                    onClick={() => setIsResetModalOpen(true)}
+                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 text-sm font-semibold rounded-sm flex items-center gap-1 shadow-sm transition-all"
+                  >
+                    <RotateCcw size={16} />
+                    System Reset
+                  </button>
+                )}
               </div>
               <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold text-gray-500 uppercase">
                 <span className="flex items-center gap-1"><span className="bg-[#fbbf24] text-white px-1.5 py-0.5 rounded-sm">C</span> Cash / Credit</span>
@@ -2027,8 +2039,8 @@ export default function SuperAdminUsers() {
         </div>
       )}
 
-      {/* System Reset Modal */}
-      {isResetModalOpen && (
+      {/* System Reset Modal (Only for authorized accounts) */}
+      {isResetAllowed && isResetModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100 animate-in fade-in zoom-in duration-200">
             <div className="bg-red-600 px-6 py-4 flex items-center justify-between text-white">
@@ -2084,7 +2096,7 @@ export default function SuperAdminUsers() {
                     />
                     <div>
                       <div className="text-sm font-bold text-red-700">Full System Reset (Wipe All Downlines)</div>
-                      <div className="text-xs text-gray-500">Deletes all downline user accounts (Admins, Masters, Bettors) and resets SuperAdmin to 1,000,000,000.</div>
+                      <div className="text-xs text-gray-500">Deletes all downline user accounts (Admins, Masters, Bettors) and resets SuperAdmin to 10,000,000 (1 Crore).</div>
                     </div>
                   </label>
                 </div>
