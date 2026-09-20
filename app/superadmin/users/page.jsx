@@ -382,12 +382,15 @@ export default function SuperAdminUsers() {
           setBreadcrumbs(data.breadcrumbs || []);
           setCurrentParentInfo(data.parentInfo || null);
         }
-      } else if (res.status === 401 || data.error === 'User not found' || data.error === 'Token is not valid') {
+      } else if (res.status === 401 || data.error === 'Token is not valid' || (!targetUsername && data.error === 'User not found')) {
         console.warn("Session invalid or user not found. Redirecting to login...");
         localStorage.removeItem("user_session");
         document.cookie = 'user_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
         window.location.replace("/login");
       } else {
+        if (targetUsername) {
+          alert(data.error || "User not found in your downline");
+        }
         console.error("Error fetching users:", data.error);
       }
     } catch (error) {
