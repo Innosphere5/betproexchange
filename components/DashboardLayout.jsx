@@ -234,6 +234,29 @@ export default function DashboardLayout({ children }) {
         }));
     });
 
+    socket.on('toss_odds_update', (data) => {
+        setCricketMatches(prev => prev.map(m => {
+            const incomingId = String(data.matchId ?? '');
+            if (String(m.matchId) === incomingId) {
+                return {
+                    ...m,
+                    tossMarketStatus: data.tossMarketStatus ?? m.tossMarketStatus,
+                    tossWinner: data.tossWinner ?? m.tossWinner,
+                    tossBackA: data.tossBackA ?? m.tossBackA,
+                    tossLayA: data.tossLayA ?? m.tossLayA,
+                    tossBackB: data.tossBackB ?? m.tossBackB,
+                    tossLayB: data.tossLayB ?? m.tossLayB,
+                    tossDepthBackA: data.tossDepthBackA ?? m.tossDepthBackA,
+                    tossDepthLayA: data.tossDepthLayA ?? m.tossDepthLayA,
+                    tossDepthBackB: data.tossDepthBackB ?? m.tossDepthBackB,
+                    tossDepthLayB: data.tossDepthLayB ?? m.tossDepthLayB,
+                    lastUpdated: data.updatedAt || new Date()
+                };
+            }
+            return m;
+        }));
+    });
+
     const fetchMatches = async () => {
       console.log("[Dashboard] 🔍 Fetching from:", `${getApiUrl()}/api/matches`);
       try {
@@ -285,7 +308,7 @@ export default function DashboardLayout({ children }) {
     }
   };
 
-  const handleSelectOutcome = (runner, price, type, isLive) => {
+  const handleSelectOutcome = (runner, price, type, isLive, marketType = 'match_odds') => {
     const match = cricketMatches.find(m => m.matchId === selectedMatchId);
     setBetSelection({ 
       matchId: selectedMatchId,
@@ -293,6 +316,7 @@ export default function DashboardLayout({ children }) {
       price, 
       type, 
       isLive, 
+      marketType,
       matchName: match ? `${match.teamA} v ${match.teamB}` : "Match" 
     });
   };

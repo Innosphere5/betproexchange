@@ -12,6 +12,8 @@ export default function MatchExposurePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const [tossData, setTossData] = useState(null);
+
   const fetchData = async () => {
     setIsLoading(true);
     setError(null);
@@ -23,20 +25,54 @@ export default function MatchExposurePage() {
     const token = JSON.parse(raw).token;
 
     try {
-      const res = await fetch(`${getApiUrl()}/api/admin/match-exposure/${matchId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const [res, tossRes] = await Promise.all([
+        fetch(`${getApiUrl()}/api/admin/match-exposure/${matchId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch(`${getApiUrl()}/api/admin/toss-exposure/${matchId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+      ]);
       const result = await res.json();
       if (res.ok) {
         setData(result);
       } else {
         setError(result.error || "Failed to fetch exposure data");
       }
+      if (tossRes.ok) {
+        const tResult = await tossRes.json();
+        setTossData(tResult);
+      }
     } catch (err) {
       console.error(err);
       setError("Network error. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeclareTossWinner = async (winner) => {
+    if (!window.confirm(`Declare "${winner}" as Toss Winner? This will settle all toss bets.`)) return;
+    try {
+      const raw = localStorage.getItem("user_session");
+      const token = raw ? JSON.parse(raw).token : '';
+      const res = await fetch(`${getApiUrl()}/api/admin/declare-toss-winner`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ matchId, tossWinner: winner })
+      });
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        alert(`Toss winner declared: ${winner}`);
+        fetchData();
+      } else {
+        alert(resData.error || "Failed to declare toss winner");
+      }
+    } catch (e) {
+      alert("Error declaring toss winner");
     }
   };
 
@@ -176,6 +212,92 @@ export default function MatchExposurePage() {
             })}
         </div>
       </div>
+
+      {/* Toss Market View */}
+      {tossData && (
+        <div className="bg-white border border-gray-300 shadow-sm rounded-sm overflow-hidden">
+          <div className="bg-[#243f55] text-white px-3 py-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-2 font-bold text-[13px]">
+              <Trophy size={16} className="text-[#00c766]" />
+              Toss Market View
+              {tossData.tossWinner ? (
+                <span className="bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase ml-2">
+                  Winner: {tossData.tossWinner}
+                </span>
+              ) : (
+                <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ml-2">
+                  Open
+                </span>
+              )}
+            </div>
+            
+            {/* SuperAdmin Settle Toss Buttons */}
+            {!tossData.tossWinner && (
+              <div className="flex items-center gap-1.5">
+                {runners.map(runner => (
+                  <button
+                    key={runner}
+                    onClick={() => handleDeclareTossWinner(runner)}
+                    className="bg-[#009866] hover:bg-[#007f55] text-white px-2 py-1 rounded text-[10px] font-black uppercase transition-colors"
+                  >
+                    {runner} Won
+                  </button>
+                ))}
+                <button
+                  onClick={() => handleDeclareTossWinner('REFUND')}
+                  className="bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded text-[10px] font-black uppercase transition-colors"
+                >
+                  Refund
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="divide-y divide-gray-100">
+            {Object.keys(tossData.exposure || {}).map((tossRunner) => {
+              const amount = tossData.exposure[tossRunner] || 0;
+              const isLoss = amount < 0;
+
+              const totalBackStake = tossData.matchedBets
+                ?.filter(b => b.runner === tossRunner && b.type === 'back')
+                ?.reduce((sum, b) => sum + b.size, 0) || 0;
+              
+              const totalLayStake = tossData.matchedBets
+                ?.filter(b => b.runner === tossRunner && b.type === 'lay')
+                ?.reduce((sum, b) => sum + b.size, 0) || 0;
+
+              const formatStake = (val) => {
+                if (val >= 1000) return (val / 1000).toFixed(1) + 'K';
+                return val.toString();
+              };
+
+              return (
+                <div key={tossRunner} className="flex items-center justify-between p-3 hover:bg-gray-50 transition-colors">
+                  <div className="flex flex-col">
+                    <span className="text-[14px] font-bold text-gray-800">{tossRunner}</span>
+                    <div className="flex flex-col mt-0.5">
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Toss Position</span>
+                      <span className={`text-[14px] font-black leading-none ${isLoss ? 'text-red-600' : 'text-green-600'}`}>
+                        {amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    <div className="w-16 h-11 bg-[#e3f2fd] border border-blue-100 flex flex-col items-center justify-center rounded-sm">
+                      <span className="text-[13px] font-bold text-blue-700">--</span>
+                      <span className="text-[10px] font-bold text-blue-500">{formatStake(totalBackStake)}</span>
+                    </div>
+                    <div className="w-16 h-11 bg-[#ffebee] border border-red-100 flex flex-col items-center justify-center rounded-sm">
+                      <span className="text-[13px] font-bold text-red-700">--</span>
+                      <span className="text-[10px] font-bold text-red-500">{formatStake(totalLayStake)}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Action Buttons (from UI) */}
       <div className="flex flex-wrap gap-2">

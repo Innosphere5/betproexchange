@@ -40,6 +40,11 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
       return;
     }
 
+    if (selection?.marketType === 'toss' && parseFloat(stake) > 2000000) {
+      setModalConfig({ title: "Limit Exceeded", details: "Maximum stake for Toss Market is 2M.", isError: true });
+      return;
+    }
+
     try {
       const session = JSON.parse(localStorage.getItem('user_session') || '{}');
       const res = await fetch(`${getApiUrl()}/api/user/bet`, {
@@ -55,7 +60,8 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
           stake: parseFloat(stake),
           odds: parseFloat(odds),
           isLive: selection.isLive || false,
-          type: type // Pass back or lay
+          type: type, // Pass back or lay
+          marketType: selection.marketType || 'match_odds'
         })
       });
 
@@ -92,7 +98,14 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
     <div className="bg-white rounded-sm shadow-md border border-gray-300 overflow-hidden font-sans">
       {/* Header */}
       <div className="bg-[#243f55] text-white px-3 py-2 flex items-center justify-between">
-        <span className="text-[14px] font-bold uppercase tracking-wide">Bet Slip</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[14px] font-bold uppercase tracking-wide">Bet Slip</span>
+          {selection?.marketType === 'toss' && (
+            <span className="bg-[#00c766] text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+              Toss Market
+            </span>
+          )}
+        </div>
         <button className="text-[11px] font-bold underline hover:text-gray-300">Edit Bet Sizes</button>
       </div>
 
