@@ -58,8 +58,13 @@ export default function RootLayout({ children }) {
       lang="en"
       style={{ colorScheme: 'light' }}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased light`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-white text-gray-900" style={{ colorScheme: 'light' }}>
+      <body
+        className="min-h-full flex flex-col bg-white text-gray-900"
+        style={{ colorScheme: 'light' }}
+        suppressHydrationWarning
+      >
         <AutoLogout />
         {children}
       </body>

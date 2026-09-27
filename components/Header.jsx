@@ -1,11 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Menu } from "lucide-react";
 import Link from "next/link";
 import { useDashboard } from "./DashboardLayout";
 
 export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMatch }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [username, setUsername] = useState('User');
+  const [userRole, setUserRole] = useState('user');
   const { walletBalance, creditBalance } = useDashboard();
+
+  useEffect(() => {
+    try {
+      const session = JSON.parse(localStorage.getItem('user_session') || '{}');
+      if (session.username) setUsername(session.username);
+      if (session.role) setUserRole(session.role);
+    } catch (e) {}
+  }, []);
 
 
 
@@ -87,7 +97,7 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
               className="flex items-center cursor-pointer hover:text-gray-300 group"
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             >
-              <span>{typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user_session') || '{}').username || 'User' : 'User'}</span>
+              <span>{username}</span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="ml-1 opacity-70 group-hover:opacity-100">
                 <polyline points="6 9 12 15 18 9" />
               </svg>
@@ -95,28 +105,24 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
 
 
             {/* Dropdown Menu */}
-            {isDropdownOpen && (() => {
-              const sessionUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user_session') || '{}') : {};
-              const userRole = sessionUser.role || 'user';
-              return (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setIsDropdownOpen(false)}
-                  />
-                  <div className="absolute right-0 top-[120%] mt-1 w-[150px] bg-white border border-gray-200 shadow-[0_4px_12px_rgba(0,0,0,0.15)] z-50 rounded-sm py-1 font-normal text-[13px] text-gray-700">
-                    <Link href="/dashboard/statement" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Statement</Link>
-                    <Link href="/dashboard/result" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Result</Link>
-                    {userRole !== 'user' && (
-                      <Link href="/dashboard/profit-loss" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Profit Loss</Link>
-                    )}
-                    <Link href="/dashboard/bets" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Bet History</Link>
-                    <Link href="/dashboard/profile" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Profile</Link>
-                    <div className="block px-4 py-2 hover:bg-gray-100 cursor-pointer text-[#dc3545] font-bold border-t border-gray-100" onClick={handleLogout}>Logout</div>
-                  </div>
-                </>
-              );
-            })()}
+            {isDropdownOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setIsDropdownOpen(false)}
+                />
+                <div className="absolute right-0 top-[120%] mt-1 w-[150px] bg-white border border-gray-200 shadow-[0_4px_12px_rgba(0,0,0,0.15)] z-50 rounded-sm py-1 font-normal text-[13px] text-gray-700">
+                  <Link href="/dashboard/statement" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Statement</Link>
+                  <Link href="/dashboard/result" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Result</Link>
+                  {userRole !== 'user' && (
+                    <Link href="/dashboard/profit-loss" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Profit Loss</Link>
+                  )}
+                  <Link href="/dashboard/bets" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Bet History</Link>
+                  <Link href="/dashboard/profile" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Profile</Link>
+                  <div className="block px-4 py-2 hover:bg-gray-100 cursor-pointer text-[#dc3545] font-bold border-t border-gray-100" onClick={handleLogout}>Logout</div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

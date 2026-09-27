@@ -11,6 +11,7 @@ export default function SuperAdminHeader({ setIsSidebarOpen }) {
   const pathname = usePathname();
   const router = useRouter();
   const [walletBalance, setWalletBalance] = useState(0);
+  const [username, setUsername] = useState('SuperAdmin');
 
   const getAuthToken = () => {
     if (typeof window !== 'undefined') {
@@ -46,6 +47,11 @@ export default function SuperAdminHeader({ setIsSidebarOpen }) {
   };
 
   useEffect(() => {
+    try {
+      const session = JSON.parse(localStorage.getItem('user_session') || '{}');
+      if (session.username) setUsername(session.username);
+    } catch (e) {}
+
     fetchWallet();
     const interval = setInterval(fetchWallet, 30000);
 
@@ -77,9 +83,7 @@ export default function SuperAdminHeader({ setIsSidebarOpen }) {
         </button>
 
         <div className="text-base lg:text-xl font-extrabold text-gray-800 tracking-tighter flex items-center gap-2">
-          {typeof window !== 'undefined' 
-            ? JSON.parse(localStorage.getItem('user_session') || '{}').username || 'SuperAdmin'
-            : 'SuperAdmin'}
+          {username}
           <span className="bg-[#1abc9c] text-white text-[10px] px-2 py-0.5 rounded-full uppercase font-black shadow-sm">SuperAdmin</span>
         </div>
 

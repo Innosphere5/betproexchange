@@ -11,6 +11,7 @@ export default function SuperMasterHeader({ setIsSidebarOpen }) {
   const pathname = usePathname();
   const router = useRouter();
   const [walletBalance, setWalletBalance] = useState(0);
+  const [username, setUsername] = useState('SuperMaster');
 
   const getAuthToken = () => {
     if (typeof window !== 'undefined') {
@@ -44,6 +45,11 @@ export default function SuperMasterHeader({ setIsSidebarOpen }) {
   };
 
   useEffect(() => {
+    try {
+      const session = JSON.parse(localStorage.getItem('user_session') || '{}');
+      if (session.username) setUsername(session.username);
+    } catch (e) {}
+
     fetchWallet();
     const interval = setInterval(fetchWallet, 30000);
 
@@ -64,17 +70,6 @@ export default function SuperMasterHeader({ setIsSidebarOpen }) {
     window.location.replace("/login");
   };
 
-  const getUsername = () => {
-    if (typeof window !== 'undefined') {
-      try {
-        const session = JSON.parse(localStorage.getItem('user_session') || '{}');
-        const name = session.username || 'SuperMaster';
-        return name;
-      } catch (e) { return 'SuperMaster'; }
-    }
-    return 'SuperMaster';
-  };
-
   return (
     <header className="relative bg-white border-b border-gray-300 text-gray-700 flex items-center justify-between px-3 lg:px-6 h-12 lg:h-14 font-medium flex-shrink-0 z-30">
       {/* Left section */}
@@ -88,7 +83,7 @@ export default function SuperMasterHeader({ setIsSidebarOpen }) {
 
         {/* Brand / Logo */}
         <div className="text-base lg:text-xl font-extrabold text-gray-800 tracking-tighter flex items-center gap-2">
-          {getUsername()}
+          {username}
           <span className="bg-[#8e44ad] text-white text-[10px] px-2 py-0.5 rounded-full uppercase font-black shadow-sm">SuperMaster</span>
         </div>
 

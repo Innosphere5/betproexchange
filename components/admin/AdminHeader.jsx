@@ -11,6 +11,7 @@ export default function AdminHeader({ setIsSidebarOpen }) {
   const pathname = usePathname();
   const router = useRouter();
   const [walletBalance, setWalletBalance] = useState(0);
+  const [username, setUsername] = useState('Admin');
 
   const getAuthToken = () => {
     if (typeof window !== 'undefined') {
@@ -47,6 +48,11 @@ export default function AdminHeader({ setIsSidebarOpen }) {
   };
 
   useEffect(() => {
+    try {
+      const session = JSON.parse(localStorage.getItem('user_session') || '{}');
+      if (session.username) setUsername(session.username);
+    } catch (e) {}
+
     fetchWallet();
     // Poll every 30 seconds for balance updates
     const interval = setInterval(fetchWallet, 30000);
@@ -81,9 +87,7 @@ export default function AdminHeader({ setIsSidebarOpen }) {
 
         {/* Brand / Logo */}
         <div className="text-base lg:text-xl font-extrabold text-gray-800 tracking-tighter flex items-center gap-2">
-          {typeof window !== 'undefined' 
-            ? JSON.parse(localStorage.getItem('user_session') || '{}').username || 'Admin'
-            : 'Admin'}
+          {username}
           <span className="bg-[#1abc9c] text-white text-[10px] px-2 py-0.5 rounded-full uppercase font-black shadow-sm">Admin</span>
         </div>
 
