@@ -34,6 +34,7 @@ export default function DashboardContent() {
             selection={betSelection}
             clearSelection={clearBetSelection}
             type={betSelection?.type}
+            matchId={selectedMatchId}
           />
         </div>
       </div>

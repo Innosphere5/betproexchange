@@ -11,6 +11,7 @@ export default function AdminHeader({ setIsSidebarOpen }) {
   const pathname = usePathname();
   const router = useRouter();
   const [walletBalance, setWalletBalance] = useState(0);
+  const [adminExposure, setAdminExposure] = useState(0);
   const [username, setUsername] = useState('Admin');
 
   const getAuthToken = () => {
@@ -32,15 +33,26 @@ export default function AdminHeader({ setIsSidebarOpen }) {
     if (!token) return;
 
     try {
-      const res = await fetch(`${getApiUrl()}/api/user/wallet`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
+      const [walletRes, betsRes] = await Promise.all([
+        fetch(`${getApiUrl()}/api/user/wallet`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch(`${getApiUrl()}/api/admin/global-matched-bets`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).catch(() => null)
+      ]);
+
+      if (walletRes.ok) {
+        const data = await walletRes.json();
         setWalletBalance(data.balance);
-      } else if (res.status === 401) {
-         // Token expired or invalid
-         router.replace('/login');
+      } else if (walletRes.status === 401) {
+        router.replace('/login');
+      }
+
+      if (betsRes && betsRes.ok) {
+        const bets = await betsRes.json();
+        const totalExp = (bets || []).reduce((acc, b) => acc + (b.size || b.stake || 0), 0);
+        setAdminExposure(-totalExp);
       }
     } catch (err) {
       console.warn("Wallet fetch failed. Backend server might be offline or URL is incorrect.");
@@ -122,11 +134,18 @@ export default function AdminHeader({ setIsSidebarOpen }) {
 
       {/* Right Section */}
       <div className="flex items-center gap-3 text-xs lg:text-sm text-gray-600 font-medium">
-        <div className="flex items-center gap-1.5 font-bold bg-gray-50 px-2 lg:px-3 py-1 rounded-full border border-gray-100">
+        <div className="flex items-center gap-2 font-bold bg-gray-50 px-2 lg:px-3 py-1 rounded-full border border-gray-100">
           <Wallet size={14} className="text-[#1abc9c]" />
           <span className="text-gray-800">
-            <span className="hidden sm:inline">Balance: </span>
-            <span className="text-[#1abc9c]">{walletBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <span className="text-gray-500 font-bold">B:</span>{" "}
+            <span className="text-[#1abc9c] font-black">{walletBalance.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+          </span>
+          <span className="text-gray-300">|</span>
+          <span className="text-gray-800">
+            <span className="text-gray-500 font-bold">Exp:</span>{" "}
+            <span className={`font-black ${adminExposure < 0 ? 'text-[#dc2626]' : 'text-gray-700'}`}>
+              {adminExposure !== 0 ? (adminExposure < 0 ? `-${Math.abs(adminExposure).toLocaleString()}` : adminExposure.toLocaleString()) : "0"}
+            </span>
           </span>
         </div>
         {/* Logout Button */}

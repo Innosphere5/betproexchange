@@ -7,7 +7,25 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [username, setUsername] = useState('User');
   const [userRole, setUserRole] = useState('user');
+  const [totalExposure, setTotalExposure] = useState(0);
   const { walletBalance, creditBalance } = useDashboard();
+
+  const fetchExposure = async () => {
+    try {
+      const raw = localStorage.getItem("user_session");
+      if (!raw) return;
+      const session = JSON.parse(raw);
+      const res = await fetch(`${getApiUrl()}/api/user/bets`, {
+        headers: { 'Authorization': `Bearer ${session.token}` }
+      });
+      if (res.ok) {
+        const bets = await res.json();
+        const activeBets = (bets || []).filter(b => b.status === 'pending' || b.status === 'MATCHED');
+        const exp = activeBets.reduce((acc, b) => acc + (b.stake || 0), 0);
+        setTotalExposure(-exp);
+      }
+    } catch (e) {}
+  };
 
   useEffect(() => {
     try {
@@ -15,6 +33,18 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
       if (session.username) setUsername(session.username);
       if (session.role) setUserRole(session.role);
     } catch (e) {}
+
+    fetchExposure();
+    const interval = setInterval(fetchExposure, 5000);
+    const handleUpdate = () => fetchExposure();
+    window.addEventListener('bet-placed', handleUpdate);
+    window.addEventListener('wallet-updated', handleUpdate);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('bet-placed', handleUpdate);
+      window.removeEventListener('wallet-updated', handleUpdate);
+    };
   }, []);
 
 
@@ -70,6 +100,13 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
             <div className="flex items-center">
               <span className="text-[#00c766] font-bold">B:</span> 
               <span className="ml-1">{walletBalance ? walletBalance.toLocaleString() : "0"}</span>
+            </div>
+            <span className="text-white/20">|</span>
+            <div className="flex items-center">
+              <span className="text-gray-300 font-bold">Exp:</span>
+              <span className={`ml-1 font-bold ${totalExposure < 0 ? 'text-[#ff6b81]' : 'text-gray-300'}`}>
+                {totalExposure !== 0 ? (totalExposure < 0 ? `-${Math.abs(totalExposure).toLocaleString()}` : totalExposure.toLocaleString()) : "0"}
+              </span>
             </div>
             <span className="text-white/20">|</span>
             <div className="hidden md:flex items-center">

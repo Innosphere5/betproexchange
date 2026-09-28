@@ -78,6 +78,10 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
       }
 
       fetchWallet(); // update balance on dashboard
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('wallet-updated'));
+        window.dispatchEvent(new CustomEvent('bet-placed', { detail: { matchId: selection.matchId } }));
+      }
       setStake("");
       setProfit(0);
       // Wait for user to dismiss modal before calling onClose()

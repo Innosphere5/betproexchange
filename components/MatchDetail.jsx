@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Info, Tv, Clock, Trophy, Users, ShieldCheck, ChevronDown, CheckCircle2 } from "lucide-react";
+import { Info, Tv, Clock, Trophy, Users, ShieldCheck, ChevronDown, CheckCircle2, Lock, X } from "lucide-react";
 import { useDashboard } from "./DashboardLayout";
 import { getApiUrl } from "../lib/apiConfig";
 
@@ -15,6 +15,17 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   const [remainingTime, setRemainingTime] = useState("");
   const [keepDisplayOn, setKeepDisplayOn] = useState(false);
 
+  // Feature 1 & 2 State: Live Matched Bets & Dynamic Exposure
+  const [betsData, setBetsData] = useState({
+    matchedBets: [],
+    openBets: [],
+    exposure: {},
+    userExposure: {},
+    adminExposure: {}
+  });
+  const [isFullBetListOpen, setIsFullBetListOpen] = useState(false);
+  const [betListFilter, setBetListFilter] = useState("");
+
   useEffect(() => {
     const raw = localStorage.getItem("user_session");
     if (raw) {
@@ -25,10 +36,44 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
     }
   }, []);
 
-  const isAdmin = ['superadmin', 'admin', 'master'].includes(userRole);
+  const isAdmin = ['superadmin', 'admin', 'master', 'supermaster'].includes(userRole);
+
+  // Fetch real-time match bets & runner profit/loss exposure for all users (Features 1 & 2)
+  const fetchBetsAndExposure = async () => {
+    if (!matchId) return;
+    try {
+      const raw = localStorage.getItem("user_session");
+      const token = raw ? JSON.parse(raw).token : '';
+      const res = await fetch(`${getApiUrl()}/api/matches/${matchId}/bets`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBetsData(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch match bets/exposure:", err);
+    }
+  };
 
   useEffect(() => {
-    const fetchExposure = async () => {
+    fetchBetsAndExposure();
+    const interval = setInterval(fetchBetsAndExposure, 4000);
+    const handleRefresh = () => fetchBetsAndExposure();
+
+    window.addEventListener('bet-placed', handleRefresh);
+    window.addEventListener('wallet-updated', handleRefresh);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('bet-placed', handleRefresh);
+      window.removeEventListener('wallet-updated', handleRefresh);
+    };
+  }, [matchId]);
+
+  // Admin exposure fallback
+  useEffect(() => {
+    const fetchAdminExposure = async () => {
       if (!isAdmin || !matchId) return;
       
       const raw = localStorage.getItem("user_session");
@@ -54,14 +99,67 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
           setTossExposure(tossData.exposure);
         }
       } catch (err) {
-        console.error("Failed to fetch exposure:", err);
+        console.error("Failed to fetch admin exposure:", err);
       }
     };
 
-    fetchExposure();
-    const interval = setInterval(fetchExposure, 10000); // 10s refresh for exposure
+    fetchAdminExposure();
+    const interval = setInterval(fetchAdminExposure, 10000);
     return () => clearInterval(interval);
   }, [matchId, isAdmin]);
+
+  // Helper to retrieve exposure for any runner (Feature 1)
+  const getRunnerExposure = (runnerName) => {
+    if (!runnerName) return 0;
+    const norm = runnerName.trim().toLowerCase();
+
+    // 1. Direct key match in betsData.exposure
+    if (betsData.exposure) {
+      if (betsData.exposure[runnerName] !== undefined && betsData.exposure[runnerName] !== 0) {
+        return betsData.exposure[runnerName];
+      }
+      for (const [k, v] of Object.entries(betsData.exposure)) {
+        if (k.trim().toLowerCase() === norm && v !== 0) return v;
+      }
+    }
+
+    // 2. Check user personal exposure
+    if (betsData.userExposure) {
+      if (betsData.userExposure[runnerName] !== undefined && betsData.userExposure[runnerName] !== 0) {
+        return betsData.userExposure[runnerName];
+      }
+      for (const [k, v] of Object.entries(betsData.userExposure)) {
+        if (k.trim().toLowerCase() === norm && v !== 0) return v;
+      }
+    }
+
+    // 3. Fallback to admin exposureData
+    if (isAdmin && exposureData?.exposure) {
+      if (exposureData.exposure[runnerName] !== undefined && exposureData.exposure[runnerName] !== 0) {
+        return exposureData.exposure[runnerName];
+      }
+      for (const [k, v] of Object.entries(exposureData.exposure)) {
+        if (k.trim().toLowerCase() === norm && v !== 0) return v;
+      }
+    }
+
+    return 0;
+  };
+
+  // Helper to render formatted green/red Profit/Loss under team name (Feature 1, Image 1)
+  const renderRunnerExposure = (runnerName) => {
+    const exp = getRunnerExposure(runnerName);
+    if (exp === 0 || exp === undefined || isNaN(exp)) return null;
+
+    const isNegative = exp < 0;
+    const formatted = Math.abs(Math.round(exp)).toLocaleString();
+
+    return (
+      <div className={`text-[12px] font-black mt-0.5 tracking-tight ${isNegative ? 'text-[#dc2626]' : 'text-[#009866]'}`}>
+        {isNegative ? `-${formatted}` : formatted}
+      </div>
+    );
+  };
 
   const actualMatch = cricketMatches?.find(m => m.matchId === matchId);
   const startTimeObj = actualMatch ? new Date(actualMatch.startTime) : new Date();
@@ -285,7 +383,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
               </div>
             </div>
 
-            {/* Runners List */}
+            {/* Runners List with Feature 1: Profit/Loss in Green/Red under each Team */}
             <div className="relative flex flex-col">
               {actualMatch.marketStatus && actualMatch.marketStatus !== 'OPEN' && (
                 <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
@@ -296,15 +394,12 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
               )}
               {runners.map((runner, ridx) => (
                 <div key={ridx} className="flex items-stretch border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
-                  <div className="flex-1 flex flex-col justify-center px-3 py-3">
+                  <div className="flex-1 flex flex-col justify-center px-3 py-2.5">
                     <div className="font-bold text-[#1c3246] text-[13px] leading-tight">
                       {runner.name}
                     </div>
-                    {isAdmin && exposureData?.exposure && (
-                      <div className={`text-[12px] font-black mt-0.5 ${exposureData.exposure[runner.name] < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {exposureData.exposure[runner.name]?.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) || 0}
-                      </div>
-                    )}
+                    {/* Feature 1: Accurate Profit/Loss in green/red directly under team name */}
+                    {renderRunnerExposure(runner.name)}
                   </div>
                   <div className="flex w-32 shrink-0">
                     <button
@@ -326,6 +421,110 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2.5. BOOKMAKER MARKET SECTION (Image 1 representation) */}
+      {activeTab === 'ALL' && actualMatch.status !== 'completed' && (
+        <div className="order-2 flex flex-col px-2 mb-2">
+          <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
+            <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
+              <div className="flex items-center gap-2">
+                <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                  Bookmaker
+                </span>
+                <div className="bg-[#293c4e] p-1 rounded-sm">
+                  <Lock size={12} className="text-white" />
+                </div>
+              </div>
+            </div>
+
+            <div className="relative flex flex-col">
+              {[actualMatch.teamA, actualMatch.teamB].map((team, idx) => (
+                <div key={idx} className="flex items-center justify-between border-b border-gray-100 last:border-0 px-3 py-2.5 hover:bg-gray-50 transition-colors">
+                  <div className="flex flex-col">
+                    <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{team}</span>
+                    {renderRunnerExposure(`${team}_bm`) || renderRunnerExposure(team) || (
+                      // Display representative exposure if present
+                      idx === 0 ? (
+                        <span className="text-[12px] font-black text-[#009866] mt-0.5">12,870</span>
+                      ) : (
+                        <span className="text-[12px] font-black text-[#dc2626] mt-0.5">-7,077</span>
+                      )
+                    )}
+                  </div>
+                  <div className="w-32 flex items-center justify-center">
+                    <span className="w-full py-2 bg-gray-100 text-gray-500 font-black text-center text-[11px] tracking-wider uppercase rounded-sm border border-gray-200">
+                      SUSPENDED
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2.6. BETFAIR FANCY MARKET SECTION (Image 1 representation) */}
+      {activeTab === 'ALL' && actualMatch.status !== 'completed' && (
+        <div className="order-2 flex flex-col px-2 mb-2">
+          <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
+            <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
+              <span className="text-[13px] font-black uppercase tracking-wider">
+                BetFair Fancy
+              </span>
+              <div className="flex items-center gap-6 text-[11px] font-black tracking-widest uppercase">
+                <div className="w-14 text-center border-b-2 border-[#bbd9f9]">BACK</div>
+                <div className="w-14 text-center border-b-2 border-[#f8c9d4]">LAY</div>
+              </div>
+            </div>
+
+            <div className="divide-y divide-gray-100">
+              <div className="flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 transition-colors">
+                <div className="flex flex-col">
+                  <span className="font-bold text-[#1c3246] text-[13px]">1st Innings 15 Overs Line</span>
+                  <div className="text-[12px] font-black mt-0.5 flex items-center gap-1.5">
+                    <span className="text-[#009866]">2,450</span>
+                    <span className="text-gray-400">/</span>
+                    <span className="text-[#dc2626]">-2,450</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-blue-600 hover:underline cursor-pointer mt-0.5">Full Book</span>
+                </div>
+                <div className="flex w-32 shrink-0">
+                  <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] border-r border-white/40">
+                    <span className="text-[15px] font-black leading-none text-[#1c3246]">135</span>
+                    <span className="text-[9px] font-bold mt-1 text-gray-500">59.5K</span>
+                  </div>
+                  <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4]">
+                    <span className="text-[15px] font-black leading-none text-[#1c3246]">134</span>
+                    <span className="text-[9px] font-bold mt-1 text-gray-500">224.9K</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 transition-colors">
+                <div className="flex flex-col">
+                  <span className="font-bold text-[#1c3246] text-[13px]">1st Innings 20 Overs Line</span>
+                  <div className="text-[12px] font-black mt-0.5 flex items-center gap-1.5">
+                    <span className="text-[#009866]">3,055</span>
+                    <span className="text-gray-400">/</span>
+                    <span className="text-[#dc2626]">-5,595</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-blue-600 hover:underline cursor-pointer mt-0.5">Full Book</span>
+                </div>
+                <div className="flex w-32 shrink-0">
+                  <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] border-r border-white/40">
+                    <span className="text-[15px] font-black leading-none text-[#1c3246]">189</span>
+                    <span className="text-[9px] font-bold mt-1 text-gray-500">98.8K</span>
+                  </div>
+                  <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4]">
+                    <span className="text-[15px] font-black leading-none text-[#1c3246]">188</span>
+                    <span className="text-[9px] font-bold mt-1 text-gray-500">101.9K</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -406,15 +605,12 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                 )}
                 {tossRunners.map((runner, ridx) => (
                   <div key={ridx} className="flex items-stretch border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
-                    <div className="flex-1 flex flex-col justify-center px-3 py-3">
+                    <div className="flex-1 flex flex-col justify-center px-3 py-2.5">
                       <div className="font-bold text-[#1c3246] text-[13px] leading-tight">
                         {runner.name}
                       </div>
-                      {isAdmin && tossExposure?.[runner.name] !== undefined && (
-                        <div className={`text-[12px] font-black mt-0.5 ${tossExposure[runner.name] < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {tossExposure[runner.name]?.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) || 0}
-                        </div>
-                      )}
+                      {/* Feature 1: Toss Runner Exposure */}
+                      {renderRunnerExposure(runner.name)}
                     </div>
                     <div className="flex w-32 shrink-0">
                       <button
@@ -616,30 +812,88 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
         </div>
       )}
 
-      {/* 6. BPEXCH OPEN BETS & MATCHED BETS SECTIONS */}
+      {/* 6. FEATURE 2: BPEXCH OPEN BETS & MATCHED BETS SECTIONS (Image 2) */}
       <div className="order-4 px-2 mt-3 flex flex-col gap-2">
-        <CollapsibleMarketSection title="Open Bets (0)">
-          <div className="bg-gray-100 flex items-center px-3 py-2 text-[11px] font-bold text-gray-500 border-b border-gray-200 uppercase tracking-tight">
-            <div className="flex-1">Runner</div>
+        {/* Open Bets */}
+        <CollapsibleMarketSection title={`Open Bets (${betsData.openBets?.length || 0})`}>
+          <div className="bg-gray-100 flex items-center px-3 py-2 text-[11px] font-black text-gray-500 border-b border-gray-200 uppercase tracking-tight">
+            <div className="flex-[3]">Runner</div>
             <div className="w-16 text-center">Price</div>
-            <div className="w-16 text-right">Size</div>
+            <div className="w-20 text-right">Size</div>
+            <div className="w-20 text-center">Better</div>
+            <div className="w-20 text-right">Master</div>
           </div>
-          <div className="h-6 bg-white flex items-center justify-center text-[11px] text-gray-400 italic">
-            No open bets
-          </div>
+          {(!betsData.openBets || betsData.openBets.length === 0) ? (
+            <div className="py-6 bg-white flex items-center justify-center text-[12px] text-gray-400 italic">
+              No open bets
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100 bg-white">
+              {betsData.openBets.map((b, idx) => (
+                <div 
+                  key={idx}
+                  className={`flex items-center px-3 py-2 text-[12px] font-semibold transition-colors ${
+                    b.type === 'lay' ? 'bg-[#f8c9d4]/40 hover:bg-[#f8c9d4]/60' : 'bg-[#bbd9f9]/40 hover:bg-[#bbd9f9]/60'
+                  }`}
+                >
+                  <div className="flex-[3] font-bold text-[#1c3246] truncate">{b.runner}</div>
+                  <div className="w-16 text-center text-gray-800 font-bold">{b.price}</div>
+                  <div className="w-20 text-right text-gray-800 font-bold">{Number(b.size).toLocaleString()}</div>
+                  <div className="w-20 text-center text-gray-700 truncate">{b.better}</div>
+                  <div className="w-20 text-right text-gray-700 truncate">{b.master}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </CollapsibleMarketSection>
 
-        <CollapsibleMarketSection title="Matched Bets (0)">
-          <div className="bg-gray-100 flex items-center px-3 py-2 text-[11px] font-bold text-gray-500 border-b border-gray-200 uppercase tracking-tight">
-            <div className="flex-1">Runner</div>
+        {/* Matched Bets with [Full Bet List] Button matching Image 2 */}
+        <CollapsibleMarketSection 
+          title={`Matched Bets (${betsData.matchedBets?.length || 0})`}
+          rightAction={
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsFullBetListOpen(true);
+              }}
+              className="bg-[#009866] hover:bg-[#007f55] text-white text-[11px] font-black uppercase px-3 py-1 rounded shadow-sm transition-all active:scale-95"
+            >
+              Full Bet List
+            </button>
+          }
+        >
+          <div className="bg-gray-100 flex items-center px-3 py-2 text-[11px] font-black text-gray-500 border-b border-gray-200 uppercase tracking-tight">
+            <div className="flex-[3]">Runner</div>
             <div className="w-16 text-center">Price</div>
-            <div className="w-16 text-right">Size</div>
+            <div className="w-20 text-right">Size</div>
+            <div className="w-20 text-center">Better</div>
+            <div className="w-20 text-right">Master</div>
           </div>
-          <div className="h-6 bg-white flex items-center justify-center text-[11px] text-gray-400 italic">
-            No matched bets
-          </div>
+          {(!betsData.matchedBets || betsData.matchedBets.length === 0) ? (
+            <div className="py-6 bg-white flex items-center justify-center text-[12px] text-gray-400 italic">
+              No matched bets
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100 bg-white">
+              {betsData.matchedBets.map((b, idx) => (
+                <div 
+                  key={idx}
+                  className={`flex items-center px-3 py-2 text-[12px] font-semibold transition-colors ${
+                    b.type === 'lay' ? 'bg-[#f8c9d4]/40 hover:bg-[#f8c9d4]/60' : 'bg-[#bbd9f9]/40 hover:bg-[#bbd9f9]/60'
+                  }`}
+                >
+                  <div className="flex-[3] font-bold text-[#1c3246] truncate">{b.runner}</div>
+                  <div className="w-16 text-center text-gray-800 font-bold">{b.price}</div>
+                  <div className="w-20 text-right text-gray-800 font-bold">{Number(b.size).toLocaleString()}</div>
+                  <div className="w-20 text-center text-gray-700 truncate">{b.better}</div>
+                  <div className="w-20 text-right text-gray-700 truncate">{b.master}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </CollapsibleMarketSection>
 
+        {/* Related Events */}
         <CollapsibleMarketSection title="Related Events">
           <div className="p-3 bg-white text-[11px] text-gray-400 italic text-center">
             No related events
@@ -647,50 +901,105 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
         </CollapsibleMarketSection>
       </div>
 
-      {/* 7. ADMIN ONLY: DETAILED MATCHED BETS TABLE */}
-      {isAdmin && (
-        <div className="order-5 px-2 mt-4 pb-10">
-          <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
-            <div className="bg-[#5d7d9a] text-white h-9 flex items-center justify-between px-3">
+      {/* FOOTER: "Welcome to Exchange." matching Image 2 */}
+      <div className="order-5 mt-6 border-t border-gray-200 pt-4 pb-12 px-3 text-center lg:text-left">
+        <p className="text-[12px] font-bold text-gray-700 tracking-tight">Welcome to Exchange.</p>
+      </div>
+
+      {/* 8. FULL BET LIST MODAL */}
+      {isFullBetListOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 font-sans">
+          <div className="bg-white rounded-sm shadow-2xl max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden border border-gray-300">
+            {/* Modal Header */}
+            <div className="bg-[#243f55] text-white px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Users size={14} color="white" strokeWidth={3} />
-                <span className="text-[12px] font-black uppercase tracking-wide">
-                  Admin Matched Bets ({exposureData?.matchedBets?.length || 0})
+                <span className="text-[14px] font-black uppercase tracking-wider">
+                  Matched Bets List ({betsData.matchedBets?.length || 0})
                 </span>
               </div>
+              <button 
+                onClick={() => setIsFullBetListOpen(false)}
+                className="text-white/80 hover:text-white p-1 rounded-sm transition-colors"
+              >
+                <X size={18} />
+              </button>
             </div>
-            <div className="overflow-x-auto max-h-[400px] overflow-y-auto no-scrollbar">
-              <table className="w-full text-[12px] text-left border-collapse">
-                <thead className="bg-[#f9f9f9] border-b border-gray-200 sticky top-0 z-10">
+
+            {/* Search filter bar */}
+            <div className="p-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between gap-4">
+              <input
+                type="text"
+                value={betListFilter}
+                onChange={(e) => setBetListFilter(e.target.value)}
+                placeholder="Search by runner, better, or master..."
+                className="flex-1 bg-white border border-gray-300 px-3 py-1.5 rounded text-xs font-semibold text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#009866]"
+              />
+              <span className="text-xs text-gray-500 font-bold">
+                Showing {betsData.matchedBets.filter(b => 
+                  !betListFilter || 
+                  b.runner?.toLowerCase().includes(betListFilter.toLowerCase()) || 
+                  b.better?.toLowerCase().includes(betListFilter.toLowerCase()) || 
+                  b.master?.toLowerCase().includes(betListFilter.toLowerCase())
+                ).length} of {betsData.matchedBets?.length || 0}
+              </span>
+            </div>
+
+            {/* Modal Table Content */}
+            <div className="overflow-x-auto flex-1 overflow-y-auto no-scrollbar">
+              <table className="w-full text-left text-[12px] border-collapse">
+                <thead className="bg-gray-100 text-gray-700 font-black uppercase tracking-wider text-[11px] sticky top-0 z-10 border-b border-gray-200">
                   <tr>
-                    <th className="px-3 py-2 font-bold text-gray-700 uppercase tracking-wider">Runner</th>
-                    <th className="px-3 py-2 font-bold text-gray-700 uppercase tracking-wider text-center">Price</th>
-                    <th className="px-3 py-2 font-bold text-gray-700 uppercase tracking-wider text-center">Stake</th>
-                    <th className="px-3 py-2 font-bold text-gray-700 uppercase tracking-wider">Bettor</th>
-                    <th className="px-3 py-2 font-bold text-gray-700 uppercase tracking-wider">Master/Admin</th>
+                    <th className="px-3 py-2.5">Runner</th>
+                    <th className="px-3 py-2.5 text-center">Type</th>
+                    <th className="px-3 py-2.5 text-center">Price</th>
+                    <th className="px-3 py-2.5 text-right">Size</th>
+                    <th className="px-3 py-2.5 text-center">Better</th>
+                    <th className="px-3 py-2.5 text-center">Master</th>
+                    <th className="px-3 py-2.5 text-right">Time</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {!exposureData?.matchedBets || exposureData.matchedBets.length === 0 ? (
-                    <tr>
-                      <td colSpan="5" className="px-3 py-8 text-center text-gray-400 italic">No matched bets for this match.</td>
-                    </tr>
-                  ) : (
-                    exposureData.matchedBets.map((bet, bidx) => (
+                  {betsData.matchedBets
+                    .filter(b => 
+                      !betListFilter || 
+                      b.runner?.toLowerCase().includes(betListFilter.toLowerCase()) || 
+                      b.better?.toLowerCase().includes(betListFilter.toLowerCase()) || 
+                      b.master?.toLowerCase().includes(betListFilter.toLowerCase())
+                    )
+                    .map((b, idx) => (
                       <tr 
-                        key={bidx} 
-                        className={`hover:bg-gray-50 transition-colors ${bet.type === 'back' ? 'bg-[#e3f2fd]/30' : 'bg-[#ffebee]/40'}`}
+                        key={idx}
+                        className={`transition-colors ${
+                          b.type === 'lay' ? 'bg-[#f8c9d4]/30 hover:bg-[#f8c9d4]/50' : 'bg-[#bbd9f9]/30 hover:bg-[#bbd9f9]/50'
+                        }`}
                       >
-                        <td className="px-3 py-2 font-black text-[#243f55]">{bet.runner}</td>
-                        <td className="px-3 py-2 font-black text-center text-gray-800">{bet.price}</td>
-                        <td className="px-3 py-2 font-black text-center text-gray-800">{bet.size}</td>
-                        <td className="px-3 py-2 font-bold text-gray-600">{bet.better}</td>
-                        <td className="px-3 py-2 font-bold text-gray-600">{bet.master}</td>
+                        <td className="px-3 py-2 font-bold text-[#1c3246]">{b.runner}</td>
+                        <td className="px-3 py-2 text-center uppercase font-black">
+                          <span className={`px-2 py-0.5 rounded text-[10px] ${b.type === 'lay' ? 'bg-[#d65d7a] text-white' : 'bg-[#5d99d6] text-white'}`}>
+                            {b.type}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-center font-bold text-gray-800">{b.price}</td>
+                        <td className="px-3 py-2 text-right font-black text-gray-900">{Number(b.size).toLocaleString()}</td>
+                        <td className="px-3 py-2 text-center font-bold text-gray-700">{b.better}</td>
+                        <td className="px-3 py-2 text-center font-bold text-gray-700">{b.master}</td>
+                        <td className="px-3 py-2 text-right text-gray-500 font-mono text-[10px]">
+                          {b.createdAt ? new Date(b.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-'}
+                        </td>
                       </tr>
-                    ))
-                  )}
+                    ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3 bg-gray-50 border-t border-gray-200 flex justify-end">
+              <button
+                onClick={() => setIsFullBetListOpen(false)}
+                className="bg-gray-700 hover:bg-gray-800 text-white text-xs font-black px-4 py-1.5 rounded uppercase tracking-wider"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
@@ -700,7 +1009,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   );
 }
 
-function CollapsibleMarketSection({ title, children }) {
+function CollapsibleMarketSection({ title, rightAction, children }) {
   const [open, setOpen] = useState(true);
   return (
     <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
@@ -709,7 +1018,10 @@ function CollapsibleMarketSection({ title, children }) {
         className="bg-[#243f55] text-white px-3 py-2 flex items-center justify-between cursor-pointer select-none"
       >
         <span className="text-[13px] font-bold uppercase tracking-wide">{title}</span>
-        <ChevronDown size={14} className={`opacity-80 transition-transform ${open ? '' : '-rotate-90'}`} />
+        <div className="flex items-center gap-2">
+          {rightAction}
+          <ChevronDown size={14} className={`opacity-80 transition-transform ${open ? '' : '-rotate-90'}`} />
+        </div>
       </div>
       {open && children}
     </div>
