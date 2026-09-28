@@ -728,23 +728,36 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
 
               {/* Score Line */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                 <div className="flex items-baseline gap-3">
+                 <div className="flex items-baseline gap-3 flex-wrap">
                     <div className="flex flex-col">
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{actualMatch.teamA}</span>
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 truncate max-w-[120px]">{actualMatch.teamA}</span>
                         <div className="flex items-baseline gap-2">
-                            <span className="text-4xl font-black text-[#1c3246] tracking-tighter">
+                            <span className="text-3xl md:text-4xl font-black text-[#1c3246] tracking-tighter">
                             {actualMatch.score?.teamA_runs?.split('/')[0] || 0}
-                            <span className="text-2xl text-gray-300 mx-0.5">/</span>
+                            <span className="text-xl md:text-2xl text-gray-300 mx-0.5">/</span>
                             {actualMatch.score?.teamA_runs?.split('/')[1] || 0}
                             </span>
                         </div>
                     </div>
+
+                    <div className="h-10 w-[1px] bg-gray-200 mx-1 self-center"></div>
+
+                    <div className="flex flex-col">
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 truncate max-w-[120px]">{actualMatch.teamB}</span>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-3xl md:text-4xl font-black text-[#1c3246] tracking-tighter">
+                            {actualMatch.score?.teamB_runs?.split('/')[0] || 0}
+                            <span className="text-xl md:text-2xl text-gray-300 mx-0.5">/</span>
+                            {actualMatch.score?.teamB_runs?.split('/')[1] || 0}
+                            </span>
+                        </div>
+                    </div>
                     
-                    <div className="h-10 w-[1px] bg-gray-200 mx-2 self-center"></div>
+                    <div className="h-10 w-[1px] bg-gray-200 mx-1 self-center"></div>
 
                     <div className="flex flex-col">
                         <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Overs</span>
-                        <span className="text-2xl font-black text-[#243f55]">
+                        <span className="text-2xl md:text-3xl font-black text-[#243f55]">
                            {actualMatch.score?.overs || "0.0"}
                         </span>
                     </div>
@@ -776,7 +789,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                          actualMatch.score.thisOver.map((ball, bidx) => (
                            <span key={bidx} className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-black ${
                              ball === 'W' ? 'bg-red-500 text-white' : 
-                             ['4', '6'].includes(ball) ? 'bg-green-500 text-white' : 'text-gray-700'
+                             ['4', '6'].includes(ball) ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-800'
                            }`}>
                              {ball}
                            </span>
@@ -788,10 +801,12 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                  </div>
 
                  <div className="text-[13px] font-black text-green-700">
-                    {actualMatch.score?.remRuns > 0 ? (
-                      `${actualMatch.score.remRuns} of ${actualMatch.score.remBalls} balls`
+                    {actualMatch.score?.remRuns > 0 && actualMatch.score?.remBalls > 0 ? (
+                      `Need ${actualMatch.score.remRuns} runs in ${actualMatch.score.remBalls} balls`
+                    ) : actualMatch.score?.target > 0 ? (
+                      "Target achieved"
                     ) : (
-                      "Match in progress"
+                      "1st Innings in progress"
                     )}
                  </div>
               </div>
