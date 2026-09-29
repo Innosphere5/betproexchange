@@ -161,6 +161,62 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
     );
   };
 
+  // Helper to render formatted Fancy market Profit/Loss exposure
+  const renderFancyExposure = (marketName) => {
+    if (!marketName) return null;
+    const norm = marketName.trim().toLowerCase();
+
+    // Check if there's dual yes/no exposure (live match)
+    const getExposureVal = (subKey) => {
+      const target = `${norm}_${subKey}`;
+      const sources = [betsData?.exposure, betsData?.userExposure, exposureData?.exposure];
+      for (const src of sources) {
+        if (!src) continue;
+        for (const [k, v] of Object.entries(src)) {
+          if (k.trim().toLowerCase() === target && v !== 0 && !isNaN(v)) return v;
+        }
+      }
+      return undefined;
+    };
+
+    const yesVal = getExposureVal('yes');
+    const noVal = getExposureVal('no');
+
+    if (yesVal !== undefined && noVal !== undefined && (yesVal !== 0 || noVal !== 0)) {
+      return (
+        <div className="flex flex-col">
+          <div className="text-[12px] font-black mt-0.5 flex items-center gap-1.5">
+            <span className={yesVal >= 0 ? "text-[#009866]" : "text-[#dc2626]"}>
+              {yesVal >= 0 ? Math.round(yesVal).toLocaleString() : `-${Math.abs(Math.round(yesVal)).toLocaleString()}`}
+            </span>
+            <span className="text-gray-400">/</span>
+            <span className={noVal >= 0 ? "text-[#009866]" : "text-[#dc2626]"}>
+              {noVal >= 0 ? Math.round(noVal).toLocaleString() : `-${Math.abs(Math.round(noVal)).toLocaleString()}`}
+            </span>
+          </div>
+          <span className="text-[10px] font-bold text-blue-600 hover:underline cursor-pointer mt-0.5">Full Book</span>
+        </div>
+      );
+    }
+
+    // Check single exposure (e.g. non-live advance stake exposure)
+    const singleExp = getRunnerExposure(marketName);
+    if (singleExp !== 0 && singleExp !== null && singleExp !== undefined) {
+      const isNeg = singleExp < 0;
+      return (
+        <div className="flex flex-col">
+          <div className={`text-[12px] font-black mt-0.5 ${isNeg ? "text-[#dc2626]" : "text-[#009866]"}`}>
+            {isNeg ? `-${Math.abs(Math.round(singleExp)).toLocaleString()}` : Math.round(singleExp).toLocaleString()}
+          </div>
+          <span className="text-[10px] font-bold text-blue-600 hover:underline cursor-pointer mt-0.5">Full Book</span>
+        </div>
+      );
+    }
+
+    // No real bet placed on this fancy market -> Render nothing (never show dummy amounts)
+    return null;
+  };
+
   const actualMatch = cricketMatches?.find(m => m.matchId === matchId);
   const startTimeObj = actualMatch ? new Date(actualMatch.startTime) : new Date();
   const formattedDate = actualMatch ? startTimeObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : "";
@@ -302,6 +358,33 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
     }
   ];
 
+  // Calculate dynamic Bookmaker odds (exact BPExch presentation)
+  const bmBackOddsA = actualMatch.bookmakerBackA || (showOdds ? actualMatch.backOddsA : null);
+  const bmLayOddsA = actualMatch.bookmakerLayA || (showOdds && actualMatch.layOddsA ? Number((actualMatch.layOddsA > (actualMatch.backOddsA || 0) ? actualMatch.layOddsA + 0.01 : (actualMatch.backOddsA || 0) + 0.02).toFixed(2)) : null);
+  const bmBackOddsB = actualMatch.bookmakerBackB || (showOdds && actualMatch.backOddsB ? Number((actualMatch.backOddsB >= 2 ? actualMatch.backOddsB - 0.02 : actualMatch.backOddsB).toFixed(2)) : null);
+  const bmLayOddsB = actualMatch.bookmakerLayB || (showOdds && actualMatch.layOddsB ? Number((actualMatch.layOddsB >= 2 ? actualMatch.layOddsB + 0.02 : actualMatch.layOddsB + 0.02).toFixed(2)) : null);
+
+  const isBookmakerSuspended = actualMatch.bookmakerMarketStatus === 'SUSPENDED' || (actualMatch.marketStatus && actualMatch.marketStatus !== 'OPEN') || (!bmBackOddsA && !bmBackOddsB);
+
+  const bookmakerRunners = [
+    {
+      name: actualMatch.teamA,
+      back: bmBackOddsA || "-",
+      backVol: actualMatch.bookmakerDepthBackA || "100",
+      lay: bmLayOddsA || "-",
+      layVol: actualMatch.bookmakerDepthLayA || "100",
+      flash: { back: flash.backA, lay: flash.layA }
+    },
+    {
+      name: actualMatch.teamB,
+      back: bmBackOddsB || "-",
+      backVol: actualMatch.bookmakerDepthBackB || "100",
+      lay: bmLayOddsB || "-",
+      layVol: actualMatch.bookmakerDepthLayB || "100",
+      flash: { back: flash.backB, lay: flash.layB }
+    }
+  ];
+
   return (
     <div className="flex flex-col bg-[#eaedf1] h-full pb-6 lg:pb-0 font-sans">
 
@@ -337,7 +420,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
           </div>
         </div>
 
-        {/* BPEXCH ALL / TOSS TABS */}
+        {/* BPEXCH ALL / TOSS / BOOKMAKER / FANCY TABS */}
         <div className="flex items-center gap-2 px-4 py-2.5 bg-[#1b3447] border-t border-white/5">
           <button
             onClick={() => setActiveTab('ALL')}
@@ -359,6 +442,28 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
           >
             Toss
           </button>
+          <button
+            onClick={() => setActiveTab('Bookmaker')}
+            className={`px-6 py-1 rounded-full text-[12px] font-black uppercase tracking-wider transition-all ${
+              activeTab === 'Bookmaker'
+                ? 'bg-[#009866] text-white shadow-sm'
+                : 'bg-[#243f55] text-gray-300 hover:text-white'
+            }`}
+          >
+            Bookmaker
+          </button>
+          {actualMatch.fancyMarkets && actualMatch.fancyMarkets.length > 0 && (
+            <button
+              onClick={() => setActiveTab('Fancy')}
+              className={`px-6 py-1 rounded-full text-[12px] font-black uppercase tracking-wider transition-all ${
+                activeTab === 'Fancy'
+                  ? 'bg-[#009866] text-white shadow-sm'
+                  : 'bg-[#243f55] text-gray-300 hover:text-white'
+              }`}
+            >
+              Fancy
+            </button>
+          )}
         </div>
       </div>
 
@@ -426,39 +531,59 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
         </div>
       )}
 
-      {/* 2.5. BOOKMAKER MARKET SECTION (Image 1 representation) */}
-      {activeTab === 'ALL' && actualMatch.status !== 'completed' && (
+      {/* 2.5. BOOKMAKER MARKET SECTION (Image 1 BPExch representation) */}
+      {(activeTab === 'ALL' || activeTab === 'Bookmaker') && actualMatch.status !== 'completed' && (
         <div className="order-2 flex flex-col px-2 mb-2">
           <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
+            {/* Header */}
             <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
-              <div className="flex items-center gap-2">
-                <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                  Bookmaker
-                </span>
-                <div className="bg-[#293c4e] p-1 rounded-sm">
-                  <Lock size={12} className="text-white" />
+              <div className="flex items-center gap-2.5">
+                <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                 </div>
+                <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                  BOOKMAKER <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: 1M)</span>
+                  <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
+                </span>
+              </div>
+              <div className="flex items-center gap-6 text-[11px] font-black tracking-widest uppercase">
+                <div className="w-14 text-center border-b-2 border-[#bbd9f9]">BACK</div>
+                <div className="w-14 text-center border-b-2 border-[#f8c9d4]">LAY</div>
               </div>
             </div>
 
+            {/* Runners List */}
             <div className="relative flex flex-col">
-              {[actualMatch.teamA, actualMatch.teamB].map((team, idx) => (
-                <div key={idx} className="flex items-center justify-between border-b border-gray-100 last:border-0 px-3 py-2.5 hover:bg-gray-50 transition-colors">
-                  <div className="flex flex-col">
-                    <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{team}</span>
-                    {renderRunnerExposure(`${team}_bm`) || renderRunnerExposure(team) || (
-                      // Display representative exposure if present
-                      idx === 0 ? (
-                        <span className="text-[12px] font-black text-[#009866] mt-0.5">12,870</span>
-                      ) : (
-                        <span className="text-[12px] font-black text-[#dc2626] mt-0.5">-7,077</span>
-                      )
-                    )}
+              {isBookmakerSuspended && (
+                <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                  <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
+                    MARKET SUSPENDED
                   </div>
-                  <div className="w-32 flex items-center justify-center">
-                    <span className="w-full py-2 bg-gray-100 text-gray-500 font-black text-center text-[11px] tracking-wider uppercase rounded-sm border border-gray-200">
-                      SUSPENDED
-                    </span>
+                </div>
+              )}
+              {bookmakerRunners.map((runner, bidx) => (
+                <div key={bidx} className="flex items-stretch border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                  <div className="flex-1 flex flex-col justify-center px-3 py-2.5">
+                    <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{runner.name}</span>
+                    {renderRunnerExposure(`${runner.name}_bm`) || renderRunnerExposure(runner.name)}
+                  </div>
+                  <div className="flex w-32 shrink-0">
+                    <button
+                      disabled={isBookmakerSuspended || runner.back === '-'}
+                      onClick={() => onSelectOutcome(runner.name, runner.back, 'back', actualMatch.status === 'live', 'bookmaker')}
+                      className={`flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all border-r border-white/40 disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden ${runner.flash?.back ? 'bg-[#5d99d6]' : 'bg-[#bbd9f9] hover:bg-[#a5d3f8]'}`}
+                    >
+                      <span className={`text-[15px] font-black leading-none z-10 transition-colors ${runner.flash?.back ? 'text-white' : 'text-[#1c3246]'}`}>{runner.back}</span>
+                      <span className={`text-[9px] font-bold mt-1 z-10 transition-colors ${runner.flash?.back ? 'text-white/80' : 'text-gray-500'}`}>{runner.backVol}</span>
+                    </button>
+                    <button
+                      disabled={isBookmakerSuspended || runner.lay === '-'}
+                      onClick={() => onSelectOutcome(runner.name, runner.lay, 'lay', actualMatch.status === 'live', 'bookmaker')}
+                      className={`flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden ${runner.flash?.lay ? 'bg-[#d65d7a]' : 'bg-[#f8c9d4] hover:bg-[#f9b6c6]'}`}
+                    >
+                      <span className={`text-[15px] font-black leading-none z-10 transition-colors ${runner.flash?.lay ? 'text-white' : 'text-[#1c3246]'}`}>{runner.lay}</span>
+                      <span className={`text-[9px] font-bold mt-1 z-10 transition-colors ${runner.flash?.lay ? 'text-white/80' : 'text-gray-500'}`}>{runner.layVol}</span>
+                    </button>
                   </div>
                 </div>
               ))}
@@ -467,14 +592,19 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
         </div>
       )}
 
-      {/* 2.6. BETFAIR FANCY MARKET SECTION (Image 1 representation) */}
-      {activeTab === 'ALL' && actualMatch.status !== 'completed' && (
+      {/* 2.6. BETFAIR FANCY MARKET SECTION - Only displayed when fancy market data is actually available from API/backend */}
+      {(activeTab === 'ALL' || activeTab === 'Fancy') && actualMatch.status !== 'completed' && actualMatch.fancyMarkets && actualMatch.fancyMarkets.length > 0 && (
         <div className="order-2 flex flex-col px-2 mb-2">
           <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
             <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
-              <span className="text-[13px] font-black uppercase tracking-wider">
-                BetFair Fancy
-              </span>
+              <div className="flex items-center gap-2.5">
+                <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                </div>
+                <span className="text-[13px] font-black uppercase tracking-wider">
+                  BetFair Fancy
+                </span>
+              </div>
               <div className="flex items-center gap-6 text-[11px] font-black tracking-widest uppercase">
                 <div className="w-14 text-center border-b-2 border-[#bbd9f9]">BACK</div>
                 <div className="w-14 text-center border-b-2 border-[#f8c9d4]">LAY</div>
@@ -482,49 +612,32 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
             </div>
 
             <div className="divide-y divide-gray-100">
-              <div className="flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 transition-colors">
-                <div className="flex flex-col">
-                  <span className="font-bold text-[#1c3246] text-[13px]">1st Innings 15 Overs Line</span>
-                  <div className="text-[12px] font-black mt-0.5 flex items-center gap-1.5">
-                    <span className="text-[#009866]">2,450</span>
-                    <span className="text-gray-400">/</span>
-                    <span className="text-[#dc2626]">-2,450</span>
+              {actualMatch.fancyMarkets.map((fancy, fIdx) => (
+                <div key={fIdx} className="flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 transition-colors">
+                  <div className="flex flex-col">
+                    <span className="font-bold text-[#1c3246] text-[13px]">{fancy.name}</span>
+                    {renderFancyExposure(fancy.name)}
                   </div>
-                  <span className="text-[10px] font-bold text-blue-600 hover:underline cursor-pointer mt-0.5">Full Book</span>
-                </div>
-                <div className="flex w-32 shrink-0">
-                  <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] border-r border-white/40">
-                    <span className="text-[15px] font-black leading-none text-[#1c3246]">135</span>
-                    <span className="text-[9px] font-bold mt-1 text-gray-500">59.5K</span>
-                  </div>
-                  <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4]">
-                    <span className="text-[15px] font-black leading-none text-[#1c3246]">134</span>
-                    <span className="text-[9px] font-bold mt-1 text-gray-500">224.9K</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 transition-colors">
-                <div className="flex flex-col">
-                  <span className="font-bold text-[#1c3246] text-[13px]">1st Innings 20 Overs Line</span>
-                  <div className="text-[12px] font-black mt-0.5 flex items-center gap-1.5">
-                    <span className="text-[#009866]">3,055</span>
-                    <span className="text-gray-400">/</span>
-                    <span className="text-[#dc2626]">-5,595</span>
-                  </div>
-                  <span className="text-[10px] font-bold text-blue-600 hover:underline cursor-pointer mt-0.5">Full Book</span>
-                </div>
-                <div className="flex w-32 shrink-0">
-                  <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] border-r border-white/40">
-                    <span className="text-[15px] font-black leading-none text-[#1c3246]">189</span>
-                    <span className="text-[9px] font-bold mt-1 text-gray-500">98.8K</span>
-                  </div>
-                  <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4]">
-                    <span className="text-[15px] font-black leading-none text-[#1c3246]">188</span>
-                    <span className="text-[9px] font-bold mt-1 text-gray-500">101.9K</span>
+                  <div className="flex w-32 shrink-0">
+                    <button
+                      disabled={fancy.status === 'SUSPENDED' || !fancy.backPrice}
+                      onClick={() => onSelectOutcome(fancy.name, fancy.backPrice || 1.95, 'back', actualMatch.status === 'live', 'fancy')}
+                      className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] hover:bg-[#a5d3f8] active:scale-95 transition-all border-r border-white/40 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                    >
+                      <span className="text-[15px] font-black leading-none text-[#1c3246]">{fancy.backPrice ?? '-'}</span>
+                      <span className="text-[9px] font-bold mt-1 text-gray-500">{fancy.backVol || '100'}</span>
+                    </button>
+                    <button
+                      disabled={fancy.status === 'SUSPENDED' || !fancy.layPrice}
+                      onClick={() => onSelectOutcome(fancy.name, fancy.layPrice || 1.95, 'lay', actualMatch.status === 'live', 'fancy')}
+                      className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4] hover:bg-[#f9b6c6] active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                    >
+                      <span className="text-[15px] font-black leading-none text-[#1c3246]">{fancy.layPrice ?? '-'}</span>
+                      <span className="text-[9px] font-bold mt-1 text-gray-500">{fancy.layVol || '100'}</span>
+                    </button>
                   </div>
                 </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>

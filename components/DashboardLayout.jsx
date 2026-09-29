@@ -167,11 +167,19 @@ export default function DashboardLayout({ children }) {
             const incomingId = String(data.matchId ?? data.matchIdNum ?? '');
             if (String(m.matchId) === incomingId) {
                 if (data.marketStatus && !data.runners) {
-                    return { ...m, marketStatus: data.marketStatus };
+                    return { 
+                        ...m, 
+                        marketStatus: data.marketStatus,
+                        bookmakerMarketStatus: data.bookmakerMarketStatus || data.marketStatus 
+                    };
                 }
                 const runners = data.runners || [];
                 const runnerA = runners[0];
                 const runnerB = runners[1];
+                const bmRunners = data.bookmakerRunners || [];
+                const bmRunnerA = bmRunners[0];
+                const bmRunnerB = bmRunners[1];
+
                 return {
                     ...m,
                     marketStatus: 'OPEN',
@@ -183,6 +191,37 @@ export default function DashboardLayout({ children }) {
                     depthLayA: runnerA?.depthLay || m.depthLayA,
                     depthBackB: runnerB?.depthBack || m.depthBackB,
                     depthLayB: runnerB?.depthLay || m.depthLayB,
+                    bookmakerBackA: bmRunnerA?.back ?? m.bookmakerBackA,
+                    bookmakerLayA: bmRunnerA?.lay ?? m.bookmakerLayA,
+                    bookmakerBackB: bmRunnerB?.back ?? m.bookmakerBackB,
+                    bookmakerLayB: bmRunnerB?.lay ?? m.bookmakerLayB,
+                    bookmakerDepthBackA: bmRunnerA?.depthBack ?? m.bookmakerDepthBackA ?? '100',
+                    bookmakerDepthLayA: bmRunnerA?.depthLay ?? m.bookmakerDepthLayA ?? '100',
+                    bookmakerDepthBackB: bmRunnerB?.depthBack ?? m.bookmakerDepthBackB ?? '100',
+                    bookmakerDepthLayB: bmRunnerB?.depthLay ?? m.bookmakerDepthLayB ?? '100',
+                    bookmakerMarketStatus: data.bookmakerMarketStatus || m.bookmakerMarketStatus || 'OPEN',
+                    lastUpdated: data.updatedAt || new Date()
+                };
+            }
+            return m;
+        }));
+    });
+
+    socket.on('bookmaker_odds_update', (data) => {
+        setCricketMatches(prev => prev.map(m => {
+            const incomingId = String(data.matchId ?? '');
+            if (String(m.matchId) === incomingId) {
+                return {
+                    ...m,
+                    bookmakerBackA: data.bookmakerBackA ?? m.bookmakerBackA,
+                    bookmakerLayA: data.bookmakerLayA ?? m.bookmakerLayA,
+                    bookmakerBackB: data.bookmakerBackB ?? m.bookmakerBackB,
+                    bookmakerLayB: data.bookmakerLayB ?? m.bookmakerLayB,
+                    bookmakerDepthBackA: data.bookmakerDepthBackA ?? m.bookmakerDepthBackA ?? '100',
+                    bookmakerDepthLayA: data.bookmakerDepthLayA ?? m.bookmakerDepthLayA ?? '100',
+                    bookmakerDepthBackB: data.bookmakerDepthBackB ?? m.bookmakerDepthBackB ?? '100',
+                    bookmakerDepthLayB: data.bookmakerDepthLayB ?? m.bookmakerDepthLayB ?? '100',
+                    bookmakerMarketStatus: data.bookmakerMarketStatus ?? m.bookmakerMarketStatus ?? 'OPEN',
                     lastUpdated: data.updatedAt || new Date()
                 };
             }
@@ -194,7 +233,7 @@ export default function DashboardLayout({ children }) {
         setCricketMatches(prev => prev.map(m => {
             if (String(m.matchId) === String(data.matchId)) {
                 if (data.marketStatus && !data.teamABack) {
-                    return { ...m, marketStatus: data.marketStatus };
+                    return { ...m, marketStatus: data.marketStatus, bookmakerMarketStatus: data.bookmakerMarketStatus || data.marketStatus };
                 }
                 return {
                     ...m,
@@ -207,6 +246,11 @@ export default function DashboardLayout({ children }) {
                     depthLayA: data.depthLayA ?? m.depthLayA,
                     depthBackB: data.depthBackB ?? m.depthBackB,
                     depthLayB: data.depthLayB ?? m.depthLayB,
+                    bookmakerBackA: data.bookmakerBackA ?? m.bookmakerBackA,
+                    bookmakerLayA: data.bookmakerLayA ?? m.bookmakerLayA,
+                    bookmakerBackB: data.bookmakerBackB ?? m.bookmakerBackB,
+                    bookmakerLayB: data.bookmakerLayB ?? m.bookmakerLayB,
+                    bookmakerMarketStatus: data.bookmakerMarketStatus || m.bookmakerMarketStatus || 'OPEN',
                     lastUpdated: data.updatedAt || new Date()
                 };
             }

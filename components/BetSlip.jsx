@@ -45,6 +45,11 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
       return;
     }
 
+    if (selection?.marketType === 'bookmaker' && parseFloat(stake) > 1000000) {
+      setModalConfig({ title: "Limit Exceeded", details: "Maximum stake for Bookmaker Market is 1M.", isError: true });
+      return;
+    }
+
     try {
       const session = JSON.parse(localStorage.getItem('user_session') || '{}');
       const res = await fetch(`${getApiUrl()}/api/user/bet`, {
