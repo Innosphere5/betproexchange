@@ -5,31 +5,60 @@ import { X } from "lucide-react";
 import { useDashboard } from "./DashboardLayout";
 import BetModal from "./BetModal";
 import { getApiUrl } from "../lib/apiConfig";
+import { SIDE, FANCY, oddsBet, fancyBet, slipProfitText, formatUnits } from "../lib/betCalc";
 
 export default function BetSlip({ selection, onClose, type = "back" }) {
   const { fetchWallet } = useDashboard();
   const [modalConfig, setModalConfig] = useState(null);
   const [odds, setOdds] = useState(selection?.price || 0);
   const [stake, setStake] = useState("");
-  const [profit, setProfit] = useState(0);
+  const [profitText, setProfitText] = useState("- / -");
 
-  const calculateProfit = (val) => {
-    const s = parseFloat(val) || 0;
-    const o = parseFloat(odds) || 0;
-    // Standardizing profit calculation as Stake * (Odds - 1) for both types as requested
-    setProfit(Math.round(s * (o - 1)));
+  const updateCalculations = (stkVal, oddsVal) => {
+    const s = Math.round(parseFloat(stkVal) || 0);
+    const o = parseFloat(oddsVal !== undefined ? oddsVal : odds) || 0;
+    if (s <= 0 || o <= 1) {
+      setProfitText("- / -");
+      return;
+    }
+
+    try {
+      if (selection?.marketType === 'fancy') {
+        const side = type === 'lay' ? FANCY.NO : FANCY.YES;
+        const line = Number.isInteger(Number(selection?.line)) ? parseInt(selection.line) : 50;
+        const rate = Math.round(o * 100) > 100 ? Math.round(o * 100) : 100;
+        const bet = fancyBet({ side, line, rate: Math.min(rate, 200), stake: s });
+        setProfitText(slipProfitText(bet));
+      } else {
+        const side = type === 'lay' ? SIDE.LAY : SIDE.BACK;
+        const bet = oddsBet({
+          side,
+          selection: selection?.runner || 'Selection',
+          stake: s,
+          odds: o
+        });
+        setProfitText(slipProfitText(bet));
+      }
+    } catch (e) {
+      setProfitText("- / -");
+    }
   };
 
   const handleStakeChange = (val) => {
     setStake(val);
-    calculateProfit(val);
+    updateCalculations(val, odds);
+  };
+
+  const handleOddsChange = (val) => {
+    setOdds(val);
+    updateCalculations(stake, val);
   };
 
   const addStake = (val) => {
     const current = parseFloat(stake) || 0;
-    const next = current + val;
-    setStake(next.toString());
-    calculateProfit(next);
+    const next = (current + val).toString();
+    setStake(next);
+    updateCalculations(next, odds);
   };
 
   if (!selection) return null;
@@ -47,6 +76,26 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
 
     if (selection?.marketType === 'bookmaker' && parseFloat(stake) > 1000000) {
       setModalConfig({ title: "Limit Exceeded", details: "Maximum stake for Bookmaker Market is 1M.", isError: true });
+      return;
+    }
+
+    if (selection?.marketType === 'fancy' && parseFloat(stake) > 2000000) {
+      setModalConfig({ title: "Limit Exceeded", details: "Maximum stake for Fancy 2 Market is 2M.", isError: true });
+      return;
+    }
+
+    if (selection?.marketType === 'figure' && parseFloat(stake) > 100000) {
+      setModalConfig({ title: "Limit Exceeded", details: "Maximum stake for Figure Market is 100K.", isError: true });
+      return;
+    }
+
+    if (selection?.marketType === 'even_odd' && parseFloat(stake) > 2000000) {
+      setModalConfig({ title: "Limit Exceeded", details: "Maximum stake for Even/Odd Market is 2M.", isError: true });
+      return;
+    }
+
+    if (selection?.marketType === 'tied_match' && parseFloat(stake) > 500000) {
+      setModalConfig({ title: "Limit Exceeded", details: "Maximum stake for Tied Match Market is 500K.", isError: true });
       return;
     }
 
@@ -88,7 +137,7 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
         window.dispatchEvent(new CustomEvent('bet-placed', { detail: { matchId: selection.matchId } }));
       }
       setStake("");
-      setProfit(0);
+      setProfitText("- / -");
       // Wait for user to dismiss modal before calling onClose()
     } catch (err) {
       setModalConfig({ title: "Connection Error", details: "Error reaching server.", isError: true });
@@ -124,7 +173,7 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
           <div className="flex-1">Bet for</div>
           <div className="w-16 text-center">Odds</div>
           <div className="w-20 text-center">Stake</div>
-          <div className="w-16 text-right">Profit</div>
+          <div className="w-24 text-right">Profit</div>
         </div>
 
         <div className="flex items-center gap-2 mb-4">
@@ -133,7 +182,7 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
             <input
               type="number"
               value={odds}
-              onChange={(e) => setOdds(e.target.value)}
+              onChange={(e) => handleOddsChange(e.target.value)}
               className="w-full h-8 text-center border border-gray-300 rounded-sm text-[13px] font-bold focus:outline-none focus:border-blue-500"
             />
           </div>
@@ -146,8 +195,8 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
               className="w-full h-8 text-center border border-gray-300 rounded-sm text-[13px] font-bold focus:outline-none focus:border-blue-500"
             />
           </div>
-          <div className="w-16 text-right font-black text-[13px] text-[#1c3246]">
-            {type === 'back' ? profit : `0 / -${profit}`}
+          <div className="w-24 text-right font-black text-[12px] sm:text-[13px] text-[#1c3246] whitespace-nowrap">
+            {profitText}
           </div>
         </div>
 
@@ -186,7 +235,7 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
             Close
           </button>
           <button
-            onClick={() => { setStake(""); setProfit(0); }}
+            onClick={() => { setStake(""); setProfitText("- / -"); }}
             className="flex-1 bg-[#ffb80c] hover:bg-[#e6a60b] text-[#1c3246] font-black py-2 rounded-sm text-[13px] shadow-sm uppercase"
           >
             Clear

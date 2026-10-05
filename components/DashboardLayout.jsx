@@ -301,6 +301,46 @@ export default function DashboardLayout({ children }) {
         }));
     });
 
+    // ─── Fancy 2 Market Live Updates ──────────────────────────────────────────
+    socket.on('fancy_market_update', (data) => {
+        setCricketMatches(prev => prev.map(m => {
+            if (String(m.matchId) === String(data.matchId ?? '')) {
+                return { ...m, fancyMarkets: data.fancyMarkets ?? m.fancyMarkets };
+            }
+            return m;
+        }));
+    });
+
+    // ─── Figure Market Live Updates ────────────────────────────────────────────
+    socket.on('figure_market_update', (data) => {
+        setCricketMatches(prev => prev.map(m => {
+            if (String(m.matchId) === String(data.matchId ?? '')) {
+                return { ...m, figureMarkets: data.figureMarkets ?? m.figureMarkets };
+            }
+            return m;
+        }));
+    });
+
+    // ─── Even/Odd Market Live Updates ──────────────────────────────────────────
+    socket.on('even_odd_market_update', (data) => {
+        setCricketMatches(prev => prev.map(m => {
+            if (String(m.matchId) === String(data.matchId ?? '')) {
+                return { ...m, evenOddMarkets: data.evenOddMarkets ?? m.evenOddMarkets };
+            }
+            return m;
+        }));
+    });
+
+    // ─── Tied Match (Others) Market Live Updates ───────────────────────────────
+    socket.on('tied_match_market_update', (data) => {
+        setCricketMatches(prev => prev.map(m => {
+            if (String(m.matchId) === String(data.matchId ?? '')) {
+                return { ...m, tiedMatchMarket: data.tiedMatchMarket ?? m.tiedMatchMarket };
+            }
+            return m;
+        }));
+    });
+
     const fetchMatches = async () => {
       console.log("[Dashboard] 🔍 Fetching from:", `${getApiUrl()}/api/matches`);
       try {
@@ -310,7 +350,7 @@ export default function DashboardLayout({ children }) {
           setCricketMatches(data);
         }
       } catch (err) {
-        console.error("Failed to fetch matches:", err);
+        // Gracefully silent on transient poll failure
       }
     };
 

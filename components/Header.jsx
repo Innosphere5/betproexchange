@@ -2,12 +2,15 @@ import { useState, useEffect } from "react";
 import { X, Menu } from "lucide-react";
 import Link from "next/link";
 import { useDashboard } from "./DashboardLayout";
+import { getApiUrl } from "../lib/apiConfig";
+import { SIDE, FANCY, oddsBet, oddsBook, accountSummary, formatUnits } from "../lib/betCalc";
 
 export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMatch }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [username, setUsername] = useState('User');
   const [userRole, setUserRole] = useState('user');
   const [totalExposure, setTotalExposure] = useState(0);
+  const [totalLiability, setTotalLiability] = useState(0);
   const { walletBalance, creditBalance } = useDashboard();
 
   const fetchExposure = async () => {
@@ -21,8 +24,47 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
       if (res.ok) {
         const bets = await res.json();
         const activeBets = (bets || []).filter(b => b.status === 'pending' || b.status === 'MATCHED');
-        const exp = activeBets.reduce((acc, b) => acc + (b.stake || 0), 0);
-        setTotalExposure(-exp);
+
+        // Group bets by market to calculate authentic exchange book exposure
+        const marketMap = new Map();
+        activeBets.forEach(b => {
+          const mType = b.marketType || 'match_odds';
+          let mKey = `${b.matchId}_${mType}`;
+          if (['fancy', 'figure', 'even_odd'].includes(mType)) {
+            const runnerBase = b.runner ? b.runner.split(' - ')[0] : 'default';
+            mKey = `${b.matchId}_${mType}_${runnerBase}`;
+          }
+          if (!marketMap.has(mKey)) marketMap.set(mKey, []);
+          marketMap.get(mKey).push(b);
+        });
+
+        const exposures = [];
+        marketMap.forEach((mBets) => {
+          try {
+            const outcomes = [...new Set(mBets.map(b => b.runner).filter(Boolean))];
+            if (outcomes.length === 1) outcomes.push('OTHER_OUTCOME');
+
+            const calcBets = mBets.map(b => {
+              const s = (b.type || 'back').toUpperCase();
+              return oddsBet({
+                side: s === 'LAY' ? SIDE.LAY : SIDE.BACK,
+                selection: b.runner,
+                stake: Math.round(Number(b.stake) || 0),
+                odds: Number(b.odds) || 2
+              });
+            });
+
+            const book = oddsBook(calcBets, outcomes);
+            if (book.exposure > 0) exposures.push(book.exposure);
+          } catch (err) {
+            const fallback = mBets.reduce((acc, b) => acc + (Math.round(Number(b.stake)) || 0), 0);
+            if (fallback > 0) exposures.push(fallback);
+          }
+        });
+
+        const total = exposures.reduce((a, b) => a + b, 0);
+        setTotalExposure(total);
+        setTotalLiability(-total);
       }
     } catch (e) {}
   };
@@ -104,8 +146,8 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
             <span className="text-white/20">|</span>
             <div className="flex items-center">
               <span className="text-gray-300 font-bold">Exp:</span>
-              <span className={`ml-1 font-bold ${totalExposure < 0 ? 'text-[#ff6b81]' : 'text-gray-300'}`}>
-                {totalExposure !== 0 ? (totalExposure < 0 ? `-${Math.abs(totalExposure).toLocaleString()}` : totalExposure.toLocaleString()) : "0"}
+              <span className={`ml-1 font-bold ${totalExposure > 0 ? 'text-[#ff6b81]' : 'text-gray-300'}`}>
+                {totalExposure > 0 ? `-${totalExposure.toLocaleString()}` : "0"}
               </span>
             </div>
             <span className="text-white/20">|</span>
@@ -123,7 +165,9 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
             <span className="text-white/20">|</span>
             <div className="flex items-center">
               <span className="text-gray-400">L:</span>
-              <span className="ml-1">0</span>
+              <span className={`ml-1 font-bold ${totalLiability < 0 ? 'text-[#ff6b81]' : 'text-gray-300'}`}>
+                {totalLiability < 0 ? formatUnits(totalLiability) : "0"}
+              </span>
             </div>
           </div>
           <div className="hidden lg:block text-gray-400">|</div>
