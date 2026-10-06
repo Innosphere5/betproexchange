@@ -76,6 +76,31 @@ export default function MatchExposurePage() {
     }
   };
 
+  const handleDeclareMatchWinner = async (winner) => {
+    if (!window.confirm(`Declare "${winner}" as Match Winner? This will settle all match bets and distribute profit/loss across the hierarchy.`)) return;
+    try {
+      const raw = localStorage.getItem("user_session");
+      const token = raw ? JSON.parse(raw).token : '';
+      const res = await fetch(`${getApiUrl()}/api/admin/declare-match-winner`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ matchId, winningTeam: winner })
+      });
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        alert(`Match settled successfully: ${winner}`);
+        fetchData();
+      } else {
+        alert(resData.error || "Failed to declare match winner");
+      }
+    } catch (e) {
+      alert("Error declaring match winner");
+    }
+  };
+
   useEffect(() => {
     if (matchId) {
       fetchData();
@@ -162,8 +187,41 @@ export default function MatchExposurePage() {
             <div className="flex items-center gap-2 font-bold text-gray-800 text-[13px]">
                 <Trophy size={16} className="text-[#f1c40f]" />
                 Market View
+                {data.winner ? (
+                  <span className="bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase ml-2">
+                    Winner: {data.winner}
+                  </span>
+                ) : (
+                  <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-200 uppercase ml-2">Open</span>
+                )}
             </div>
-            <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-200 uppercase">Open</span>
+            
+            {/* Admin Settle Match Buttons */}
+            {!data.winner && !isIplGlobal && (
+              <div className="flex items-center gap-1.5">
+                {runners.map(runner => (
+                  <button
+                    key={runner}
+                    onClick={() => handleDeclareMatchWinner(runner)}
+                    className="bg-[#16a085] hover:bg-[#117a65] text-white px-2 py-1 rounded text-[10px] font-black uppercase transition-colors"
+                  >
+                    {runner} Won
+                  </button>
+                ))}
+                <button
+                  onClick={() => handleDeclareMatchWinner('TIE')}
+                  className="bg-amber-600 hover:bg-amber-500 text-white px-2 py-1 rounded text-[10px] font-black uppercase transition-colors"
+                >
+                  Tie
+                </button>
+                <button
+                  onClick={() => handleDeclareMatchWinner('REFUND')}
+                  className="bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded text-[10px] font-black uppercase transition-colors"
+                >
+                  Refund
+                </button>
+              </div>
+            )}
         </div>
         <div className="divide-y divide-gray-100">
             {runners.map((runner) => {
