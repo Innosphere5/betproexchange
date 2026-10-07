@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Menu, LogOut, ArrowLeft } from "lucide-react";
+import { X, Menu, LogOut, ArrowLeft, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useDashboard } from "./DashboardLayout";
 import { getApiUrl } from "../lib/apiConfig";
@@ -100,12 +100,12 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
   };
 
   return (
-    <header className="relative bg-[#2a4054] text-white flex items-center justify-between px-2 sm:px-3 lg:px-6 h-12 lg:h-14 font-medium flex-shrink-0 z-[100] shadow-[0_2px_4px_rgba(0,0,0,0.1)] gap-2">
+    <header className="relative bg-[#2a4054] text-white flex items-center justify-between px-2.5 sm:px-4 lg:px-6 h-12 lg:h-14 font-medium flex-shrink-0 z-[100] shadow-[0_2px_4px_rgba(0,0,0,0.1)] gap-2">
       {/* Left section */}
       <div className="flex items-center gap-2 lg:gap-3 shrink-0">
         {currentView === "match" ? (
           <button
-            className="flex items-center gap-1 bg-[#1c3246] hover:bg-[#152737] text-white hover:text-[#00c766] px-2 py-1 rounded text-xs font-bold transition-all active:scale-95 border border-white/10 shadow-sm cursor-pointer"
+            className="flex items-center gap-1.5 bg-[#1c3246] hover:bg-[#152737] text-white hover:text-[#00c766] px-2.5 py-1 rounded text-xs font-bold transition-all active:scale-95 border border-white/10 shadow-sm cursor-pointer"
             onClick={onBack || onDashboardClick}
             title="Back to Dashboard"
           >
@@ -122,10 +122,11 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
           </button>
         )}
 
+        {/* Desktop Breadcrumb */}
         <div className="hidden lg:flex items-center gap-2 text-[15px]">
           <button
             onClick={onDashboardClick}
-            className="text-gray-300 hover:text-white transition-colors cursor-pointer"
+            className="text-gray-300 hover:text-white transition-colors cursor-pointer font-bold"
           >
             Dashboard
           </button>
@@ -136,74 +137,86 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
             </>
           )}
         </div>
-        <div className="lg:hidden text-[12px] sm:text-[14px] font-semibold flex items-center gap-1">
+
+        {/* Mobile Title (clean, no exch) */}
+        <div className="lg:hidden text-[13px] sm:text-[14px] font-bold flex items-center">
           {currentView === "match" && selectedMatch ? (
-            <span className="text-white font-bold truncate max-w-[110px] sm:max-w-[200px]" title={selectedMatch}>
+            <span className="text-white font-bold truncate max-w-[120px] sm:max-w-[200px]" title={selectedMatch}>
               {selectedMatch}
             </span>
           ) : (
-            <button onClick={onDashboardClick} className="text-left cursor-pointer">
-              Dashboard <span className="font-bold text-[10px] ml-0.5 text-[#00c766]">exch</span>
+            <button onClick={onDashboardClick} className="text-left font-bold text-white hover:text-gray-200 cursor-pointer">
+              Dashboard
             </button>
           )}
         </div>
       </div>
 
       {/* Middle / Right Section */}
-      <div className="flex items-center flex-1 justify-end lg:justify-between ml-1 sm:ml-4 overflow-hidden">
+      <div className="flex items-center flex-1 justify-end lg:justify-between ml-1 sm:ml-4">
         {/* Center Welcome - hidden on mobile */}
-        <div className="hidden lg:block text-sm font-semibold tracking-wide flex-1 text-center">
+        <div className="hidden lg:block text-sm font-semibold tracking-wide flex-1 text-center text-gray-200">
           Welcome to BetproExchange
         </div>
 
-        {/* Right Info */}
-        <div className="flex items-center text-xs lg:text-sm font-bold tracking-wide gap-1 sm:gap-2 lg:gap-3 shrink-0">
-          <div className="flex items-center bg-[#1c3246] px-1.5 sm:px-2 py-1 rounded border border-white/10 shadow-inner gap-1 sm:gap-2">
+        {/* Right Info: Balance + User */}
+        <div className="flex items-center text-xs lg:text-sm font-bold tracking-wide gap-1.5 sm:gap-2.5 lg:gap-3 shrink-0">
+          {/* Balance Pill */}
+          <div className="flex items-center bg-[#1c3246] px-2 py-1 rounded border border-white/10 shadow-inner gap-1.5 sm:gap-2.5 text-[11px] sm:text-xs font-bold shrink-0">
             <div className="flex items-center">
               <span className="text-[#00c766] font-bold">B:</span> 
-              <span className="ml-0.5 sm:ml-1">{walletBalance ? walletBalance.toLocaleString() : "0"}</span>
+              <span className="ml-1 text-white">{walletBalance ? walletBalance.toLocaleString() : "0"}</span>
             </div>
             <span className="text-white/20">|</span>
             <div className="flex items-center">
               <span className="text-gray-300 font-bold">Exp:</span>
-              <span className={`ml-0.5 sm:ml-1 font-bold ${totalExposure > 0 ? 'text-[#ff6b81]' : 'text-gray-300'}`}>
+              <span className={`ml-1 font-bold ${totalExposure > 0 ? 'text-[#ff6b81]' : 'text-gray-300'}`}>
                 {totalExposure > 0 ? `-${totalExposure.toLocaleString()}` : "0"}
               </span>
             </div>
             <span className="text-white/20">|</span>
             <div className="hidden md:flex items-center">
               <span className="text-gray-400">Csh:</span>
-              <span className="ml-1">{(walletBalance - (creditBalance || 0)).toLocaleString()}</span>
+              <span className="ml-1 text-white">{(walletBalance - (creditBalance || 0)).toLocaleString()}</span>
             </div>
             <div className="hidden md:flex items-center">
               <span className="text-gray-400 ml-1">Crd:</span>
-              <span className="ml-1">{(creditBalance || 0).toLocaleString()}</span>
+              <span className="ml-1 text-white">{(creditBalance || 0).toLocaleString()}</span>
             </div>
-            <div className="flex md:hidden items-center text-[10px] text-gray-400">
-               ({(creditBalance || 0).toLocaleString()} C)
-            </div>
-            <span className="text-white/20">|</span>
+            {creditBalance > 0 && (
+              <div className="flex md:hidden items-center text-[10px] text-gray-400">
+                ({creditBalance.toLocaleString()} C)
+              </div>
+            )}
             <div className="flex items-center">
               <span className="text-gray-400">L:</span>
-              <span className={`ml-0.5 sm:ml-1 font-bold ${totalLiability < 0 ? 'text-[#ff6b81]' : 'text-gray-300'}`}>
+              <span className={`ml-1 font-bold ${totalLiability < 0 ? 'text-[#ff6b81]' : 'text-gray-300'}`}>
                 {totalLiability < 0 ? formatUnits(totalLiability) : "0"}
               </span>
             </div>
           </div>
+
           <div className="hidden lg:block text-gray-400">|</div>
 
-          {/* User Dropdown */}
+          {/* User Profile Button with Arrow Icon -> Opens Logout */}
           <div className="relative">
-            <div
-              className="flex items-center cursor-pointer hover:text-gray-300 group px-1 py-0.5 rounded"
+            <button
+              type="button"
+              className={`flex items-center gap-1.5 px-2 py-1 rounded border transition-all cursor-pointer active:scale-95 text-xs font-bold shrink-0 ${
+                isDropdownOpen 
+                  ? 'bg-[#152a3a] border-[#00c766] text-white shadow-inner' 
+                  : 'bg-[#1c3246] hover:bg-[#152737] border-white/10 hover:border-white/20 text-white'
+              }`}
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               title={username}
             >
               <span className="truncate max-w-[65px] sm:max-w-[100px]">{username}</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="ml-0.5 opacity-70 group-hover:opacity-100">
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </div>
+              <ChevronDown 
+                size={13} 
+                strokeWidth={2.5} 
+                className={`transition-transform duration-200 ${isDropdownOpen ? 'rotate-180 text-[#00c766]' : 'text-gray-300'}`} 
+              />
+            </button>
 
             {/* Dropdown Menu */}
             {isDropdownOpen && (
@@ -212,29 +225,36 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
                   className="fixed inset-0 z-40"
                   onClick={() => setIsDropdownOpen(false)}
                 />
-                <div className="absolute right-0 top-[120%] mt-1 w-[150px] bg-white border border-gray-200 shadow-[0_4px_12px_rgba(0,0,0,0.15)] z-50 rounded-sm py-1 font-normal text-[13px] text-gray-700">
-                  <Link href="/dashboard/statement" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Statement</Link>
-                  <Link href="/dashboard/result" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Result</Link>
+                <div className="absolute right-0 top-full mt-1.5 w-[160px] bg-white border border-gray-200 shadow-2xl z-50 rounded-lg py-1 font-medium text-[13px] text-gray-700 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <div className="px-3.5 py-1.5 border-b border-gray-100 bg-gray-50/80 rounded-t-lg">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Account</p>
+                    <p className="text-xs font-bold text-gray-800 truncate">{username}</p>
+                  </div>
+                  <Link href="/dashboard/statement" className="block px-3.5 py-2 hover:bg-gray-100 cursor-pointer text-gray-700 font-medium" onClick={() => setIsDropdownOpen(false)}>Statement</Link>
+                  <Link href="/dashboard/result" className="block px-3.5 py-2 hover:bg-gray-100 cursor-pointer text-gray-700 font-medium" onClick={() => setIsDropdownOpen(false)}>Result</Link>
                   {userRole !== 'user' && (
-                    <Link href="/dashboard/profit-loss" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Profit Loss</Link>
+                    <Link href="/dashboard/profit-loss" className="block px-3.5 py-2 hover:bg-gray-100 cursor-pointer text-gray-700 font-medium" onClick={() => setIsDropdownOpen(false)}>Profit Loss</Link>
                   )}
-                  <Link href="/dashboard/bets" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Bet History</Link>
-                  <Link href="/dashboard/profile" className="block px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => setIsDropdownOpen(false)}>Profile</Link>
-                  <div className="block px-4 py-2 hover:bg-gray-100 cursor-pointer text-[#dc3545] font-bold border-t border-gray-100" onClick={handleLogout}>Logout</div>
+                  <Link href="/dashboard/bets" className="block px-3.5 py-2 hover:bg-gray-100 cursor-pointer text-gray-700 font-medium" onClick={() => setIsDropdownOpen(false)}>Bet History</Link>
+                  <Link href="/dashboard/profile" className="block px-3.5 py-2 hover:bg-gray-100 cursor-pointer text-gray-700 font-medium" onClick={() => setIsDropdownOpen(false)}>Profile</Link>
+                  
+                  {/* Prominent Red Logout Row */}
+                  <div className="pt-1 mt-1 border-t border-gray-100">
+                    <button 
+                      onClick={() => {
+                        setIsDropdownOpen(false);
+                        handleLogout();
+                      }}
+                      className="w-full flex items-center gap-2 px-3.5 py-2 text-red-600 hover:bg-red-50 font-bold text-xs transition-colors cursor-pointer text-left"
+                    >
+                      <LogOut size={14} strokeWidth={2.5} />
+                      <span>Logout</span>
+                    </button>
+                  </div>
                 </div>
               </>
             )}
           </div>
-
-          {/* Direct Visible Logout Button */}
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-1 px-2 py-1 bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] sm:text-xs rounded shadow-sm transition-all active:scale-95 cursor-pointer shrink-0 ml-0.5"
-            title="Logout"
-          >
-            <LogOut size={13} strokeWidth={2.5} />
-            <span className="hidden sm:inline">Logout</span>
-          </button>
         </div>
       </div>
     </header>
