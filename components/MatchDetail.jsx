@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { Info, Tv, Clock, Trophy, Users, ShieldCheck, ChevronDown, CheckCircle2, Lock, X, Volume2 } from "lucide-react";
+import { Info, Tv, Clock, Trophy, Users, ShieldCheck, ChevronDown, CheckCircle2, Lock, X, Volume2, ArrowLeft } from "lucide-react";
 import { useDashboard } from "./DashboardLayout";
 import { getApiUrl } from "../lib/apiConfig";
 
 export default function MatchDetail({ matchId, onSelectOutcome }) {
-  const { cricketMatches, socket } = useDashboard();
+  const { cricketMatches, socket, goToHome } = useDashboard();
   const [exposureData, setExposureData] = useState(null);
   const [tossExposure, setTossExposure] = useState(null);
   const [userRole, setUserRole] = useState(null);
@@ -531,7 +531,22 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
 
       {/* 1. BPEXCH-STYLE HEADER SECTION */}
       <div className="order-1 shrink-0 bg-[#243f55] m-2 rounded-sm overflow-hidden shadow-md">
-        <div className="flex items-start justify-between px-4 pt-3.5 pb-2">
+        {/* Top In-App Back Navigation */}
+        <div className="px-3 py-2 flex items-center justify-between border-b border-white/10 bg-[#1d3548]">
+          <button
+            onClick={goToHome}
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-white/10 hover:bg-white/20 active:scale-95 text-white hover:text-[#00c766] rounded text-xs font-bold transition-all cursor-pointer shadow-sm"
+            title="Back to All Matches"
+          >
+            <ArrowLeft size={14} />
+            <span>Back to Matches</span>
+          </button>
+          <div className="text-[11px] font-bold text-gray-300 tracking-wide uppercase">
+            Cricket Exchange
+          </div>
+        </div>
+
+        <div className="flex items-start justify-between px-4 pt-3 pb-2">
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-1.5 text-[11px] text-[#00c766] font-black uppercase tracking-wider">
               <Clock size={12} strokeWidth={3} className="text-[#00c766]" />

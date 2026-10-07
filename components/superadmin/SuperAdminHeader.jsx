@@ -125,10 +125,11 @@ export default function SuperAdminHeader({ setIsSidebarOpen }) {
         </div>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-1 ml-1 lg:ml-2 px-2 lg:px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] lg:text-xs rounded-full shadow-md shadow-red-100 transition-all active:scale-95"
+          className="flex items-center gap-1 ml-1 lg:ml-2 px-2 lg:px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] lg:text-xs rounded-full shadow-md shadow-red-100 transition-all active:scale-95 cursor-pointer shrink-0"
+          title="Logout"
         >
           <LogOut size={14} strokeWidth={3} />
-          <span className="hidden xs:inline">Logout</span>
+          <span className="hidden sm:inline">Logout</span>
         </button>
       </div>
     </header>

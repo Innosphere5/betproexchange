@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { X, Menu } from "lucide-react";
+import { X, Menu, LogOut, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useDashboard } from "./DashboardLayout";
 import { getApiUrl } from "../lib/apiConfig";
 import { SIDE, FANCY, oddsBet, oddsBook, accountSummary, formatUnits } from "../lib/betCalc";
 
-export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMatch }) {
+export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMatch, currentView, onBack }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [username, setUsername] = useState('User');
   const [userRole, setUserRole] = useState('user');
@@ -100,53 +100,73 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
   };
 
   return (
-    <header className="relative bg-[#2a4054] text-white flex items-center justify-between px-3 lg:px-6 h-12 lg:h-14 font-medium flex-shrink-0 z-[100] shadow-[0_2px_4px_rgba(0,0,0,0.1)]">
+    <header className="relative bg-[#2a4054] text-white flex items-center justify-between px-2 sm:px-3 lg:px-6 h-12 lg:h-14 font-medium flex-shrink-0 z-[100] shadow-[0_2px_4px_rgba(0,0,0,0.1)] gap-2">
       {/* Left section */}
-      <div className="flex items-center gap-3">
-        <button
-          className="lg:hidden p-1 text-white hover:text-gray-300 focus:outline-none"
-          onClick={() => setIsSidebarOpen(true)}
-        >
-          <Menu size={24} />
-        </button>
+      <div className="flex items-center gap-2 lg:gap-3 shrink-0">
+        {currentView === "match" ? (
+          <button
+            className="flex items-center gap-1 bg-[#1c3246] hover:bg-[#152737] text-white hover:text-[#00c766] px-2 py-1 rounded text-xs font-bold transition-all active:scale-95 border border-white/10 shadow-sm cursor-pointer"
+            onClick={onBack || onDashboardClick}
+            title="Back to Dashboard"
+          >
+            <ArrowLeft size={16} />
+            <span className="hidden sm:inline">Back</span>
+          </button>
+        ) : (
+          <button
+            className="lg:hidden p-1 text-white hover:text-gray-300 focus:outline-none cursor-pointer"
+            onClick={() => setIsSidebarOpen(true)}
+            title="Menu"
+          >
+            <Menu size={22} />
+          </button>
+        )}
 
         <div className="hidden lg:flex items-center gap-2 text-[15px]">
           <button
             onClick={onDashboardClick}
-            className="text-gray-300 hover:text-white transition-colors"
+            className="text-gray-300 hover:text-white transition-colors cursor-pointer"
           >
             Dashboard
           </button>
           {selectedMatch && (
             <>
               <span className="text-gray-500">/</span>
-              <span className="text-white font-bold">{selectedMatch}</span>
+              <span className="text-white font-bold truncate max-w-[200px] xl:max-w-none">{selectedMatch}</span>
             </>
           )}
         </div>
-        <div className="lg:hidden text-[13px] md:text-[15px] font-semibold">
-          Dashboard <span className="font-bold text-[11px] ml-0.5">exch</span>
+        <div className="lg:hidden text-[12px] sm:text-[14px] font-semibold flex items-center gap-1">
+          {currentView === "match" && selectedMatch ? (
+            <span className="text-white font-bold truncate max-w-[110px] sm:max-w-[200px]" title={selectedMatch}>
+              {selectedMatch}
+            </span>
+          ) : (
+            <button onClick={onDashboardClick} className="text-left cursor-pointer">
+              Dashboard <span className="font-bold text-[10px] ml-0.5 text-[#00c766]">exch</span>
+            </button>
+          )}
         </div>
       </div>
 
       {/* Middle / Right Section */}
-      <div className="flex items-center flex-1 justify-end lg:justify-between ml-4">
+      <div className="flex items-center flex-1 justify-end lg:justify-between ml-1 sm:ml-4 overflow-hidden">
         {/* Center Welcome - hidden on mobile */}
         <div className="hidden lg:block text-sm font-semibold tracking-wide flex-1 text-center">
           Welcome to BetproExchange
         </div>
 
         {/* Right Info */}
-        <div className="flex items-center text-xs lg:text-sm font-bold tracking-wide gap-1.5 lg:gap-3">
-          <div className="flex items-center bg-[#1c3246] px-2 py-1 rounded border border-white/10 shadow-inner gap-2">
+        <div className="flex items-center text-xs lg:text-sm font-bold tracking-wide gap-1 sm:gap-2 lg:gap-3 shrink-0">
+          <div className="flex items-center bg-[#1c3246] px-1.5 sm:px-2 py-1 rounded border border-white/10 shadow-inner gap-1 sm:gap-2">
             <div className="flex items-center">
               <span className="text-[#00c766] font-bold">B:</span> 
-              <span className="ml-1">{walletBalance ? walletBalance.toLocaleString() : "0"}</span>
+              <span className="ml-0.5 sm:ml-1">{walletBalance ? walletBalance.toLocaleString() : "0"}</span>
             </div>
             <span className="text-white/20">|</span>
             <div className="flex items-center">
               <span className="text-gray-300 font-bold">Exp:</span>
-              <span className={`ml-1 font-bold ${totalExposure > 0 ? 'text-[#ff6b81]' : 'text-gray-300'}`}>
+              <span className={`ml-0.5 sm:ml-1 font-bold ${totalExposure > 0 ? 'text-[#ff6b81]' : 'text-gray-300'}`}>
                 {totalExposure > 0 ? `-${totalExposure.toLocaleString()}` : "0"}
               </span>
             </div>
@@ -165,7 +185,7 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
             <span className="text-white/20">|</span>
             <div className="flex items-center">
               <span className="text-gray-400">L:</span>
-              <span className={`ml-1 font-bold ${totalLiability < 0 ? 'text-[#ff6b81]' : 'text-gray-300'}`}>
+              <span className={`ml-0.5 sm:ml-1 font-bold ${totalLiability < 0 ? 'text-[#ff6b81]' : 'text-gray-300'}`}>
                 {totalLiability < 0 ? formatUnits(totalLiability) : "0"}
               </span>
             </div>
@@ -175,15 +195,15 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
           {/* User Dropdown */}
           <div className="relative">
             <div
-              className="flex items-center cursor-pointer hover:text-gray-300 group"
+              className="flex items-center cursor-pointer hover:text-gray-300 group px-1 py-0.5 rounded"
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              title={username}
             >
-              <span>{username}</span>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="ml-1 opacity-70 group-hover:opacity-100">
+              <span className="truncate max-w-[65px] sm:max-w-[100px]">{username}</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="ml-0.5 opacity-70 group-hover:opacity-100">
                 <polyline points="6 9 12 15 18 9" />
               </svg>
             </div>
-
 
             {/* Dropdown Menu */}
             {isDropdownOpen && (
@@ -205,6 +225,16 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
               </>
             )}
           </div>
+
+          {/* Direct Visible Logout Button */}
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1 px-2 py-1 bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] sm:text-xs rounded shadow-sm transition-all active:scale-95 cursor-pointer shrink-0 ml-0.5"
+            title="Logout"
+          >
+            <LogOut size={13} strokeWidth={2.5} />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
         </div>
       </div>
     </header>

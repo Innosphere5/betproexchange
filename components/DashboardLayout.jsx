@@ -381,14 +381,53 @@ export default function DashboardLayout({ children }) {
     };
   }, []);
 
+  // ── Browser History Integration (Mobile Back / Forward Support) ────────────
+  useEffect(() => {
+    const handlePopState = () => {
+      if (typeof window === 'undefined') return;
+      const url = new URL(window.location.href);
+      const matchParam = url.searchParams.get("match");
+      if (matchParam) {
+        setSelectedMatchId(matchParam);
+        setCurrentView("match");
+      } else {
+        setSelectedMatchId(null);
+        setCurrentView("home");
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  // Restore match if URL already has ?match= on initial load or refresh
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    const matchParam = url.searchParams.get("match");
+    if (matchParam) {
+      setSelectedMatchId(matchParam);
+      setCurrentView("match");
+    }
+  }, [pathname]);
+
   const handleSelectMatch = (matchId) => {
     setSelectedMatchId(matchId);
     setCurrentView("match");
     setIsSidebarOpen(false);
     
+    // Push new history state so browser/mobile hardware back button returns to matches
+    if (typeof window !== 'undefined') {
+      const targetUrl = `/dashboard?match=${encodeURIComponent(matchId)}`;
+      const currentUrl = new URL(window.location.href);
+      if (currentUrl.searchParams.get("match") !== String(matchId)) {
+        window.history.pushState({ matchId: String(matchId) }, '', targetUrl);
+      }
+    }
+
     // If user is on a sub-page (like /dashboard/casino), go back to main dashboard
     if (pathname !== "/dashboard" && pathname !== "/") {
-      router.push("/dashboard");
+      router.push(`/dashboard?match=${encodeURIComponent(matchId)}`);
     }
   };
 
@@ -410,6 +449,15 @@ export default function DashboardLayout({ children }) {
   const goToHome = () => {
     setCurrentView("home");
     setSelectedMatchId(null);
+    setIsSidebarOpen(false);
+
+    // Sync browser URL back to /dashboard
+    if (typeof window !== 'undefined') {
+      const currentUrl = new URL(window.location.href);
+      if (currentUrl.searchParams.has("match")) {
+        window.history.pushState({}, '', '/dashboard');
+      }
+    }
 
     // Ensure we are on the main dashboard
     if (pathname !== "/dashboard" && pathname !== "/") {
@@ -425,6 +473,11 @@ export default function DashboardLayout({ children }) {
       </div>
     );
   }
+
+  const activeCricketMatch = cricketMatches.find(m => String(m.matchId) === String(selectedMatchId));
+  const activeMatchTitle = activeCricketMatch 
+    ? `${activeCricketMatch.teamA} v ${activeCricketMatch.teamB}` 
+    : (selectedMatchId ? "Match Details" : null);
 
   return (
     <DashboardContext.Provider value={{ 
@@ -459,7 +512,13 @@ export default function DashboardLayout({ children }) {
         
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <Header setIsSidebarOpen={setIsSidebarOpen} onDashboardClick={goToHome} />
+          <Header 
+            setIsSidebarOpen={setIsSidebarOpen} 
+            onDashboardClick={goToHome}
+            onBack={goToHome}
+            currentView={currentView}
+            selectedMatch={activeMatchTitle}
+          />
           
           {/* Scrollable Core */}
           <main className="flex-1 overflow-y-auto w-full">

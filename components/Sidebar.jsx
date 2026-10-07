@@ -183,18 +183,18 @@ export default function Sidebar({ isOpen, setIsOpen, onSelectMatch }) {
         </ul>
       </nav>
 
-      {/* Mobile Logout Button */}
-      <div className="lg:hidden p-4 border-t border-[#3b546b]">
+      {/* Mobile Logout Button - Sticky Pinned at Bottom */}
+      <div className="lg:hidden p-3 border-t border-[#3b546b] bg-[#1d3345] shrink-0 sticky bottom-0 z-10 shadow-lg">
         <button
           onClick={() => {
             localStorage.removeItem("user_session");
             document.cookie = 'user_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
             window.location.replace("/login");
           }}
-          className="flex items-center gap-3 w-full px-4 py-3 bg-red-600/20 hover:bg-red-600/40 text-red-400 font-bold rounded-lg transition-colors border border-red-500/30"
+          className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold rounded-lg transition-all shadow-md cursor-pointer"
         >
-          <LogOut size={18} />
-          <span className="text-sm uppercase tracking-wider">Logout</span>
+          <LogOut size={16} />
+          <span className="text-xs uppercase tracking-wider">Logout</span>
         </button>
       </div>
     </aside>
