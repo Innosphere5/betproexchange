@@ -113,18 +113,21 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
     if (!runnerName) return 0;
     const norm = runnerName.trim().toLowerCase();
 
-    // 1. Direct key match in betsData.exposure
-    if (betsData.exposure) {
-      if (betsData.exposure[runnerName] !== undefined && betsData.exposure[runnerName] !== 0) {
-        return betsData.exposure[runnerName];
+    // For admin / hierarchy viewers, prioritize admin parent share exposure
+    if (isAdmin) {
+      const sources = [betsData?.adminExposure, betsData?.exposure, exposureData?.exposure];
+      for (const src of sources) {
+        if (!src) continue;
+        if (src[runnerName] !== undefined && src[runnerName] !== 0) return src[runnerName];
+        for (const [k, v] of Object.entries(src)) {
+          if (k.trim().toLowerCase() === norm && v !== 0) return v;
+        }
       }
-      for (const [k, v] of Object.entries(betsData.exposure)) {
-        if (k.trim().toLowerCase() === norm && v !== 0) return v;
-      }
+      return 0;
     }
 
-    // 2. Check user personal exposure
-    if (betsData.userExposure) {
+    // For regular bettor accounts:
+    if (betsData?.userExposure) {
       if (betsData.userExposure[runnerName] !== undefined && betsData.userExposure[runnerName] !== 0) {
         return betsData.userExposure[runnerName];
       }
@@ -133,12 +136,11 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
       }
     }
 
-    // 3. Fallback to admin exposureData
-    if (isAdmin && exposureData?.exposure) {
-      if (exposureData.exposure[runnerName] !== undefined && exposureData.exposure[runnerName] !== 0) {
-        return exposureData.exposure[runnerName];
+    if (betsData?.exposure) {
+      if (betsData.exposure[runnerName] !== undefined && betsData.exposure[runnerName] !== 0) {
+        return betsData.exposure[runnerName];
       }
-      for (const [k, v] of Object.entries(exposureData.exposure)) {
+      for (const [k, v] of Object.entries(betsData.exposure)) {
         if (k.trim().toLowerCase() === norm && v !== 0) return v;
       }
     }
