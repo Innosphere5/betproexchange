@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { X } from "lucide-react";
+import { useState } from "react";
+import { X, AlertCircle } from "lucide-react";
 import { useDashboard } from "./DashboardLayout";
-import BetModal from "./BetModal";
 import { getApiUrl } from "../lib/apiConfig";
 import { SIDE, FANCY, oddsBet, fancyBet, slipProfitText, formatUnits } from "../lib/betCalc";
 
 export default function BetSlip({ selection, onClose, type = "back" }) {
   const { fetchWallet } = useDashboard();
-  const [modalConfig, setModalConfig] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [odds, setOdds] = useState(selection?.price || 0);
   const [stake, setStake] = useState("");
   const [profitText, setProfitText] = useState("- / -");
@@ -46,11 +46,13 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
 
   const handleStakeChange = (val) => {
     setStake(val);
+    if (errorMessage) setErrorMessage(null);
     updateCalculations(val, odds);
   };
 
   const handleOddsChange = (val) => {
     setOdds(val);
+    if (errorMessage) setErrorMessage(null);
     updateCalculations(stake, val);
   };
 
@@ -58,46 +60,51 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
     const current = parseFloat(stake) || 0;
     const next = (current + val).toString();
     setStake(next);
+    if (errorMessage) setErrorMessage(null);
     updateCalculations(next, odds);
   };
 
   if (!selection) return null;
 
   const handleSubmit = async () => {
+    setErrorMessage(null);
+
     if (!stake || parseFloat(stake) <= 0) {
-      setModalConfig({ title: "Invalid Stake", details: "Please enter a valid stake amount to place your bet.", isError: true });
+      setErrorMessage("Please enter a valid stake amount to place your bet.");
       return;
     }
 
     if (selection?.marketType === 'toss' && parseFloat(stake) > 2000000) {
-      setModalConfig({ title: "Limit Exceeded", details: "Maximum stake for Toss Market is 2M.", isError: true });
+      setErrorMessage("Maximum stake for Toss Market is 2M.");
       return;
     }
 
     if (selection?.marketType === 'bookmaker' && parseFloat(stake) > 1000000) {
-      setModalConfig({ title: "Limit Exceeded", details: "Maximum stake for Bookmaker Market is 1M.", isError: true });
+      setErrorMessage("Maximum stake for Bookmaker Market is 1M.");
       return;
     }
 
     if (selection?.marketType === 'fancy' && parseFloat(stake) > 2000000) {
-      setModalConfig({ title: "Limit Exceeded", details: "Maximum stake for Fancy 2 Market is 2M.", isError: true });
+      setErrorMessage("Maximum stake for Fancy 2 Market is 2M.");
       return;
     }
 
     if (selection?.marketType === 'figure' && parseFloat(stake) > 100000) {
-      setModalConfig({ title: "Limit Exceeded", details: "Maximum stake for Figure Market is 100K.", isError: true });
+      setErrorMessage("Maximum stake for Figure Market is 100K.");
       return;
     }
 
     if (selection?.marketType === 'even_odd' && parseFloat(stake) > 2000000) {
-      setModalConfig({ title: "Limit Exceeded", details: "Maximum stake for Even/Odd Market is 2M.", isError: true });
+      setErrorMessage("Maximum stake for Even/Odd Market is 2M.");
       return;
     }
 
     if (selection?.marketType === 'tied_match' && parseFloat(stake) > 500000) {
-      setModalConfig({ title: "Limit Exceeded", details: "Maximum stake for Tied Match Market is 500K.", isError: true });
+      setErrorMessage("Maximum stake for Tied Match Market is 500K.");
       return;
     }
+
+    setIsSubmitting(true);
 
     try {
       const session = JSON.parse(localStorage.getItem('user_session') || '{}');
@@ -121,16 +128,12 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
 
       const data = await res.json();
       if (!res.ok) {
-        setModalConfig({ title: "Bet Failed", details: data.error || "Failed to place bet", isError: true });
+        setErrorMessage(data.error || "Failed to place bet");
+        setIsSubmitting(false);
         return;
       }
 
-      if (selection.isLive) {
-        setModalConfig({ title: "Live Bet Placed!", details: `Runner: ${selection.runner}\nOdds: ${odds}\nStake: ${stake}\n\nYour live bet is matched.` });
-      } else {
-        setModalConfig({ title: "Advance Bet Scheduled", details: `Runner: ${selection.runner}\nOdds: ${odds}\nStake: ${stake}\n\nYour advance bet is open.` });
-      }
-
+      // Smooth bet execution without popup modal
       fetchWallet(); // update balance on dashboard
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('wallet-updated'));
@@ -138,17 +141,11 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
       }
       setStake("");
       setProfitText("- / -");
-      // Wait for user to dismiss modal before calling onClose()
+      setIsSubmitting(false);
+      onClose(); // Cleanly close betslip immediately without showing popup
     } catch (err) {
-      setModalConfig({ title: "Connection Error", details: "Error reaching server.", isError: true });
-    }
-  };
-
-  const handleCloseModal = () => {
-    const wasSuccess = modalConfig && !modalConfig.isError;
-    setModalConfig(null);
-    if (wasSuccess) {
-      onClose(); // Cleanly close betslip only upon acknowledging success
+      setErrorMessage("Connection error reaching server.");
+      setIsSubmitting(false);
     }
   };
 
@@ -161,6 +158,11 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
           {selection?.marketType === 'toss' && (
             <span className="bg-[#00c766] text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
               Toss Market
+            </span>
+          )}
+          {selection?.marketType === 'bookmaker' && (
+            <span className="bg-purple-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+              Bookmaker
             </span>
           )}
         </div>
@@ -200,13 +202,30 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
           </div>
         </div>
 
+        {/* Inline Error Message (no blocking popup) */}
+        {errorMessage && (
+          <div className="bg-red-100 border border-red-300 text-red-700 text-[12px] font-bold px-2.5 py-1.5 rounded-sm mb-2.5 flex items-center justify-between shadow-xs">
+            <div className="flex items-center gap-1.5">
+              <AlertCircle size={14} className="text-red-600 shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+            <button
+              onClick={() => setErrorMessage(null)}
+              className="text-red-500 hover:text-red-800 ml-2 font-black cursor-pointer text-sm"
+              title="Dismiss"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
         {/* Quick Stakes */}
         <div className="grid grid-cols-4 gap-1.5 mb-2">
           {[2000, 5000, 10000, 25000].map((val) => (
             <button
               key={val}
               onClick={() => handleStakeChange(val.toString())}
-              className="bg-gray-300 hover:bg-gray-400 py-2.5 text-[13px] font-bold text-[#1c3246] rounded-sm transition-colors"
+              className="bg-gray-300 hover:bg-gray-400 py-2.5 text-[13px] font-bold text-[#1c3246] rounded-sm transition-colors cursor-pointer"
             >
               {val.toLocaleString()}
             </button>
@@ -219,7 +238,7 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
             <button
               key={val}
               onClick={() => addStake(val)}
-              className="bg-gray-200 hover:bg-gray-300 py-1.5 text-[11px] font-bold text-[#1c3246] rounded-sm transition-colors"
+              className="bg-gray-200 hover:bg-gray-300 py-1.5 text-[11px] font-bold text-[#1c3246] rounded-sm transition-colors cursor-pointer"
             >
               + {val.toLocaleString()}
             </button>
@@ -230,33 +249,25 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
         <div className="flex gap-2">
           <button
             onClick={onClose}
-            className="flex-1 bg-[#f05b64] hover:bg-[#d44d55] text-white font-black py-2 rounded-sm text-[13px] shadow-sm uppercase"
+            className="flex-1 bg-[#f05b64] hover:bg-[#d44d55] text-white font-black py-2 rounded-sm text-[13px] shadow-sm uppercase cursor-pointer"
           >
             Close
           </button>
           <button
-            onClick={() => { setStake(""); setProfitText("- / -"); }}
-            className="flex-1 bg-[#ffb80c] hover:bg-[#e6a60b] text-[#1c3246] font-black py-2 rounded-sm text-[13px] shadow-sm uppercase"
+            onClick={() => { setStake(""); setProfitText("- / -"); setErrorMessage(null); }}
+            className="flex-1 bg-[#ffb80c] hover:bg-[#e6a60b] text-[#1c3246] font-black py-2 rounded-sm text-[13px] shadow-sm uppercase cursor-pointer"
           >
             Clear
           </button>
           <button
             onClick={handleSubmit}
-            className="flex-1 bg-[#00c766] hover:bg-[#00a857] text-white font-black py-2 rounded-sm text-[13px] shadow-sm uppercase active:scale-95 transition-transform"
+            disabled={isSubmitting}
+            className="flex-1 bg-[#00c766] hover:bg-[#00a857] text-white font-black py-2 rounded-sm text-[13px] shadow-sm uppercase active:scale-95 transition-transform disabled:opacity-60 cursor-pointer"
           >
-            Submit
+            {isSubmitting ? "Placing..." : "Submit"}
           </button>
         </div>
       </div>
-
-      {modalConfig && (
-        <BetModal
-          title={modalConfig.title}
-          details={modalConfig.details}
-          isError={modalConfig.isError}
-          onClose={handleCloseModal}
-        />
-      )}
     </div>
   );
 }

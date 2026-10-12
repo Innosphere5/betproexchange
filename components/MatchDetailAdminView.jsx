@@ -49,6 +49,9 @@ export default function MatchDetailAdminView({
   const [keepDisplayOn, setKeepDisplayOn] = useState(false);
   const [remainingTime, setRemainingTime] = useState("");
   const [isMatchedBetsOpen, setIsMatchedBetsOpen] = useState(true);
+  const [isOpenBetsOpen, setIsOpenBetsOpen] = useState(true);
+  const [isFullBetListOpen, setIsFullBetListOpen] = useState(false);
+  const [filterSearch, setFilterSearch] = useState("");
   const [prevOdds, setPrevOdds] = useState({});
   const [flash, setFlash] = useState({});
 
@@ -236,6 +239,17 @@ export default function MatchDetailAdminView({
   const getRunnerExposure = useCallback((runnerName) => {
     if (!runnerName) return 0;
     const norm = runnerName.trim().toLowerCase();
+    const isBmTarget = norm.endsWith("_bm");
+
+    const isKeyMatch = (k) => {
+      const kNorm = k.trim().toLowerCase();
+      if (isBmTarget) {
+        return kNorm === norm;
+      } else {
+        if (kNorm.endsWith("_bm")) return false;
+        return kNorm === norm;
+      }
+    };
 
     // Priority 1: betsData.adminExposure (Calculated using getViewerNetShare in /api/matches/:id/bets)
     if (betsData?.adminExposure) {
@@ -243,7 +257,7 @@ export default function MatchDetailAdminView({
         return betsData.adminExposure[runnerName];
       }
       for (const [k, v] of Object.entries(betsData.adminExposure)) {
-        if (k.trim().toLowerCase() === norm && v !== 0) return v;
+        if (isKeyMatch(k) && v !== 0) return v;
       }
     }
 
@@ -253,7 +267,7 @@ export default function MatchDetailAdminView({
         return betsData.exposure[runnerName];
       }
       for (const [k, v] of Object.entries(betsData.exposure)) {
-        if (k.trim().toLowerCase() === norm && v !== 0) return v;
+        if (isKeyMatch(k) && v !== 0) return v;
       }
     }
 
@@ -263,7 +277,7 @@ export default function MatchDetailAdminView({
         return adminExposureData.exposure[runnerName];
       }
       for (const [k, v] of Object.entries(adminExposureData.exposure)) {
-        if (k.trim().toLowerCase() === norm && v !== 0) return v;
+        if (isKeyMatch(k) && v !== 0) return v;
       }
     }
 
@@ -449,10 +463,34 @@ export default function MatchDetailAdminView({
 
   // Header user info stats
   const totalMarketExposure = useMemo(() => {
-    const exps = [getRunnerExposure(teamA), getRunnerExposure(teamB)].filter(v => v !== 0);
-    if (exps.length === 0) return 0;
-    return Math.min(...exps);
+    const moExps = [getRunnerExposure(teamA), getRunnerExposure(teamB)].filter(v => v !== 0);
+    const bmExps = [getRunnerExposure(`${teamA}_bm`), getRunnerExposure(`${teamB}_bm`)].filter(v => v !== 0);
+    const worstMo = moExps.length > 0 ? Math.min(...moExps) : 0;
+    const worstBm = bmExps.length > 0 ? Math.min(...bmExps) : 0;
+    return worstMo + worstBm;
   }, [getRunnerExposure, teamA, teamB]);
+
+  const allMatchedBets = useMemo(() => {
+    if (betsData?.matchedBets && betsData.matchedBets.length > 0) return betsData.matchedBets;
+    if (adminExposureData?.matchedBets && adminExposureData.matchedBets.length > 0) return adminExposureData.matchedBets;
+    return [];
+  }, [betsData?.matchedBets, adminExposureData?.matchedBets]);
+
+  const allOpenBets = useMemo(() => {
+    if (betsData?.openBets && betsData.openBets.length > 0) return betsData.openBets;
+    if (adminExposureData?.openBets && adminExposureData.openBets.length > 0) return adminExposureData.openBets;
+    return [];
+  }, [betsData?.openBets, adminExposureData?.openBets]);
+
+  const formatBetRunner = (bet) => {
+    if (!bet?.runner) return "--";
+    const isBookmaker = (bet.marketType || "").toLowerCase() === "bookmaker";
+    const cleanRunner = bet.runner.replace(/\s+BM$/i, "").trim();
+    if (isBookmaker) {
+      return `${cleanRunner} BM`;
+    }
+    return bet.runner;
+  };
 
   const displayBalance = userSession?.balance != null ? Number(userSession.balance).toLocaleString("en-IN") : "0";
   const displayExposure = totalMarketExposure < 0 ? `-${Math.abs(Math.round(totalMarketExposure)).toLocaleString("en-IN")}` : "0";
@@ -672,7 +710,7 @@ export default function MatchDetailAdminView({
                       <span className="font-bold text-gray-800 text-xs md:text-sm leading-tight">
                         {runner.name}
                       </span>
-                      {renderRunnerExposure(`${runner.name}_bm`) || renderRunnerExposure(runner.name)}
+                      {renderRunnerExposure(`${runner.name}_bm`)}
                     </div>
 
                     <div className="flex w-32 md:w-36 shrink-0">
@@ -761,99 +799,157 @@ export default function MatchDetailAdminView({
             </div>
           )}
 
-          {/* ══════════ MATCHED BETS ACCORDION / TAB (DOWNLINE ORDERS) ══════════ */}
+          {/* ══════════ OPEN BETS TABLE (IMAGE 2) ══════════ */}
           {(activeTab === "ALL" || activeTab === "Matched Bets") && (
             <div className="bg-white border border-gray-300 rounded-sm shadow-xs overflow-hidden">
               <div
-                onClick={() => setIsMatchedBetsOpen(prev => !prev)}
-                className="bg-[#f0f3f6] px-3 py-2 border-b border-gray-300 flex items-center justify-between cursor-pointer select-none hover:bg-gray-200/70 transition-colors"
+                onClick={() => setIsOpenBetsOpen(prev => !prev)}
+                className="bg-[#dce9f5] px-3 py-1.5 border-b border-[#cbdfe9] flex items-center justify-between cursor-pointer select-none"
               >
                 <div className="flex items-center gap-2">
-                  <ShieldCheck size={14} className="text-blue-600" />
-                  <span className="text-xs md:text-sm font-bold text-gray-800">
-                    Matched Bets ({betsData.matchedBets?.length || 0})
-                  </span>
-                  <span className="text-[10px] text-gray-500 font-medium">
-                    (Downline orders with parent share allocation)
+                  <span className="text-xs md:text-sm font-black text-gray-800">
+                    Open Bets ({allOpenBets.length})
                   </span>
                 </div>
-                <div className="text-gray-500">
-                  {isMatchedBetsOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                <div className="text-gray-600">
+                  {isOpenBetsOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                 </div>
               </div>
 
-              {isMatchedBetsOpen && (
+              {isOpenBetsOpen && (
                 <div className="overflow-x-auto">
-                  {(!betsData.matchedBets || betsData.matchedBets.length === 0) ? (
-                    <div className="p-4 text-center text-xs text-gray-400 font-medium">
-                      No downline matched bets on this match yet.
-                    </div>
-                  ) : (
-                    <table className="w-full text-xs text-left border-collapse">
-                      <thead className="bg-gray-50 text-gray-600 font-bold border-b border-gray-200">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead className="bg-[#edf4fa] text-gray-700 font-bold border-b border-gray-300 text-[11px] md:text-xs">
+                      <tr>
+                        <th className="px-3 py-1.5 text-left font-bold">Runner</th>
+                        <th className="px-2 py-1.5 text-center font-bold w-16 md:w-20">Price</th>
+                        <th className="px-3 py-1.5 text-right font-bold w-20 md:w-28">Size</th>
+                        <th className="px-3 py-1.5 text-left font-bold w-24 md:w-32">Better</th>
+                        <th className="px-3 py-1.5 text-left font-bold w-24 md:w-32">Master</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/60">
+                      {allOpenBets.length === 0 ? (
                         <tr>
-                          <th className="px-3 py-2">Runner</th>
-                          <th className="px-2 py-2 text-center w-[65px]">Type</th>
-                          <th className="px-2 py-2 text-center w-[65px]">Odds</th>
-                          <th className="px-3 py-2 text-right w-[95px]">Stake</th>
-                          <th className="px-2 py-2 text-center w-[70px]">Share %</th>
-                          <th className="px-3 py-2 text-right w-[95px]">My Stake</th>
-                          <th className="px-3 py-2">Bettor</th>
-                          <th className="px-3 py-2 text-right w-[90px]">Time</th>
+                          <td colSpan={5} className="p-3 text-center text-xs text-gray-400 font-medium">
+                            No open bets
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {betsData.matchedBets.map((bet, bIdx) => {
+                      ) : (
+                        allOpenBets.map((bet, bIdx) => {
                           const isBack = (bet.type || "").toLowerCase() === "back";
                           return (
                             <tr
                               key={bet.id || bIdx}
-                              className={isBack ? "bg-blue-50/20 hover:bg-blue-50/40" : "bg-red-50/20 hover:bg-red-50/40"}
+                              className={isBack ? "bg-[#dcecfd] text-gray-900 border-b border-white/60" : "bg-[#fbe2e8] text-gray-900 border-b border-white/60"}
                             >
-                              <td className="px-3 py-2 font-bold text-gray-800">
-                                {bet.runner}
+                              <td className="px-3 py-2 font-bold text-gray-900 text-xs md:text-sm leading-tight text-left">
+                                {formatBetRunner(bet)}
                               </td>
-                              <td className="px-2 py-2 text-center">
-                                <span
-                                  className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${
-                                    isBack
-                                      ? "bg-blue-100 text-blue-700 border border-blue-200"
-                                      : "bg-red-100 text-red-700 border border-red-200"
-                                  }`}
-                                >
-                                  {bet.type}
-                                </span>
+                              <td className="px-2 py-2 text-center font-bold text-gray-900 text-xs md:text-sm">
+                                {bet.price || bet.odds || "--"}
                               </td>
-                              <td className="px-2 py-2 text-center font-bold text-gray-800">
-                                {bet.price}
+                              <td className="px-3 py-2 text-right font-black text-gray-900 text-xs md:text-sm">
+                                {Number(bet.size || bet.stake || 0).toLocaleString("en-IN")}
                               </td>
-                              <td className="px-3 py-2 text-right font-medium text-gray-800">
-                                ₹{Number(bet.size || 0).toLocaleString("en-IN")}
+                              <td className="px-3 py-2 text-left font-bold text-gray-800 text-xs md:text-sm truncate">
+                                {bet.better || bet.userId || "--"}
                               </td>
-                              <td className="px-2 py-2 text-center font-bold text-gray-600">
-                                {bet.sharePercent != null ? `${bet.sharePercent}%` : "--"}
-                              </td>
-                              <td className="px-3 py-2 text-right font-bold text-blue-700">
-                                ₹{Number(bet.parentStake != null ? bet.parentStake : (bet.size || 0)).toLocaleString("en-IN")}
-                              </td>
-                              <td className="px-3 py-2 text-gray-700 font-medium">
-                                {bet.better}
-                              </td>
-                              <td className="px-3 py-2 text-right text-gray-400 font-mono text-[10px]">
-                                {bet.createdAt
-                                  ? new Date(bet.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                                  : "--"}
+                              <td className="px-3 py-2 text-left font-bold text-gray-800 text-xs md:text-sm truncate">
+                                {bet.master || "Direct"}
                               </td>
                             </tr>
                           );
-                        })}
-                      </tbody>
-                    </table>
-                  )}
+                        })
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
           )}
+
+          {/* ══════════ MATCHED BETS TABLE (IMAGE 2) ══════════ */}
+          {(activeTab === "ALL" || activeTab === "Matched Bets") && (
+            <div className="bg-white border border-gray-300 rounded-sm shadow-xs overflow-hidden">
+              <div className="bg-[#dce9f5] px-3 py-1.5 border-b border-[#cbdfe9] flex items-center justify-between">
+                <div
+                  onClick={() => setIsMatchedBetsOpen(prev => !prev)}
+                  className="flex items-center gap-2 cursor-pointer select-none"
+                >
+                  <span className="text-xs md:text-sm font-black text-gray-800">
+                    Matched Bets ({allMatchedBets.length})
+                  </span>
+                  <div className="text-gray-600">
+                    {isMatchedBetsOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsFullBetListOpen(true)}
+                  className="bg-[#009866] hover:bg-[#008257] active:scale-95 text-white text-[10px] md:text-[11px] font-bold px-2.5 py-0.5 rounded shadow-xs transition-all cursor-pointer"
+                >
+                  Full Bet List
+                </button>
+              </div>
+
+              {isMatchedBetsOpen && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead className="bg-[#edf4fa] text-gray-700 font-bold border-b border-gray-300 text-[11px] md:text-xs">
+                      <tr>
+                        <th className="px-3 py-1.5 text-left font-bold">Runner</th>
+                        <th className="px-2 py-1.5 text-center font-bold w-16 md:w-20">Price</th>
+                        <th className="px-3 py-1.5 text-right font-bold w-20 md:w-28">Size</th>
+                        <th className="px-3 py-1.5 text-left font-bold w-24 md:w-32">Better</th>
+                        <th className="px-3 py-1.5 text-left font-bold w-24 md:w-32">Master</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/60">
+                      {allMatchedBets.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="p-3 text-center text-xs text-gray-400 font-medium">
+                            No matched bets on this match yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        allMatchedBets.map((bet, bIdx) => {
+                          const isBack = (bet.type || "").toLowerCase() === "back";
+                          return (
+                            <tr
+                              key={bet.id || bIdx}
+                              className={isBack ? "bg-[#dcecfd] text-gray-900 border-b border-white/60 hover:bg-[#cfdff2] transition-colors" : "bg-[#fbe2e8] text-gray-900 border-b border-white/60 hover:bg-[#f3d4dc] transition-colors"}
+                            >
+                              <td className="px-3 py-2 font-bold text-gray-900 text-xs md:text-sm leading-tight text-left">
+                                {formatBetRunner(bet)}
+                              </td>
+                              <td className="px-2 py-2 text-center font-bold text-gray-900 text-xs md:text-sm">
+                                {bet.price || bet.odds || "--"}
+                              </td>
+                              <td className="px-3 py-2 text-right font-black text-gray-900 text-xs md:text-sm">
+                                {Number(bet.size || bet.stake || 0).toLocaleString("en-IN")}
+                              </td>
+                              <td className="px-3 py-2 text-left font-bold text-gray-800 text-xs md:text-sm truncate">
+                                {bet.better || bet.userId || "--"}
+                              </td>
+                              <td className="px-3 py-2 text-left font-bold text-gray-800 text-xs md:text-sm truncate">
+                                {bet.master || "Direct"}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Footer welcome note (Image 2) */}
+          <div className="text-[11px] text-gray-500 italic px-2 py-0.5 select-none font-medium">
+            *Welcome to Exchange.
+          </div>
 
           {/* ══════════ ADMIN SETTLEMENT ACTIONS PANEL ══════════ */}
           <div className="bg-white border border-gray-300 rounded-sm p-3 shadow-xs">
@@ -892,6 +988,138 @@ export default function MatchDetailAdminView({
               </div>
             </div>
           </div>
+
+          {/* ══════════ FULL BET LIST MODAL ══════════ */}
+          {isFullBetListOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3">
+              <div className="bg-white rounded-md shadow-2xl max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden border border-gray-300">
+                <div className="bg-[#1b2a38] text-white px-4 py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck size={16} className="text-[#00c766]" />
+                    <h2 className="text-sm md:text-base font-black uppercase tracking-wide">
+                      Full Matched Bets List ({allMatchedBets.length})
+                    </h2>
+                  </div>
+                  <button
+                    onClick={() => setIsFullBetListOpen(false)}
+                    className="text-gray-300 hover:text-white p-1 rounded hover:bg-white/10 cursor-pointer"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Search / Filter Input */}
+                <div className="p-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={filterSearch}
+                    onChange={(e) => setFilterSearch(e.target.value)}
+                    placeholder="Filter by Runner, Better, Master, or Type..."
+                    className="w-full text-xs bg-white border border-gray-300 rounded px-3 py-1.5 focus:outline-none focus:border-blue-500"
+                  />
+                  {filterSearch && (
+                    <button
+                      onClick={() => setFilterSearch("")}
+                      className="text-xs text-gray-500 hover:text-gray-800 font-bold px-2 cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+
+                <div className="overflow-x-auto flex-1 p-2">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead className="bg-[#5d7d9a] text-white font-bold sticky top-0">
+                      <tr>
+                        <th className="px-3 py-2">Runner</th>
+                        <th className="px-2 py-2 text-center w-[85px]">Market</th>
+                        <th className="px-2 py-2 text-center w-[60px]">Type</th>
+                        <th className="px-2 py-2 text-center w-[65px]">Price</th>
+                        <th className="px-3 py-2 text-right w-[85px]">Stake</th>
+                        <th className="px-2 py-2 text-center w-[70px]">Share %</th>
+                        <th className="px-3 py-2 text-right w-[95px]">My Stake</th>
+                        <th className="px-3 py-2">Better</th>
+                        <th className="px-3 py-2">Master</th>
+                        <th className="px-3 py-2 text-right w-[90px]">Time</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {allMatchedBets
+                        .filter(b => {
+                          if (!filterSearch) return true;
+                          const q = filterSearch.toLowerCase();
+                          return (
+                            (b.runner || "").toLowerCase().includes(q) ||
+                            (b.better || "").toLowerCase().includes(q) ||
+                            (b.master || "").toLowerCase().includes(q) ||
+                            (b.type || "").toLowerCase().includes(q) ||
+                            (b.marketType || "").toLowerCase().includes(q)
+                          );
+                        })
+                        .map((bet, idx) => {
+                          const isBack = (bet.type || "").toLowerCase() === "back";
+                          const isBookmaker = (bet.marketType || "").toLowerCase() === "bookmaker";
+                          return (
+                            <tr
+                              key={bet.id || idx}
+                              className={isBack ? "bg-blue-50/40 hover:bg-blue-50/70" : "bg-red-50/40 hover:bg-red-50/70"}
+                            >
+                              <td className="px-3 py-2 font-bold text-gray-800">
+                                {formatBetRunner(bet)}
+                              </td>
+                              <td className="px-2 py-2 text-center">
+                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${
+                                  isBookmaker ? "bg-purple-100 text-purple-700 border border-purple-200" : "bg-gray-100 text-gray-700 border border-gray-200"
+                                }`}>
+                                  {isBookmaker ? "Bookmaker" : "Match Odds"}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2 text-center">
+                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${
+                                  isBack ? "bg-blue-100 text-blue-700 border border-blue-200" : "bg-red-100 text-red-700 border border-red-200"
+                                }`}>
+                                  {bet.type}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2 text-center font-bold text-gray-800">
+                                {bet.price || bet.odds}
+                              </td>
+                              <td className="px-3 py-2 text-right font-black text-gray-900">
+                                ₹{Number(bet.size || bet.stake || 0).toLocaleString("en-IN")}
+                              </td>
+                              <td className="px-2 py-2 text-center font-bold text-gray-600">
+                                {bet.sharePercent != null ? `${bet.sharePercent}%` : "--"}
+                              </td>
+                              <td className="px-3 py-2 text-right font-black text-blue-700">
+                                ₹{Number(bet.parentStake != null ? bet.parentStake : (bet.size || 0)).toLocaleString("en-IN")}
+                              </td>
+                              <td className="px-3 py-2 font-bold text-gray-800">
+                                {bet.better || bet.userId}
+                              </td>
+                              <td className="px-3 py-2 font-bold text-gray-800">
+                                {bet.master || "Direct"}
+                              </td>
+                              <td className="px-3 py-2 text-right text-gray-400 font-mono text-[10px]">
+                                {bet.createdAt ? new Date(bet.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="p-3 bg-gray-100 border-t border-gray-200 flex justify-end">
+                  <button
+                    onClick={() => setIsFullBetListOpen(false)}
+                    className="bg-gray-800 hover:bg-gray-700 text-white text-xs font-bold px-4 py-1.5 rounded cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
         </div>
 
