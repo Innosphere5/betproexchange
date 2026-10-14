@@ -176,7 +176,8 @@ export default function CurrentPositionView({
 
   const handleOpenMarket = (market) => {
     const targetId = market.matchId || market.key;
-    router.push(`/${role}/current-position/${encodeURIComponent(targetId)}`);
+    const mType = market.marketType || "match_odds";
+    router.push(`/${role}/current-position/${encodeURIComponent(targetId)}?market=${encodeURIComponent(mType)}`);
   };
 
   const formatAmountDisplay = (amount) => {

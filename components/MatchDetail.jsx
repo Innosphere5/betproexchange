@@ -596,27 +596,59 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
         </div>
 
         {/* BPEXCH LIVE SCORE & BALL CHALOO STRIP */}
-        {showLiveMarkets && (
-          <div className="flex items-center justify-between px-4 py-2 bg-[#0e1f2c] border-t border-white/10 text-white">
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <span className="font-black text-sm text-white">
-                  {actualMatch.teamA?.slice(0, 4).toUpperCase() || 'SA-L'} {actualMatch.score?.teamA_runs || '107'}/{actualMatch.score?.teamA_wickets || '1'} ({actualMatch.score?.overs || '9'})
-                </span>
-                <span className="text-[11px] font-bold text-gray-400">
-                  CRR: {actualMatch.score?.crr || '11.89'}
-                </span>
+        {showLiveMarkets && (() => {
+          const sc = actualMatch?.score || {};
+          const teamCode = actualMatch.teamA ? (actualMatch.teamA.toLowerCase().includes('india') ? 'IND' : actualMatch.teamA.slice(0, 3).toUpperCase()) : 'IND';
+          let runs = '0';
+          let wickets = '0';
+          if (sc.teamA_runs) {
+            const parts = String(sc.teamA_runs).split(/[\/-]/);
+            runs = parts[0] || '0';
+            wickets = parts[1] || '0';
+          }
+          const overs = sc.overs || '0.0';
+          const crr = sc.runRate || sc.crr || '0.00';
+          const rrr = sc.reqRunRate || '0.00';
+          const target = sc.target || 0;
+          const remRuns = sc.remRuns || (target > 0 ? Math.max(0, target - Number(runs)) : 0);
+          const remBalls = sc.remBalls || 0;
+          const thisOverStr = Array.isArray(sc.thisOver) ? sc.thisOver.join(' ') : (sc.thisOver || '0');
+
+          return (
+            <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-[#0e1f2c] border-t border-white/10 text-white">
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="font-black text-sm text-white tracking-wide">
+                    {teamCode} {runs}-{wickets} ({overs})
+                  </span>
+                  <span className="text-[11px] font-bold text-gray-300">
+                    CRR: <span className="text-[#00e676] font-extrabold">{crr}</span>
+                  </span>
+                  {Number(rrr) > 0 && (
+                    <span className="text-[11px] font-bold text-gray-300">
+                      RRR: <span className="text-amber-400 font-extrabold">{rrr}</span>
+                    </span>
+                  )}
+                  {Number(target) > 0 && (
+                    <span className="text-[11px] font-bold text-gray-300">
+                      T: <span className="text-sky-400 font-extrabold">{target}</span>
+                    </span>
+                  )}
+                </div>
+                <div className="text-[10px] font-semibold text-gray-300 flex items-center gap-3">
+                  <span>This Over: <span className="font-mono text-white">{thisOverStr}</span></span>
+                  {Number(remBalls) > 0 && Number(remRuns) > 0 && (
+                    <span className="text-emerald-300 font-bold">{remRuns} of {remBalls} balls</span>
+                  )}
+                </div>
               </div>
-              <div className="text-[10px] font-semibold text-gray-300">
-                This Over : {actualMatch.score?.thisOver || '4 0 6 1 1 6'} - This Over : {actualMatch.score?.overRuns || '18'}
+              <div className="flex items-center gap-1.5 text-[#00e676] font-black tracking-wider text-xs sm:text-sm animate-pulse shrink-0">
+                <span>BALL CHALOO!!</span>
+                <Volume2 size={16} className="text-[#00e676]" />
               </div>
             </div>
-            <div className="flex items-center gap-1.5 text-[#00e676] font-black tracking-wider text-sm animate-pulse">
-              <span>BALL CHALOO!!</span>
-              <Volume2 size={16} className="text-[#00e676]" />
-            </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* 2. MATCH ODDS MARKET SECTION (Visible on 'ALL' tab, hidden if completed) */}
