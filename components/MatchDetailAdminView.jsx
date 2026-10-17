@@ -17,7 +17,9 @@ import {
   BookUser,
   Layout,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Info,
+  Clock
 } from "lucide-react";
 import io from "socket.io-client";
 import { getApiUrl } from "@/lib/apiConfig";
@@ -31,10 +33,10 @@ export default function MatchDetailAdminView({
   const router = useRouter();
   const searchParams = useSearchParams();
   const matchId = propMatchId || params?.matchId || params?.id;
-  const initialMarket = searchParams.get("market") || "match_odds";
+  const initialMarket = searchParams.get("market") || "ALL";
 
   const [matchData, setMatchData] = useState(null);
-  const [activeMediaTab, setActiveMediaTab] = useState("tv");
+  const [selectedMarketType, setSelectedMarketType] = useState("ALL");
   const [betsData, setBetsData] = useState({
     matchedBets: [],
     openBets: [],
@@ -45,7 +47,6 @@ export default function MatchDetailAdminView({
   const [adminExposureData, setAdminExposureData] = useState(null);
   const [currentPositionList, setCurrentPositionList] = useState([]);
   const [currentPositionBets, setCurrentPositionBets] = useState([]);
-  const [selectedMarketType, setSelectedMarketType] = useState(initialMarket);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [userSession, setUserSession] = useState(null);
@@ -139,7 +140,7 @@ export default function MatchDetailAdminView({
     return () => clearInterval(interval);
   }, [fetchAllData]);
 
-  // ── Real-Time Socket.IO Updates (Odds, Scores, Bets & Hierarchy Settlement) ──
+  // ── Real-Time Socket.IO Updates (Odds, Scores, Fancy, Figure, Even/Odd, Bets) ──
   useEffect(() => {
     if (!matchId) return;
     const socket = io(getApiUrl(), {
@@ -147,7 +148,7 @@ export default function MatchDetailAdminView({
       reconnectionAttempts: 5
     });
 
-    // 1. Live Market Odds Updates (from oddspapi / oddsEngine / oddsApiLiveService)
+    // 1. Live Market Odds Updates
     const handleMarketOddsUpdate = (data) => {
       const incomingId = String(data.matchId ?? data.matchIdNum ?? "");
       if (String(matchId) === incomingId) {
@@ -247,14 +248,58 @@ export default function MatchDetailAdminView({
       }
     };
 
-    // 5. Match Record Update
+    // 5. Fancy Markets Update
+    const handleFancyUpdate = (data) => {
+      const incomingId = String(data.matchId ?? "");
+      if (String(matchId) === incomingId) {
+        setMatchData((prev) => ({
+          ...(prev || {}),
+          fancyMarkets: data.fancyMarkets ?? prev?.fancyMarkets
+        }));
+      }
+    };
+
+    // 6. Figure Markets Update
+    const handleFigureUpdate = (data) => {
+      const incomingId = String(data.matchId ?? "");
+      if (String(matchId) === incomingId) {
+        setMatchData((prev) => ({
+          ...(prev || {}),
+          figureMarkets: data.figureMarkets ?? prev?.figureMarkets
+        }));
+      }
+    };
+
+    // 7. Even/Odd Markets Update
+    const handleEvenOddUpdate = (data) => {
+      const incomingId = String(data.matchId ?? "");
+      if (String(matchId) === incomingId) {
+        setMatchData((prev) => ({
+          ...(prev || {}),
+          evenOddMarkets: data.evenOddMarkets ?? prev?.evenOddMarkets
+        }));
+      }
+    };
+
+    // 8. Tied Match Market Update
+    const handleTiedMatchUpdate = (data) => {
+      const incomingId = String(data.matchId ?? "");
+      if (String(matchId) === incomingId) {
+        setMatchData((prev) => ({
+          ...(prev || {}),
+          tiedMatchMarket: data.tiedMatchMarket ?? prev?.tiedMatchMarket
+        }));
+      }
+    };
+
+    // 9. Match Record Update
     const handleMatchUpdate = (data) => {
       if (String(data.matchId) === String(matchId)) {
         fetchAllData(true);
       }
     };
 
-    // 6. Live Cricket Score Update (Full oddspapi score metrics)
+    // 10. Live Cricket Score Update
     const handleScoreUpdate = (data) => {
       if (String(data.matchId) === String(matchId)) {
         setMatchData((prev) => ({
@@ -281,6 +326,10 @@ export default function MatchDetailAdminView({
     socket.on("odds_updated", handleOddsUpdated);
     socket.on("bookmaker_odds_update", handleBookmakerUpdate);
     socket.on("toss_odds_update", handleTossUpdate);
+    socket.on("fancy_market_update", handleFancyUpdate);
+    socket.on("figure_market_update", handleFigureUpdate);
+    socket.on("even_odd_market_update", handleEvenOddUpdate);
+    socket.on("tied_match_market_update", handleTiedMatchUpdate);
     socket.on("live_score_update", handleScoreUpdate);
     socket.on("match_updated", handleMatchUpdate);
     socket.on("bet_placed", () => fetchAllData(true));
@@ -293,6 +342,10 @@ export default function MatchDetailAdminView({
       socket.off("odds_updated", handleOddsUpdated);
       socket.off("bookmaker_odds_update", handleBookmakerUpdate);
       socket.off("toss_odds_update", handleTossUpdate);
+      socket.off("fancy_market_update", handleFancyUpdate);
+      socket.off("figure_market_update", handleFigureUpdate);
+      socket.off("even_odd_market_update", handleEvenOddUpdate);
+      socket.off("tied_match_market_update", handleTiedMatchUpdate);
       socket.off("live_score_update", handleScoreUpdate);
       socket.off("match_updated", handleMatchUpdate);
       socket.disconnect();
@@ -325,7 +378,10 @@ export default function MatchDetailAdminView({
     return "Team B";
   }, [matchData?.teamB, matchName]);
 
-  // Status computation: Pending (Live/Open) vs Result Declared (Completed/Settled)
+  const shortA = useMemo(() => teamA.slice(0, 4).toUpperCase(), [teamA]);
+  const shortB = useMemo(() => teamB.slice(0, 4).toUpperCase(), [teamB]);
+
+  // Status computation
   const isCompleted = Boolean(
     (matchData?.isCompleted === true ||
       matchData?.status === "completed" ||
@@ -334,26 +390,10 @@ export default function MatchDetailAdminView({
   );
   const winner = isCompleted ? (matchData?.winner || null) : null;
   const isLive = Boolean(matchData && (matchData.status === "live" || matchData.inplay === true));
-  const isSuspended = Boolean(matchData?.isSuspended === true || matchData?.status === "suspended");
-
-  // Check which runner won if resulted (strictly after match result)
-  const isWinnerA = Boolean(
-    isCompleted &&
-    winner &&
-    (winner.toLowerCase() === teamA.toLowerCase() ||
-      teamA.toLowerCase().includes(winner.toLowerCase()) ||
-      winner.toLowerCase().includes(teamA.toLowerCase()))
-  );
-  const isWinnerB = Boolean(
-    isCompleted &&
-    winner &&
-    (winner.toLowerCase() === teamB.toLowerCase() ||
-      teamB.toLowerCase().includes(winner.toLowerCase()) ||
-      winner.toLowerCase().includes(teamB.toLowerCase()))
-  );
+  const isSuspended = Boolean(matchData?.marketStatus === "SUSPENDED" || matchData?.isSuspended === true || matchData?.status === "suspended");
 
   // Volume format helper
-  const formatVol = (val, fallback = "") => {
+  const formatVol = (val, fallback = "100") => {
     if (!val) return fallback;
     const num = Number(val);
     if (isNaN(num)) return String(val);
@@ -361,6 +401,18 @@ export default function MatchDetailAdminView({
     if (num >= 1000) return (num / 1000).toFixed(1) + "K";
     return String(num);
   };
+
+  // ── Available Tabs ────────────────────────────────────────────────────────
+  const availableTabs = [
+    "ALL",
+    "Match Odds",
+    "Bookmaker",
+    "Toss",
+    "Score Card",
+    "Figure",
+    "Fancy",
+    "Even-Odd"
+  ];
 
   // ── Cricket Score Computation ─────────────────────────────────────────────
   const scoreData = useMemo(() => {
@@ -385,33 +437,20 @@ export default function MatchDetailAdminView({
     const parsedA = parseTeam(sc.teamA_runs, sc.teamA_wickets || 0);
     const parsedB = parseTeam(sc.teamB_runs, sc.teamB_wickets || sc.wickets || 0);
 
-    // Target calculation: from DB or derived from 1st innings score
     let target = Number(sc.target) || 0;
-    if (!target && parsedB.runs > 0) {
-      target = parsedB.runs + 1;
-    } else if (!target && parsedA.runs > 0 && parsedB.runs === 0 && sc.overs && sc.overs !== "0.0") {
+    if (!target && parsedB.runs > 0 && parsedA.runs > parsedB.runs) {
       target = parsedA.runs + 1;
+    } else if (!target && parsedA.runs > 0 && parsedB.runs > parsedA.runs) {
+      target = parsedB.runs + 1;
     }
 
-    // Determine who is chasing / currently batting
-    const isChasingA = Boolean(target > 0 && parsedB.runs > 0 && parsedA.runs <= target);
+    const isBattingB = sc.battingTeam === 'teamB' || (target > 0 && parsedA.runs >= parsedB.runs && sc.battingTeam !== 'teamA');
+    const isBattingA = sc.battingTeam === 'teamA' || (!isBattingB && parsedA.runs > 0);
+    const isChasingA = Boolean(target > 0 && isBattingA);
+    const rawOvers = String(sc.overs || "0.0");
+    const displayOvers = rawOvers === "0.0" ? "0.0" : rawOvers;
+    const crr = sc.runRate || sc.crr || "0.00";
 
-    const activeTeamName = isChasingA ? teamA : (parsedB.runs > parsedA.runs ? teamB : teamA);
-    const activeShortCode = isChasingA
-      ? teamA.slice(0, 3).toUpperCase()
-      : (parsedB.runs > parsedA.runs ? teamB.slice(0, 3).toUpperCase() : teamA.slice(0, 3).toUpperCase());
-    const activeScoreText = isChasingA
-      ? parsedA.text
-      : (parsedB.runs > parsedA.runs ? parsedB.text : parsedA.text);
-
-    // Overs formatting
-    const rawOvers = String(sc.overs || "0");
-    const displayOvers = rawOvers === "0.0" ? "0" : rawOvers;
-
-    // CRR
-    const crr = sc.runRate || sc.crr || "0";
-
-    // Balls & RRR
     let remRuns = sc.remRuns;
     let remBalls = sc.remBalls;
     let rrr = sc.reqRunRate || "0.00";
@@ -430,7 +469,6 @@ export default function MatchDetailAdminView({
       }
     }
 
-    // This Over balls
     let thisOverList = [];
     if (Array.isArray(sc.thisOver) && sc.thisOver.length > 0) {
       thisOverList = sc.thisOver;
@@ -442,96 +480,44 @@ export default function MatchDetailAdminView({
       } else {
         thisOverList = sc.thisOver.split("");
       }
-    } else {
-      thisOverList = ["1", "1", "1", "6"];
     }
 
     return {
       parsedA,
       parsedB,
       isChasingA,
-      activeTeamName,
-      activeShortCode,
-      activeScoreText,
       displayOvers,
       crr,
       rrr,
       target,
       remRuns,
       remBalls,
-      thisOverList
+      thisOverList,
+      isBattingA,
+      isBattingB,
+      periods: sc.periods || null
     };
-  }, [matchData?.score, teamA, teamB]);
+  }, [matchData?.score]);
 
-  // Live Back & Lay odds calculation for Team A and Team B
-  const runnerOddsA = useMemo(() => {
-    if (selectedMarketType === "bookmaker") {
-      return {
-        back: matchData?.bookmakerBackA || matchData?.backOddsA ? Number(matchData.bookmakerBackA || matchData.backOddsA).toFixed(2) : "2.34",
-        lay: matchData?.bookmakerLayA || matchData?.layOddsA ? Number(matchData.bookmakerLayA || matchData.layOddsA).toFixed(2) : "2.36",
-        backVol: formatVol(matchData?.bookmakerDepthBackA || matchData?.depthBackA, "100"),
-        layVol: formatVol(matchData?.bookmakerDepthLayA || matchData?.depthLayA, "100")
-      };
-    }
-    return {
-      back: matchData?.backOddsA ? Number(matchData.backOddsA).toFixed(2) : "2.34",
-      lay: matchData?.layOddsA ? Number(matchData.layOddsA).toFixed(2) : "2.36",
-      backVol: formatVol(matchData?.depthBackA, "14.5K"),
-      layVol: formatVol(matchData?.depthLayA, "236")
-    };
-  }, [matchData, selectedMarketType]);
-
-  const runnerOddsB = useMemo(() => {
-    if (selectedMarketType === "bookmaker") {
-      return {
-        back: matchData?.bookmakerBackB || matchData?.backOddsB ? Number(matchData.bookmakerBackB || matchData.backOddsB).toFixed(2) : "1.73",
-        lay: matchData?.bookmakerLayB || matchData?.layOddsB ? Number(matchData.bookmakerLayB || matchData.layOddsB).toFixed(2) : "1.74",
-        backVol: formatVol(matchData?.bookmakerDepthBackB || matchData?.depthBackB, "100"),
-        layVol: formatVol(matchData?.bookmakerDepthLayB || matchData?.depthLayB, "100")
-      };
-    }
-    return {
-      back: matchData?.backOddsB ? Number(matchData.backOddsB).toFixed(2) : "1.73",
-      lay: matchData?.layOddsB ? Number(matchData.layOddsB).toFixed(2) : "1.74",
-      backVol: formatVol(matchData?.depthBackB, "1.1K"),
-      layVol: formatVol(matchData?.depthLayB, "15.7K")
-    };
-  }, [matchData, selectedMarketType]);
-
-  // Markets available for this match from current position
-  const availableMarketsForMatch = useMemo(() => {
-    const list = currentPositionList.filter(
-      (p) =>
-        String(p.matchId) === String(matchId) ||
-        (p.matchName && matchName && p.matchName.toLowerCase() === matchName.toLowerCase())
-    );
-    const mTypes = [...new Set(list.map((p) => p.marketType || "match_odds"))];
-    if (mTypes.length === 0) return ["match_odds", "bookmaker", "toss"];
-    return mTypes;
-  }, [currentPositionList, matchId, matchName]);
-
-  // ── Retrieve Runner Real-Time Net Exposure Based on Parent Share Logic ────
+  // ── Retrieve Runner Net Exposure Based on Parent Share Logic ─────────────
   const getRunnerExposure = useCallback(
-    (runnerName) => {
+    (runnerName, marketType = null) => {
       if (!runnerName) return 0;
       const norm = runnerName.trim().toLowerCase();
-      const isBm = selectedMarketType === "bookmaker";
-      const isToss = selectedMarketType === "toss";
 
-      // 1. Direct from Current Position (Authoritative Share Distribution)
+      // 1. Direct from Current Position (Authoritative Parent Share)
       const cpItems = currentPositionList.filter(
         (p) =>
-          (String(p.matchId) === String(matchId) ||
-            (p.matchName && matchName && p.matchName.toLowerCase() === matchName.toLowerCase())) &&
-          (p.marketType || "match_odds") === selectedMarketType
+          String(p.matchId) === String(matchId) ||
+          (p.matchName && matchName && p.matchName.toLowerCase() === matchName.toLowerCase())
       );
 
       for (const item of cpItems) {
+        if (marketType && item.marketType && item.marketType !== marketType) continue;
         if (item.name && item.name.trim().toLowerCase() === norm) {
           return item.amount != null ? item.amount : 0;
         }
         if (
-          isToss &&
           item.name &&
           (item.name.toLowerCase().includes(norm) || norm.includes(item.name.toLowerCase()))
         ) {
@@ -539,33 +525,37 @@ export default function MatchDetailAdminView({
         }
       }
 
-      // 2. From match exposure endpoint
-      const targetKey = isBm ? `${runnerName}_bm` : isToss ? `${runnerName} To Win The Toss` : runnerName;
+      // 2. From exposure endpoints
+      const sources = [betsData?.adminExposure, betsData?.exposure, adminExposureData?.exposure];
+      const testKeys = [
+        runnerName,
+        norm,
+        `${runnerName}_bm`,
+        `${runnerName} To Win The Toss`,
+        `tied_${norm}`,
+        `digit_${runnerName}`
+      ];
 
-      if (betsData?.adminExposure) {
-        if (betsData.adminExposure[targetKey] !== undefined) return betsData.adminExposure[targetKey];
-        if (betsData.adminExposure[runnerName] !== undefined) return betsData.adminExposure[runnerName];
-      }
-
-      if (betsData?.exposure) {
-        if (betsData.exposure[targetKey] !== undefined) return betsData.exposure[targetKey];
-        if (betsData.exposure[runnerName] !== undefined) return betsData.exposure[runnerName];
-      }
-
-      if (adminExposureData?.exposure) {
-        if (adminExposureData.exposure[targetKey] !== undefined) return adminExposureData.exposure[targetKey];
-        if (adminExposureData.exposure[runnerName] !== undefined) return adminExposureData.exposure[runnerName];
+      for (const src of sources) {
+        if (!src) continue;
+        for (const k of testKeys) {
+          if (src[k] !== undefined && src[k] !== 0) return src[k];
+        }
+        for (const [k, v] of Object.entries(src)) {
+          if (k.trim().toLowerCase() === norm && v !== 0) return v;
+          if (k.trim().toLowerCase() === `${norm}_bm` && v !== 0) return v;
+        }
       }
 
       return 0;
     },
-    [currentPositionList, matchId, matchName, selectedMarketType, betsData, adminExposureData]
+    [currentPositionList, matchId, matchName, betsData, adminExposureData]
   );
 
-  // ── Render Runner Exposure (Bold Green for Profit, Bold Red for Loss) ──────
+  // ── Render Runner Exposure (Bold Green for Profit, Bold Red for Loss) ────
   const renderRunnerExposure = useCallback(
-    (runnerName) => {
-      const exp = getRunnerExposure(runnerName);
+    (runnerName, marketType = null) => {
+      const exp = getRunnerExposure(runnerName, marketType);
       if (exp === null || exp === undefined || isNaN(exp)) return null;
 
       const isNegative = exp < 0;
@@ -574,8 +564,9 @@ export default function MatchDetailAdminView({
 
       return (
         <div
-          className={`text-[13px] md:text-[14px] font-black mt-0.5 tracking-tight ${isNegative ? "text-[#dc2626]" : isPositive ? "text-[#009866]" : "text-gray-500"
-            }`}
+          className={`text-[12px] sm:text-[13px] font-black mt-0.5 tracking-tight ${
+            isNegative ? "text-[#dc2626]" : isPositive ? "text-[#009866]" : "text-gray-500"
+          }`}
         >
           {isNegative ? `-${formatted}` : isPositive ? `+${formatted}` : "0"}
         </div>
@@ -584,7 +575,85 @@ export default function MatchDetailAdminView({
     [getRunnerExposure]
   );
 
-  // Settle Match Controls (For Admin / Superadmin / Master)
+  // ── Render Fancy Exposure ────────────────────────────────────────────────
+  const renderFancyExposure = useCallback((marketName) => {
+    if (!marketName) return null;
+    const norm = marketName.trim().toLowerCase();
+
+    const getExposureVal = (subKey) => {
+      const target = `${norm}_${subKey}`;
+      const sources = [betsData?.adminExposure, betsData?.exposure, adminExposureData?.exposure];
+      for (const src of sources) {
+        if (!src) continue;
+        for (const [k, v] of Object.entries(src)) {
+          if (k.trim().toLowerCase() === target && v !== 0 && !isNaN(v)) return v;
+        }
+      }
+      return undefined;
+    };
+
+    const yesVal = getExposureVal('yes');
+    const noVal = getExposureVal('no');
+
+    if (yesVal !== undefined && noVal !== undefined && (yesVal !== 0 || noVal !== 0)) {
+      return (
+        <div className="flex flex-col">
+          <div className="text-[12px] font-black mt-0.5 flex items-center gap-1.5">
+            <span className={yesVal >= 0 ? "text-[#009866]" : "text-[#dc2626]"}>
+              {yesVal >= 0 ? `+${Math.round(yesVal).toLocaleString("en-IN")}` : `-${Math.abs(Math.round(yesVal)).toLocaleString("en-IN")}`}
+            </span>
+            <span className="text-gray-400">/</span>
+            <span className={noVal >= 0 ? "text-[#009866]" : "text-[#dc2626]"}>
+              {noVal >= 0 ? `+${Math.round(noVal).toLocaleString("en-IN")}` : `-${Math.abs(Math.round(noVal)).toLocaleString("en-IN")}`}
+            </span>
+          </div>
+          <span className="text-[10px] font-bold text-blue-600 hover:underline cursor-pointer mt-0.5">Book</span>
+        </div>
+      );
+    }
+
+    const singleExp = getRunnerExposure(marketName, 'fancy');
+    if (singleExp !== 0 && singleExp !== null && singleExp !== undefined) {
+      const isNeg = singleExp < 0;
+      return (
+        <div className="flex flex-col">
+          <div className={`text-[12px] font-black mt-0.5 ${isNeg ? "text-[#dc2626]" : "text-[#009866]"}`}>
+            {isNeg ? `-${Math.abs(Math.round(singleExp)).toLocaleString("en-IN")}` : `+${Math.round(singleExp).toLocaleString("en-IN")}`}
+          </div>
+          <span className="text-[10px] font-bold text-blue-600 hover:underline cursor-pointer mt-0.5">Book</span>
+        </div>
+      );
+    }
+
+    return <span className="text-[11px] font-black text-[#00c766] hover:underline cursor-pointer mt-0.5">Book</span>;
+  }, [betsData, adminExposureData, getRunnerExposure]);
+
+  // ── Render Digit Exposure (Figure) ───────────────────────────────────────
+  const renderDigitExposure = useCallback((marketName, digit) => {
+    const keys = [
+      `${marketName} - Digit ${digit}`,
+      `${marketName}_${digit}`,
+      `digit_${digit}`
+    ];
+    let exp = 0;
+    for (const k of keys) {
+      const val = getRunnerExposure(k, 'figure');
+      if (val !== 0 && val !== undefined && !isNaN(val)) {
+        exp = val;
+        break;
+      }
+    }
+    if (exp === 0 || exp === undefined || isNaN(exp)) return null;
+    const isNegative = exp < 0;
+    const formatted = Math.abs(Math.round(exp)).toLocaleString("en-IN");
+    return (
+      <div className={`text-[10px] font-black py-0.5 border-t border-gray-200 text-center leading-none tracking-tight ${isNegative ? 'text-[#dc2626] bg-[#fbe2e8]/40' : 'text-[#009866] bg-[#dcecfd]/40'}`}>
+        {isNegative ? `-${formatted}` : `+${formatted}`}
+      </div>
+    );
+  }, [getRunnerExposure]);
+
+  // ── Toss & Match Settlement Handlers ─────────────────────────────────────
   const handleDeclareWinner = async (winningTeam) => {
     if (
       !window.confirm(
@@ -614,35 +683,49 @@ export default function MatchDetailAdminView({
     }
   };
 
+  const handleDeclareTossWinner = async (tossWinner) => {
+    if (!window.confirm(`Declare "${tossWinner}" as Toss Winner? This will immediately settle all toss bets across hierarchy.`)) return;
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`${getApiUrl()}/api/admin/declare-toss-winner`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ matchId, tossWinner })
+      });
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        alert(`Toss winner declared: ${tossWinner}`);
+        fetchAllData(false);
+      } else {
+        alert(resData.error || "Failed to declare toss winner");
+      }
+    } catch (e) {
+      alert("Error declaring toss winner");
+    }
+  };
+
   const handleBackToPositions = () => {
     router.push(`/${role}/current-position`);
   };
 
   // Header user info stats
   const totalMarketExposure = useMemo(() => {
-    const expA = getRunnerExposure(teamA);
-    const expB = getRunnerExposure(teamB);
+    const expA = getRunnerExposure(teamA, 'match_odds');
+    const expB = getRunnerExposure(teamB, 'match_odds');
     const worstMo = Math.min(expA, expB);
     return worstMo < 0 ? worstMo : 0;
   }, [getRunnerExposure, teamA, teamB]);
 
-  // Combined real matched bets
+  // Combined real matched & open bets
   const allMatchedBets = useMemo(() => {
-    const fromBets = (betsData?.matchedBets || []).map((b) => ({
-      ...b,
-      id: b.id || b._id
-    }));
-    const fromExp = (adminExposureData?.matchedBets || []).map((b) => ({
-      ...b,
-      id: b.id || b._id
-    }));
+    const fromBets = (betsData?.matchedBets || []).map((b) => ({ ...b, id: b.id || b._id }));
+    const fromExp = (adminExposureData?.matchedBets || []).map((b) => ({ ...b, id: b.id || b._id }));
     const fromCP = currentPositionBets
       .filter((b) => String(b.matchId) === String(matchId))
-      .map((b) => ({
-        ...b,
-        id: b.id || b._id,
-        parentStake: b.shareAmount || b.parentStake
-      }));
+      .map((b) => ({ ...b, id: b.id || b._id, parentStake: b.shareAmount || b.parentStake }));
 
     const map = new Map();
     [...fromBets, ...fromExp, ...fromCP].forEach((b) => {
@@ -668,22 +751,15 @@ export default function MatchDetailAdminView({
     if (!bet?.runner) return "--";
     const isBookmaker = (bet.marketType || "").toLowerCase() === "bookmaker";
     const cleanRunner = bet.runner.replace(/\s+BM$/i, "").trim();
-    if (isBookmaker) {
-      return `${cleanRunner} BM`;
-    }
+    if (isBookmaker) return `${cleanRunner} BM`;
     return bet.runner;
   };
 
-  const displayUsername = userSession?.username || "adnan";
-  const displayRoleTitle = roleTitle || "SuperAdmin";
-  const displayBalance =
-    userSession?.balance != null ? Number(userSession.balance).toLocaleString("en-IN") : "0";
-  const displayExposure =
-    totalMarketExposure < 0
-      ? `-${Math.abs(Math.round(totalMarketExposure)).toLocaleString("en-IN")}`
-      : "0";
+  const displayUsername = userSession?.username || "admin";
+  const displayRoleTitle = roleTitle || "Admin";
+  const displayBalance = userSession?.balance != null ? Number(userSession.balance).toLocaleString("en-IN") : "0";
+  const displayExposure = totalMarketExposure < 0 ? `-${Math.abs(Math.round(totalMarketExposure)).toLocaleString("en-IN")}` : "0";
 
-  // Format date and time
   const matchDateFormatted = useMemo(() => {
     if (matchData?.startTime) {
       try {
@@ -696,36 +772,115 @@ export default function MatchDetailAdminView({
         });
       } catch { }
     }
-    return "14 Oct, 19:00";
+    return "Today";
   }, [matchData?.startTime]);
 
+  // Dynamic Runner Odds for Match Odds
+  const runnerOddsA = useMemo(() => ({
+    back: matchData?.backOddsA ? Number(matchData.backOddsA).toFixed(2) : "1.98",
+    lay: matchData?.layOddsA ? Number(matchData.layOddsA).toFixed(2) : "2.02",
+    backVol: formatVol(matchData?.depthBackA, "100"),
+    layVol: formatVol(matchData?.depthLayA, "100")
+  }), [matchData]);
+
+  const runnerOddsB = useMemo(() => ({
+    back: matchData?.backOddsB ? Number(matchData.backOddsB).toFixed(2) : "1.98",
+    lay: matchData?.layOddsB ? Number(matchData.layOddsB).toFixed(2) : "2.02",
+    backVol: formatVol(matchData?.depthBackB, "100"),
+    layVol: formatVol(matchData?.depthLayB, "100")
+  }), [matchData]);
+
+  // Bookmaker Odds
+  const bmBackOddsA = matchData?.bookmakerBackA || matchData?.backOddsA ? Number(matchData.bookmakerBackA || matchData.backOddsA).toFixed(2) : "-";
+  const bmLayOddsA = matchData?.bookmakerLayA || (matchData?.layOddsA ? Number((matchData.layOddsA > (matchData.backOddsA || 0) ? matchData.layOddsA + 0.01 : (matchData.backOddsA || 0) + 0.02).toFixed(2)) : "-");
+  const bmBackOddsB = matchData?.bookmakerBackB || (matchData?.backOddsB ? Number((matchData.backOddsB >= 2 ? matchData.backOddsB - 0.02 : matchData.backOddsB).toFixed(2)) : "-");
+  const bmLayOddsB = matchData?.bookmakerLayB || (matchData?.layOddsB ? Number((matchData.layOddsB >= 2 ? matchData.layOddsB + 0.02 : matchData.layOddsB + 0.02).toFixed(2)) : "-");
+  const isBookmakerSuspended = matchData?.bookmakerMarketStatus === "SUSPENDED" || (!matchData?.bookmakerBackA && !matchData?.backOddsA);
+
+  // Toss Runners
+  const tossRunners = [
+    {
+      name: `${teamA} To Win The Toss`,
+      back: matchData?.tossBackA || "1.98",
+      backVol: matchData?.tossDepthBackA || "100",
+      lay: matchData?.tossLayA || "2.02",
+      layVol: matchData?.tossDepthLayA || "100"
+    },
+    {
+      name: `${teamB} To Win The Toss`,
+      back: matchData?.tossBackB || "1.98",
+      backVol: matchData?.tossDepthBackB || "100",
+      lay: matchData?.tossLayB || "2.02",
+      layVol: matchData?.tossDepthLayB || "100"
+    }
+  ];
+  const isTossSuspended = matchData?.tossMarketStatus === "SUSPENDED";
+
+  // Figure Markets
+  const figureMarkets = matchData?.figureMarkets && matchData.figureMarkets.length > 0
+    ? matchData.figureMarkets
+    : [
+        {
+          name: `${teamA.toUpperCase()} 15 OVER TOTAL LAST FIGURE`,
+          maxBet: 100000,
+          status: 'SUSPENDED',
+          digits: Array.from({ length: 10 }, (_, i) => ({ digit: i, odds: 8.85, status: 'SUSPENDED' }))
+        }
+      ];
+
+  // Fancy Markets
+  const fancyMarkets = matchData?.fancyMarkets && matchData.fancyMarkets.length > 0
+    ? matchData.fancyMarkets
+    : [
+        { name: `10 Over Run ${shortA}`, backPrice: null, backVol: '100', layPrice: null, layVol: '100', status: 'SUSPENDED' },
+        { name: `11 Over Run Only ${shortA}`, backPrice: null, backVol: '100', layPrice: null, layVol: '100', status: 'SUSPENDED' },
+        { name: `20 Over Run ${shortA}`, backPrice: null, backVol: '100', layPrice: null, layVol: '100', status: 'SUSPENDED' },
+        { name: `Fall of 1st Wkt ${shortA}`, backPrice: null, backVol: '100', layPrice: null, layVol: '100', status: 'SUSPENDED' },
+        { name: `Fall of 2nd Wkt ${shortA}`, backPrice: null, backVol: '100', layPrice: null, layVol: '100', status: 'SUSPENDED' },
+        { name: `10 Over Run ${shortB}`, backPrice: null, backVol: '100', layPrice: null, layVol: '100', status: 'SUSPENDED' },
+        { name: `Fall of 1st Wkt ${shortB}`, backPrice: null, backVol: '100', layPrice: null, layVol: '100', status: 'SUSPENDED' }
+      ];
+
+  // Even/Odd Markets
+  const evenOddMarkets = matchData?.evenOddMarkets && matchData.evenOddMarkets.length > 0
+    ? matchData.evenOddMarkets
+    : [
+        { name: "1st inn 15 Over Run Odd (Kalli)", backPrice: null, backVol: "100", layPrice: null, layVol: "100", status: "SUSPENDED" },
+        { name: "1st inn 20 Over Run Odd (Kalli)", backPrice: null, backVol: "100", layPrice: null, layVol: "100", status: "SUSPENDED" }
+      ];
+
+  const tiedMatchMarket = matchData?.tiedMatchMarket;
+
+  const isShowAll = selectedMarketType === "ALL";
+
   return (
-    <div className="w-full bg-[#f4f6f8] min-h-screen text-gray-800 font-sans antialiased pb-12 select-none">
-      <div className="max-w-md sm:max-w-xl mx-auto flex flex-col bg-white shadow-md min-h-screen">
-        {/* ─── 1. TOP MOBILE HEADER (MATCHING USER SCREENSHOT) ─── */}
-        <div className="bg-white text-gray-800 border-b border-gray-200 px-3 py-2 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
+    <div className="w-full bg-[#eaedf1] min-h-screen text-gray-800 font-sans antialiased pb-12 select-none">
+      <div className="max-w-2xl sm:max-w-3xl mx-auto flex flex-col bg-white shadow-md min-h-screen">
+        
+        {/* ─── 1. TOP MOBILE/PARENT HEADER ─── */}
+        <div className="bg-[#243f55] text-white border-b border-white/10 px-3 py-2 flex items-center justify-between sticky top-0 z-30 shadow-md">
           <div className="flex items-center gap-2">
             <button
               onClick={handleBackToPositions}
-              className="p-1 hover:bg-gray-100 active:scale-95 rounded text-gray-700 cursor-pointer transition-colors"
+              className="flex items-center gap-1 px-2 py-1 bg-white/10 hover:bg-white/20 active:scale-95 rounded text-white text-xs font-bold cursor-pointer transition-colors"
               title="Back to Positions"
             >
-              <Menu size={22} className="stroke-[2.2]" />
+              <ArrowLeft size={16} />
+              <span className="hidden sm:inline">Back</span>
             </button>
 
-            <div className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-gray-800">
-              <span className="font-semibold text-gray-800 flex items-center gap-0.5 cursor-pointer">
+            <div className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-white">
+              <span className="font-semibold text-white flex items-center gap-0.5 cursor-pointer">
                 <span>{displayUsername}</span>
-                <span className="text-gray-500 font-normal">({displayRoleTitle})</span>
-                <ChevronDown size={14} className="text-gray-500 ml-0.5" />
+                <span className="text-gray-300 font-normal">({displayRoleTitle})</span>
               </span>
 
-              <span className="text-gray-500 font-mono text-[11px] sm:text-xs">
-                • B: <span className="font-bold text-gray-700">{displayBalance}</span>
+              <span className="text-gray-300 font-mono text-[11px] sm:text-xs">
+                • B: <span className="font-bold text-white">{displayBalance}</span>
               </span>
 
-              <span className="font-mono text-[11px] sm:text-xs text-gray-700">
-                Exp: <span className="font-bold text-red-600">{displayExposure}</span>
+              <span className="font-mono text-[11px] sm:text-xs text-gray-300">
+                Exp: <span className="font-bold text-red-400">{displayExposure}</span>
               </span>
             </div>
           </div>
@@ -734,232 +889,721 @@ export default function MatchDetailAdminView({
             <button
               onClick={() => fetchAllData(false)}
               disabled={isLoading}
-              className="p-1 text-gray-400 hover:text-gray-700 rounded transition-colors cursor-pointer"
+              className="p-1.5 text-gray-300 hover:text-white rounded transition-colors cursor-pointer"
               title="Refresh Odds & Bets"
             >
-              <RefreshCw size={14} className={isLoading ? "animate-spin text-[#00a884]" : ""} />
+              <RefreshCw size={15} className={isLoading ? "animate-spin text-[#00c766]" : ""} />
             </button>
           </div>
         </div>
 
-        {/* ─── MARKET SELECTOR PILLS (Match Odds / Bookmaker / Toss) ─── */}
-        {availableMarketsForMatch.length > 1 && (
-          <div className="bg-[#1b2a38] px-2 py-1.5 flex items-center gap-1.5 overflow-x-auto no-scrollbar border-b border-gray-800">
-            {availableMarketsForMatch.map((mType) => {
-              const label =
-                mType === "match_odds"
-                  ? "Match Odds"
-                  : mType === "bookmaker"
-                    ? "Bookmaker"
-                    : mType === "toss"
-                      ? "Toss"
-                      : mType.replace(/_/g, " ");
-              const isSelected = selectedMarketType === mType;
-              return (
-                <button
-                  key={mType}
-                  onClick={() => setSelectedMarketType(mType)}
-                  className={`px-3 py-1 rounded text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${isSelected
-                    ? "bg-[#00a884] text-white shadow-xs"
-                    : "bg-[#253849] hover:bg-[#2f465a] text-gray-300"
-                    }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
+        {/* ─── MATCH HEADER BANNER ─── */}
+        <div className="bg-[#1d3548] text-white px-4 py-2.5 flex items-center justify-between border-b border-white/5">
+          <div className="flex flex-col">
+            <div className="flex items-center gap-1.5 text-[11px] text-[#00c766] font-black uppercase tracking-wider">
+              <Clock size={12} strokeWidth={3} className="text-[#00c766]" />
+              <span>{isLive ? "LIVE NOW" : "UPCOMING"} | {matchDateFormatted}</span>
+            </div>
+            <h1 className="text-base sm:text-lg font-black text-white tracking-tight mt-0.5">
+              {matchName}
+            </h1>
           </div>
-        )}
+          <div className="flex flex-col items-end">
+            <span className={`text-[11px] font-black uppercase px-2 py-0.5 rounded-full ${isLive ? 'bg-emerald-600 text-white animate-pulse' : isCompleted ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white'}`}>
+              {isCompleted ? "COMPLETED" : isLive ? "IN PLAY" : "UPCOMING"}
+            </span>
+          </div>
+        </div>
 
-        {/* ─── 2. MAIN CONTENT AREA ─── */}
-        <div className="p-2 sm:p-3 flex flex-col gap-2.5 bg-white flex-1">
-          {/* ══════════ MARKET ODDS TABLE (CYAN/BLUE BORDER) ══════════ */}
-          <div className="border border-[#38bdf8] rounded-xs overflow-hidden bg-white shadow-2xs">
-            {/* Market Header Banner */}
-            <div className="bg-white px-2.5 py-1.5 flex items-center justify-between border-b border-gray-200">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-xs sm:text-[13px] font-black text-gray-900 tracking-tight">
-                  {matchName} -{" "}
-                  {selectedMarketType === "bookmaker"
-                    ? "Bookmaker"
-                    : selectedMarketType === "toss"
-                      ? "Toss"
-                      : "Match Odds"}
-                </span>
-                {/* Dynamic Status Badge: Completed vs Suspended vs InPlay vs Open */}
-                {isCompleted ? (
-                  <span className="bg-purple-600 text-white text-[10px] sm:text-xs font-black px-2 py-0.5 rounded uppercase tracking-wider">
-                    COMPLETED
+        {/* ─── MARKET SELECTOR TABS (BPExch Style) ─── */}
+        <div className="bg-[#142634] px-2 py-1.5 flex items-center gap-1.5 overflow-x-auto no-scrollbar border-b border-white/10 sticky top-[45px] z-20">
+          {availableTabs.map((tab) => {
+            const isSelected = selectedMarketType === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setSelectedMarketType(tab)}
+                className={`px-3.5 py-1 rounded text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer shadow-xs ${
+                  isSelected
+                    ? "bg-[#00a884] text-white font-extrabold"
+                    : "bg-[#253849] hover:bg-[#2f465a] text-gray-300"
+                }`}
+              >
+                {tab}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ─── 2. MAIN CONTENT AREA (All requested sections accurately rendered) ─── */}
+        <div className="p-2 sm:p-3 flex flex-col gap-3 bg-[#eaedf1] flex-1">
+
+          {/* ══════════ SECTION 1: MATCH ODDS MARKET ══════════ */}
+          {(isShowAll || selectedMarketType === "Match Odds") && (
+            <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
+              <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                    <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  </div>
+                  <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                    MATCH ODDS <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: 5M)</span>
+                    <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
                   </span>
-                ) : isSuspended ? (
-                  <span className="text-[#e91e63] text-xs font-black uppercase tracking-wider">
-                    SUSPENDED
-                  </span>
-                ) : isLive ? (
-                  <span className="bg-[#00c766] text-white text-[10px] sm:text-xs font-black px-1.5 py-0.5 rounded uppercase tracking-wider animate-pulse">
-                    INPLAY
-                  </span>
-                ) : (
-                  <span className="text-blue-600 text-xs font-black uppercase tracking-wider">
-                    OPEN
-                  </span>
+                </div>
+                <div className="flex items-center gap-6 text-[11px] font-black tracking-widest uppercase">
+                  <div className="w-14 text-center border-b-2 border-[#bbd9f9]">BACK</div>
+                  <div className="w-14 text-center border-b-2 border-[#f8c9d4]">LAY</div>
+                </div>
+              </div>
+
+              {/* Runners List with Net Parent Profit/Loss in Bold Green/Red under each Team */}
+              <div className="relative flex flex-col divide-y divide-gray-100">
+                {isSuspended && (
+                  <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                    <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
+                      MARKET SUSPENDED
+                    </div>
+                  </div>
                 )}
-              </div>
-              <div className="text-gray-800 shrink-0">
-                <BookUser size={16} className="text-gray-800 stroke-[2.2]" />
-              </div>
-            </div>
 
-            {/* Sub-bar: Date & Elapsed Timer / Status */}
-            <div className="bg-[#f0f3f6] px-2.5 py-1 border-b border-gray-200 flex items-center justify-between text-xs text-gray-800 font-bold">
-              <span>{matchDateFormatted}</span>
-              <span className="font-mono text-gray-800">
-                {isCompleted ? "Result Declared" : isLive ? "In Play" : "Upcoming"}
-              </span>
-            </div>
+                {/* Team A */}
+                <div className="flex items-stretch hover:bg-gray-50 transition-colors">
+                  <div className="flex-1 flex flex-col justify-center px-3 py-2.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{teamA}</span>
+                      {isCompleted && winner && (winner.toLowerCase().includes(teamA.toLowerCase()) || teamA.toLowerCase().includes(winner.toLowerCase())) && (
+                        <span className="bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded flex items-center gap-1 uppercase">
+                          <Trophy size={10} className="text-yellow-300" /> Winner
+                        </span>
+                      )}
+                    </div>
+                    {renderRunnerExposure(teamA, 'match_odds')}
+                  </div>
+                  <div className="flex w-32 shrink-0">
+                    <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] border-r border-white/40">
+                      <span className="text-[15px] font-black leading-none text-[#1c3246]">{runnerOddsA.back}</span>
+                      <span className="text-[9px] font-bold mt-1 text-gray-500">{runnerOddsA.backVol}</span>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4]">
+                      <span className="text-[15px] font-black leading-none text-[#1c3246]">{runnerOddsA.lay}</span>
+                      <span className="text-[9px] font-bold mt-1 text-gray-500">{runnerOddsA.layVol}</span>
+                    </div>
+                  </div>
+                </div>
 
-            {/* Match Result Banner (Visible after Result Declaration) */}
-            {isCompleted && (
-              <div className="bg-emerald-50 border-b border-emerald-200 px-3 py-1.5 flex items-center justify-between text-xs text-emerald-950 font-bold">
-                <div className="flex items-center gap-1.5">
-                  <Trophy size={14} className="text-amber-500" />
-                  <span>
-                    Result: <strong>{winner || matchData?.winner || "Winner Declared"}</strong> won
+                {/* Team B */}
+                <div className="flex items-stretch hover:bg-gray-50 transition-colors">
+                  <div className="flex-1 flex flex-col justify-center px-3 py-2.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{teamB}</span>
+                      {isCompleted && winner && (winner.toLowerCase().includes(teamB.toLowerCase()) || teamB.toLowerCase().includes(winner.toLowerCase())) && (
+                        <span className="bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded flex items-center gap-1 uppercase">
+                          <Trophy size={10} className="text-yellow-300" /> Winner
+                        </span>
+                      )}
+                    </div>
+                    {renderRunnerExposure(teamB, 'match_odds')}
+                  </div>
+                  <div className="flex w-32 shrink-0">
+                    <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] border-r border-white/40">
+                      <span className="text-[15px] font-black leading-none text-[#1c3246]">{runnerOddsB.back}</span>
+                      <span className="text-[9px] font-bold mt-1 text-gray-500">{runnerOddsB.backVol}</span>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4]">
+                      <span className="text-[15px] font-black leading-none text-[#1c3246]">{runnerOddsB.lay}</span>
+                      <span className="text-[9px] font-bold mt-1 text-gray-500">{runnerOddsB.layVol}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Parent Declare Match Winner Bar */}
+              {!isCompleted && (
+                <div className="bg-[#f0f4f8] px-3 py-2 flex flex-wrap items-center justify-between gap-2 border-t border-gray-200">
+                  <span className="flex items-center gap-1.5 text-xs font-black text-gray-700">
+                    <Trophy size={13} className="text-amber-500" /> Settle Match Winner:
                   </span>
-                  <span className="bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.2 rounded uppercase">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleDeclareWinner(teamA)}
+                      className="bg-[#2980b9] hover:bg-[#1f618d] text-white px-2.5 py-1 rounded text-[11px] font-bold uppercase transition-colors cursor-pointer shadow-xs"
+                    >
+                      {teamA}
+                    </button>
+                    <button
+                      onClick={() => handleDeclareWinner(teamB)}
+                      className="bg-[#2980b9] hover:bg-[#1f618d] text-white px-2.5 py-1 rounded text-[11px] font-bold uppercase transition-colors cursor-pointer shadow-xs"
+                    >
+                      {teamB}
+                    </button>
+                    <button
+                      onClick={() => handleDeclareWinner("REFUND")}
+                      className="bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded text-[11px] font-bold uppercase transition-colors cursor-pointer shadow-xs"
+                    >
+                      Refund
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ══════════ SECTION 2: BOOKMAKERS MARKET ══════════ */}
+          {(isShowAll || selectedMarketType === "Bookmaker") && (
+            <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
+              <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                    <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  </div>
+                  <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                    BOOKMAKER <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: 1M)</span>
+                    <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
+                  </span>
+                </div>
+                <div className="flex items-center gap-6 text-[11px] font-black tracking-widest uppercase">
+                  <div className="w-14 text-center border-b-2 border-[#bbd9f9]">BACK</div>
+                  <div className="w-14 text-center border-b-2 border-[#f8c9d4]">LAY</div>
+                </div>
+              </div>
+
+              <div className="relative flex flex-col divide-y divide-gray-100">
+                {isBookmakerSuspended && (
+                  <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                    <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
+                      MARKET SUSPENDED
+                    </div>
+                  </div>
+                )}
+
+                {/* Team A Bookmaker */}
+                <div className="flex items-stretch hover:bg-gray-50 transition-colors">
+                  <div className="flex-1 flex flex-col justify-center px-3 py-2.5">
+                    <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{teamA}</span>
+                    {renderRunnerExposure(`${teamA}_bm`, 'bookmaker')}
+                  </div>
+                  <div className="flex w-32 shrink-0">
+                    <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] border-r border-white/40">
+                      <span className="text-[15px] font-black leading-none text-[#1c3246]">{bmBackOddsA}</span>
+                      <span className="text-[9px] font-bold mt-1 text-gray-500">100</span>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4]">
+                      <span className="text-[15px] font-black leading-none text-[#1c3246]">{bmLayOddsA}</span>
+                      <span className="text-[9px] font-bold mt-1 text-gray-500">100</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Team B Bookmaker */}
+                <div className="flex items-stretch hover:bg-gray-50 transition-colors">
+                  <div className="flex-1 flex flex-col justify-center px-3 py-2.5">
+                    <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{teamB}</span>
+                    {renderRunnerExposure(`${teamB}_bm`, 'bookmaker')}
+                  </div>
+                  <div className="flex w-32 shrink-0">
+                    <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] border-r border-white/40">
+                      <span className="text-[15px] font-black leading-none text-[#1c3246]">{bmBackOddsB}</span>
+                      <span className="text-[9px] font-bold mt-1 text-gray-500">100</span>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4]">
+                      <span className="text-[15px] font-black leading-none text-[#1c3246]">{bmLayOddsB}</span>
+                      <span className="text-[9px] font-bold mt-1 text-gray-500">100</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ══════════ SECTION 3: TOSS MARKET ══════════ */}
+          {(isShowAll || selectedMarketType === "Toss") && (
+            <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
+              <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                    <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  </div>
+                  <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                    TOSS MARKET <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: 2M)</span>
+                    <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
+                  </span>
+                </div>
+                <div className="flex items-center gap-6 text-[11px] font-black tracking-widest uppercase">
+                  <div className="w-14 text-center border-b-2 border-[#bbd9f9]">BACK</div>
+                  <div className="w-14 text-center border-b-2 border-[#f8c9d4]">LAY</div>
+                </div>
+              </div>
+
+              {/* Admin Quick Declare Toss Winner Bar */}
+              {!matchData?.tossWinner && (
+                <div className="bg-[#1b2a38] text-white px-3 py-2 flex flex-wrap items-center justify-between gap-2 border-b border-gray-200">
+                  <span className="flex items-center gap-1.5 text-yellow-400 text-xs font-black">
+                    <Trophy size={14} /> Admin Declare Toss Winner:
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleDeclareTossWinner(teamA)}
+                      className="bg-[#009866] hover:bg-[#007f55] text-white px-2.5 py-1 rounded text-[11px] font-black uppercase shadow-sm cursor-pointer"
+                    >
+                      {teamA}
+                    </button>
+                    <button
+                      onClick={() => handleDeclareTossWinner(teamB)}
+                      className="bg-[#009866] hover:bg-[#007f55] text-white px-2.5 py-1 rounded text-[11px] font-black uppercase shadow-sm cursor-pointer"
+                    >
+                      {teamB}
+                    </button>
+                    <button
+                      onClick={() => handleDeclareTossWinner('REFUND')}
+                      className="bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded text-[11px] font-black uppercase shadow-sm cursor-pointer"
+                    >
+                      Refund
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Toss Settled Banner */}
+              {matchData?.tossWinner ? (
+                <div className="bg-[#ecfdf5] border-b border-emerald-200 px-4 py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Trophy size={16} className="text-[#009866]" />
+                    <span className="text-xs font-black text-[#065f46] uppercase">
+                      Toss Winner: {matchData.tossWinner}
+                    </span>
+                  </div>
+                  <span className="bg-[#009866] text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase">
                     Settled
                   </span>
                 </div>
-                <span className="text-[11px] font-mono text-emerald-800">
-                  Hierarchy Share Paid
-                </span>
-              </div>
-            )}
-
-            {/* Runners Table */}
-            <div className="divide-y divide-gray-200">
-              {/* Runner 1: Team A */}
-              <div
-                onClick={() => setSelectedRunnerIdx(0)}
-                className={`flex items-stretch transition-colors cursor-pointer ${
-                  isCompleted && isWinnerA
-                    ? "bg-[#c8f79f]"
-                    : "bg-white hover:bg-gray-50/70"
-                }`}
-              >
-                {/* Left: Team Name + Exposure + Winner Badge */}
-                <div className="flex-1 px-3 py-1.5 flex flex-col justify-center">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-gray-900 text-xs sm:text-[13px] leading-tight">
-                      {teamA}
-                    </span>
-                    {isCompleted && isWinnerA && (
-                      <span className="bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded flex items-center gap-1 uppercase tracking-wide">
-                        <Trophy size={10} className="text-yellow-300" /> Winner
-                      </span>
-                    )}
-                  </div>
-                  {renderRunnerExposure(teamA)}
+              ) : (
+                <div className="relative flex flex-col divide-y divide-gray-100">
+                  {isTossSuspended && (
+                    <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                      <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
+                        TOSS MARKET SUSPENDED
+                      </div>
+                    </div>
+                  )}
+                  {tossRunners.map((runner, ridx) => (
+                    <div key={ridx} className="flex items-stretch hover:bg-gray-50 transition-colors">
+                      <div className="flex-1 flex flex-col justify-center px-3 py-2.5">
+                        <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{runner.name}</span>
+                        {renderRunnerExposure(runner.name, 'toss')}
+                      </div>
+                      <div className="flex w-32 shrink-0">
+                        <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] border-r border-white/40">
+                          <span className="text-[15px] font-black leading-none text-[#1c3246]">{runner.back}</span>
+                          <span className="text-[9px] font-bold mt-1 text-gray-500">{runner.backVol}</span>
+                        </div>
+                        <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4]">
+                          <span className="text-[15px] font-black leading-none text-[#1c3246]">{runner.lay}</span>
+                          <span className="text-[9px] font-bold mt-1 text-gray-500">{runner.layVol}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
+              )}
+            </div>
+          )}
 
-                {/* Right: Back & Lay Boxes (Shows Live Odds when Pending, Closed when Completed) */}
-                <div className="flex w-32 sm:w-36 shrink-0">
+          {/* ══════════ SECTION 4: SCORECARD ══════════ */}
+          {(isShowAll || selectedMarketType === "Score Card") && (
+            <div className="rounded-sm overflow-hidden border border-gray-200 shadow-sm bg-white">
+              <div className="bg-[#00a884] text-white px-3 py-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs sm:text-[13px] font-black uppercase tracking-wider">
+                    Score Card
+                  </span>
                   {isCompleted ? (
-                    <div className="w-full bg-gray-100 min-h-[46px] flex items-center justify-center text-gray-400 font-bold text-xs uppercase tracking-wider">
-                      Closed
-                    </div>
-                  ) : isSuspended ? (
-                    <div className="w-full bg-[#fde8e8] min-h-[46px] flex items-center justify-center text-[#e02424] font-black text-xs tracking-wider">
-                      SUSPENDED
-                    </div>
+                    <span className="bg-purple-900/80 text-white text-[10px] font-bold px-1.5 py-0.2 rounded uppercase">
+                      Result Declared
+                    </span>
+                  ) : isLive ? (
+                    <span className="bg-[#00c766] text-white text-[10px] font-black px-1.5 py-0.2 rounded uppercase animate-pulse">
+                      INPLAY
+                    </span>
                   ) : (
-                    <>
-                      {/* Back Odds Box (Blue) */}
-                      <div className="flex-1 bg-[#dff0ff] hover:bg-[#cde7fe] border-r border-white/60 min-h-[46px] flex flex-col items-center justify-center transition-colors">
-                        <span className="text-xs sm:text-[14px] font-black text-gray-900 leading-tight">
-                          {runnerOddsA.back}
-                        </span>
-                        <span className="text-[9px] sm:text-[10px] font-bold text-gray-500 leading-none mt-0.5">
-                          {runnerOddsA.backVol}
-                        </span>
-                      </div>
-                      {/* Lay Odds Box (Pink) */}
-                      <div className="flex-1 bg-[#ffdce5] hover:bg-[#ffc6d4] min-h-[46px] flex flex-col items-center justify-center transition-colors">
-                        <span className="text-xs sm:text-[14px] font-black text-gray-900 leading-tight">
-                          {runnerOddsA.lay}
-                        </span>
-                        <span className="text-[9px] sm:text-[10px] font-bold text-gray-500 leading-none mt-0.5">
-                          {runnerOddsA.layVol}
-                        </span>
-                      </div>
-                    </>
+                    <span className="bg-white/20 text-white text-[10px] font-bold px-1.5 py-0.2 rounded uppercase">
+                      Scheduled
+                    </span>
                   )}
                 </div>
+                <button
+                  onClick={() => setSoundEnabled((prev) => !prev)}
+                  className="text-white/90 hover:text-white transition-colors cursor-pointer p-0.5"
+                  title={soundEnabled ? "Mute commentary" : "Unmute commentary"}
+                >
+                  {soundEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
+                </button>
               </div>
 
-              {/* Runner 2: Team B */}
-              <div
-                onClick={() => setSelectedRunnerIdx(1)}
-                className={`flex items-stretch transition-colors cursor-pointer ${
-                  isCompleted && isWinnerB
-                    ? "bg-[#c8f79f]"
-                    : "bg-white hover:bg-gray-50/70"
-                }`}
-              >
-                {/* Left: Team Name + Exposure + Winner Badge */}
-                <div className="flex-1 px-3 py-1.5 flex flex-col justify-center">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-gray-900 text-xs sm:text-[13px] leading-tight">
-                      {teamB}
-                    </span>
-                    {isCompleted && isWinnerB && (
-                      <span className="bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded flex items-center gap-1 uppercase tracking-wide">
-                        <Trophy size={10} className="text-yellow-300" /> Winner
+              {/* Scorecard Body */}
+              <div className="bg-[#0e1f2c] text-white p-3 flex flex-col gap-3">
+                <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+                  {/* Team A */}
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-extrabold text-gray-400 uppercase tracking-wider truncate max-w-[110px]">
+                        {teamA}
                       </span>
-                    )}
+                      {isLive && scoreData.isBattingA && (
+                        <span className="w-1.5 h-1.5 bg-[#00e676] rounded-full animate-ping" title="Batting" />
+                      )}
+                    </div>
+                    <div className="text-xl sm:text-2xl font-black text-white font-mono tracking-tight">
+                      {scoreData.parsedA.runs}
+                      <span className="text-gray-400 text-base font-bold mx-0.5">/</span>
+                      {scoreData.parsedA.wickets}
+                    </div>
                   </div>
-                  {renderRunnerExposure(teamB)}
+
+                  {/* Overs */}
+                  <div className="flex flex-col items-center px-2">
+                    <span className="text-[9px] font-bold text-gray-400 uppercase">Overs</span>
+                    <span className="text-sm sm:text-base font-extrabold text-[#79c0ff] font-mono">
+                      {scoreData.displayOvers}
+                    </span>
+                  </div>
+
+                  {/* Team B */}
+                  <div className="flex flex-col items-end">
+                    <div className="flex items-center gap-1.5">
+                      {isLive && scoreData.isBattingB && (
+                        <span className="w-1.5 h-1.5 bg-[#00e676] rounded-full animate-ping" title="Batting" />
+                      )}
+                      <span className="text-[11px] font-extrabold text-gray-400 uppercase tracking-wider truncate max-w-[110px]">
+                        {teamB}
+                      </span>
+                    </div>
+                    <div className="text-xl sm:text-2xl font-black text-white font-mono tracking-tight">
+                      {scoreData.parsedB.runs}
+                      <span className="text-gray-400 text-base font-bold mx-0.5">/</span>
+                      {scoreData.parsedB.wickets}
+                    </div>
+                  </div>
                 </div>
 
-                {/* Right: Back & Lay Boxes */}
-                <div className="flex w-32 sm:w-36 shrink-0">
-                  {isCompleted ? (
-                    <div className="w-full bg-gray-100 min-h-[46px] flex items-center justify-center text-gray-400 font-bold text-xs uppercase tracking-wider">
-                      Closed
+                {/* Granular Stats Cards: CRR, RRR, Target */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-[#1b2f42] p-1.5 rounded flex flex-col items-center justify-center border border-white/5 shadow-2xs">
+                    <span className="text-[9px] font-bold text-gray-400 uppercase">CRR</span>
+                    <span className="text-xs sm:text-[13px] font-black text-[#00e676] font-mono">
+                      {scoreData.crr || "0.00"}
+                    </span>
+                  </div>
+
+                  <div className="bg-[#1b2f42] p-1.5 rounded flex flex-col items-center justify-center border border-white/5 shadow-2xs">
+                    <span className="text-[9px] font-bold text-gray-400 uppercase">RRR</span>
+                    <span className="text-xs sm:text-[13px] font-black text-amber-400 font-mono">
+                      {scoreData.rrr || "0.00"}
+                    </span>
+                  </div>
+
+                  <div className="bg-[#1b2f42] p-1.5 rounded flex flex-col items-center justify-center border border-white/5 shadow-2xs">
+                    <span className="text-[9px] font-bold text-gray-400 uppercase">Target</span>
+                    <span className="text-xs sm:text-[13px] font-black text-sky-400 font-mono">
+                      {scoreData.target || "--"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* This Over & Situation */}
+                <div className="flex items-center justify-between border-t border-white/10 pt-2 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-bold text-gray-400">This Over:</span>
+                    <div className="flex items-center gap-1">
+                      {scoreData.thisOverList.length > 0 ? (
+                        scoreData.thisOverList.map((ball, bidx) => (
+                          <span
+                            key={bidx}
+                            className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-black ${
+                              ball === "W"
+                                ? "bg-red-500 text-white"
+                                : ["4", "6"].includes(ball)
+                                  ? "bg-[#00e676] text-gray-950"
+                                  : "bg-[#253d52] text-gray-200"
+                            }`}
+                          >
+                            {ball}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-[10px] text-gray-400 italic">Waiting...</span>
+                      )}
                     </div>
-                  ) : isSuspended ? (
-                    <div className="w-full bg-[#fde8e8] min-h-[46px] flex items-center justify-center text-[#e02424] font-black text-xs tracking-wider">
-                      SUSPENDED
+                  </div>
+
+                  <div className="text-[11px] font-black text-[#00e676]">
+                    {isCompleted ? (
+                      <span>Match Ended ({winner || "Result Declared"})</span>
+                    ) : scoreData.remRuns > 0 && scoreData.remBalls > 0 ? (
+                      `Need ${scoreData.remRuns} runs in ${scoreData.remBalls} balls`
+                    ) : scoreData.target > 0 ? (
+                      "Target achieved"
+                    ) : isLive ? (
+                      "1st Innings in progress"
+                    ) : (
+                      "Match Scheduled"
+                    )}
+                  </div>
+
+                  {/* Official Period Scores Breakdown */}
+                  {scoreData.periods && Object.keys(scoreData.periods).length > 0 && (
+                    <div className="border-t border-white/10 pt-2.5 mt-2.5">
+                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                        Period Breakdown (Official OddsAPI Scores)
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-[11px] border border-white/10 rounded">
+                          <thead className="bg-[#112433] text-gray-300 text-[9px] uppercase font-bold">
+                            <tr>
+                              <th className="py-1 px-2">Innings / Period</th>
+                              <th className="py-1 px-2">{teamA}</th>
+                              <th className="py-1 px-2">{teamB}</th>
+                              <th className="py-1 px-2 text-right">Updated</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5 font-mono text-white text-[11px]">
+                            {Object.entries(scoreData.periods)
+                              .sort(([a], [b]) => (a === '0' ? 1 : b === '0' ? -1 : a.localeCompare(b)))
+                              .map(([periodKey, pScore]) => (
+                                <tr key={periodKey} className={periodKey === '0' ? 'bg-white/5 font-black text-[#79c0ff]' : ''}>
+                                  <td className="py-1 px-2 font-sans font-semibold">
+                                    {periodKey === '0' ? 'Overall Match (Total)' : `Innings ${periodKey} (Period ${periodKey})`}
+                                  </td>
+                                  <td className="py-1 px-2 font-black">{pScore?.participant1Score ?? 0}</td>
+                                  <td className="py-1 px-2 font-black">{pScore?.participant2Score ?? 0}</td>
+                                  <td className="py-1 px-2 text-right text-[9px] text-gray-400 font-sans">
+                                    {pScore?.updatedAt ? new Date(pScore.updatedAt).toLocaleTimeString() : '--'}
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  ) : (
-                    <>
-                      {/* Back Odds Box (Blue) */}
-                      <div className="flex-1 bg-[#dff0ff] hover:bg-[#cde7fe] border-r border-white/60 min-h-[46px] flex flex-col items-center justify-center transition-colors">
-                        <span className="text-xs sm:text-[14px] font-black text-gray-900 leading-tight">
-                          {runnerOddsB.back}
-                        </span>
-                        <span className="text-[9px] sm:text-[10px] font-bold text-gray-500 leading-none mt-0.5">
-                          {runnerOddsB.backVol}
-                        </span>
-                      </div>
-                      {/* Lay Odds Box (Pink) */}
-                      <div className="flex-1 bg-[#ffdce5] hover:bg-[#ffc6d4] min-h-[46px] flex flex-col items-center justify-center transition-colors">
-                        <span className="text-xs sm:text-[14px] font-black text-gray-900 leading-tight">
-                          {runnerOddsB.lay}
-                        </span>
-                        <span className="text-[9px] sm:text-[10px] font-bold text-gray-500 leading-none mt-0.5">
-                          {runnerOddsB.layVol}
-                        </span>
-                      </div>
-                    </>
                   )}
                 </div>
               </div>
             </div>
-          </div>
+          )}
+
+          {/* ══════════ SECTION 5: FIGURE MARKET (0-9 Digits Grid) ══════════ */}
+          {(isShowAll || selectedMarketType === "Figure") && (
+            figureMarkets.map((figureMarket, fmIdx) => (
+              <div key={fmIdx} className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
+                <div className="bg-[#5d7d9a] text-white h-10 flex items-center px-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                      <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                    </div>
+                    <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                      {figureMarket.name} <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: {figureMarket.maxBet >= 1000000 ? `${(figureMarket.maxBet / 1000000).toFixed(0)}M` : `${(figureMarket.maxBet / 1000).toFixed(0)}K`})</span>
+                      <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
+                    </span>
+                  </div>
+                </div>
+
+                <div className="relative p-4 bg-white">
+                  {figureMarket.status === 'SUSPENDED' && (
+                    <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                      <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
+                        SUSPENDED
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Row 1: Digits 0-4 */}
+                  <div className="flex justify-center -space-x-[1px] mb-1.5">
+                    {(figureMarket.digits || []).filter(d => d.digit >= 0 && d.digit <= 4).map((d) => (
+                      <div
+                        key={d.digit}
+                        className="w-12 sm:w-16 border border-black shadow-xs overflow-hidden flex flex-col"
+                      >
+                        <div className="h-8 bg-[#bfe2f7] border-b border-black flex items-center justify-center text-[16px] font-black text-black">
+                          {d.digit}
+                        </div>
+                        <div className="h-6 bg-white flex items-center justify-center text-[12px] font-black text-[#1c3246]">
+                          {d.odds || 8.85}
+                        </div>
+                        {renderDigitExposure(figureMarket.name, d.digit)}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Row 2: Digits 5-9 */}
+                  <div className="flex justify-center -space-x-[1px]">
+                    {(figureMarket.digits || []).filter(d => d.digit >= 5 && d.digit <= 9).map((d) => (
+                      <div
+                        key={d.digit}
+                        className="w-12 sm:w-16 border border-black shadow-xs overflow-hidden flex flex-col"
+                      >
+                        <div className="h-8 bg-[#bfe2f7] border-b border-black flex items-center justify-center text-[16px] font-black text-black">
+                          {d.digit}
+                        </div>
+                        <div className="h-6 bg-white flex items-center justify-center text-[12px] font-black text-[#1c3246]">
+                          {d.odds || 8.85}
+                        </div>
+                        {renderDigitExposure(figureMarket.name, d.digit)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+
+          {/* ══════════ SECTION 6: FANCY 2 MARKETS ══════════ */}
+          {(isShowAll || selectedMarketType === "Fancy") && (
+            <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
+              <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                    <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  </div>
+                  <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                    FANCY 2 <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: 2M)</span>
+                    <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
+                  </span>
+                </div>
+                <div className="flex items-center text-[11px] font-black tracking-widest uppercase">
+                  <div className="w-14 sm:w-16 text-center bg-[#1c3246] text-white py-1 border-r border-white/20">BACK</div>
+                  <div className="w-14 sm:w-16 text-center bg-[#1c3246] text-white py-1">LAY</div>
+                </div>
+              </div>
+
+              <div className="divide-y divide-gray-100">
+                {fancyMarkets.map((fancy, fIdx) => {
+                  const isSuspended = fancy.status === 'SUSPENDED';
+                  return (
+                    <div key={fIdx} className="relative flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
+                      <div className="flex flex-col flex-1 min-w-0 pr-2">
+                        <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{fancy.name}</span>
+                        {renderFancyExposure(fancy.name)}
+                      </div>
+                      {isSuspended ? (
+                        <div className="flex shrink-0 w-28 sm:w-32 items-center justify-center py-2 bg-gray-50/50">
+                          <span className="text-[#dc2626] font-black text-[12px] tracking-wider">SUSPENDED</span>
+                        </div>
+                      ) : (
+                        <div className="flex shrink-0">
+                          <div className="w-14 sm:w-16 flex flex-col items-center justify-center py-1.5 bg-[#bbd9f9] border-r border-white/40">
+                            <span className="text-[14px] font-black leading-none text-[#1c3246]">{fancy.backPrice ?? '-'}</span>
+                            <span className="text-[9px] font-bold mt-1 text-gray-600">{fancy.backVol || '100'}</span>
+                          </div>
+                          <div className="w-14 sm:w-16 flex flex-col items-center justify-center py-1.5 bg-[#f8c9d4]">
+                            <span className="text-[14px] font-black leading-none text-[#1c3246]">{fancy.layPrice ?? '-'}</span>
+                            <span className="text-[9px] font-bold mt-1 text-gray-600">{fancy.layVol || '100'}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ══════════ SECTION 7: EVEN / ODD MARKET ══════════ */}
+          {(isShowAll || selectedMarketType === "Even-Odd") && (
+            <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
+              <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                    <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  </div>
+                  <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                    EVEN / ODD <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: 2M)</span>
+                    <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
+                  </span>
+                </div>
+                <div className="flex items-center text-[11px] font-black tracking-widest uppercase">
+                  <div className="w-14 sm:w-16 text-center bg-[#1c3246] text-white py-1 border-r border-white/20">BACK</div>
+                  <div className="w-14 sm:w-16 text-center bg-[#1c3246] text-white py-1">LAY</div>
+                </div>
+              </div>
+
+              <div className="divide-y divide-gray-100">
+                {evenOddMarkets.map((eoMarket, eoIdx) => {
+                  const isSuspended = eoMarket.status === 'SUSPENDED';
+                  return (
+                    <div key={eoIdx} className="relative flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
+                      <div className="flex flex-col flex-1 min-w-0 pr-2">
+                        <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{eoMarket.name}</span>
+                        {renderFancyExposure(eoMarket.name)}
+                      </div>
+                      {isSuspended ? (
+                        <div className="flex shrink-0 w-28 sm:w-32 items-center justify-center py-2 bg-gray-50/50">
+                          <span className="text-[#dc2626] font-black text-[12px] tracking-wider">SUSPENDED</span>
+                        </div>
+                      ) : (
+                        <div className="flex shrink-0">
+                          <div className="w-14 sm:w-16 flex flex-col items-center justify-center py-1.5 bg-[#bbd9f9] border-r border-white/40">
+                            <span className="text-[14px] font-black leading-none text-[#1c3246]">{eoMarket.backPrice ?? '-'}</span>
+                            <span className="text-[9px] font-bold mt-1 text-gray-600">{eoMarket.backVol || '98'}</span>
+                          </div>
+                          <div className="w-14 sm:w-16 flex flex-col items-center justify-center py-1.5 bg-[#f8c9d4]">
+                            <span className="text-[14px] font-black leading-none text-[#1c3246]">{eoMarket.layPrice ?? '-'}</span>
+                            <span className="text-[9px] font-bold mt-1 text-gray-600">{eoMarket.layVol || '102'}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ══════════ SECTION 8: TIED MATCH (OTHERS) ══════════ */}
+          {(isShowAll || selectedMarketType === "Others") && tiedMatchMarket && (
+            <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
+              <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                    <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  </div>
+                  <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                    {tiedMatchMarket.name || 'TIED MATCH'} <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: {tiedMatchMarket.maxBet >= 1000000 ? `${(tiedMatchMarket.maxBet / 1000000).toFixed(0)}M` : `${(tiedMatchMarket.maxBet / 1000).toFixed(0)}K`})</span>
+                    <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
+                  </span>
+                </div>
+                <div className="flex items-center text-[11px] font-black tracking-widest uppercase">
+                  <div className="w-20 text-center bg-[#1c3246] text-white py-1 border-r border-white/20">BACK</div>
+                  <div className="w-20 text-center bg-[#1c3246] text-white py-1">LAY</div>
+                </div>
+              </div>
+
+              <div className="divide-y divide-gray-100">
+                {(tiedMatchMarket.runners || []).map((runner, rIdx) => {
+                  const backPrice = runner.backOdds?.[0]?.price || '-';
+                  const layPrice = runner.layOdds?.[0]?.price || '-';
+                  return (
+                    <div key={rIdx} className="flex items-stretch hover:bg-gray-50 transition-colors">
+                      <div className="flex-1 flex flex-col justify-center px-3 py-2.5">
+                        <span className="font-bold text-[#1c3246] text-[13px]">{runner.name}</span>
+                        {renderRunnerExposure(`tied_${runner.name.toLowerCase()}`)}
+                      </div>
+                      <div className="flex w-40 shrink-0">
+                        <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] border-r border-white/40">
+                          <span className="text-[14px] font-black text-[#1c3246]">{backPrice}</span>
+                        </div>
+                        <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4]">
+                          <span className="text-[14px] font-black text-[#1c3246]">{layPrice}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* ══════════ ACTION BUTTONS: BET LOCK & USER BOOK ══════════ */}
-          <div className="flex gap-2.5 my-0.5">
+          <div className="flex gap-2.5 my-1">
             <button
               onClick={() => setIsBetLockOpen((prev) => !prev)}
               className="flex-1 bg-[#00a884] hover:bg-[#009172] active:scale-98 text-white py-2 px-3 rounded-sm flex items-center justify-center gap-1.5 text-xs sm:text-[13px] font-bold shadow-xs transition-all cursor-pointer"
@@ -976,7 +1620,7 @@ export default function MatchDetailAdminView({
             </button>
           </div>
 
-          {/* Bet Lock Dropdown Popover */}
+          {/* Bet Lock Popover */}
           {isBetLockOpen && (
             <div className="p-2 bg-gray-50 border border-gray-200 rounded-sm text-xs flex items-center justify-between text-gray-700 animate-fadeIn">
               <span className="font-semibold flex items-center gap-1.5">
@@ -995,189 +1639,30 @@ export default function MatchDetailAdminView({
             </div>
           )}
 
-          {/* User Book Dropdown Popover */}
+          {/* User Book Popover */}
           {isUserBookOpen && (
             <div className="p-2.5 bg-gray-50 border border-gray-200 rounded-sm text-xs flex flex-col gap-1.5 text-gray-700 animate-fadeIn">
               <div className="flex items-center justify-between font-bold border-b border-gray-200 pb-1">
-                <span>User Book Summary ({selectedMarketType}):</span>
-                <span className="text-gray-400 font-mono text-[10px]">
-                  Total Bets: {allMatchedBets.length}
-                </span>
+                <span>User Book Summary:</span>
+                <span className="text-gray-400 font-mono text-[10px]">Total Bets: {allMatchedBets.length}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span>{teamA}:</span>
-                <span
-                  className={`font-mono font-bold ${getRunnerExposure(teamA) < 0
-                    ? "text-red-600"
-                    : getRunnerExposure(teamA) > 0
-                      ? "text-emerald-600"
-                      : "text-gray-600"
-                    }`}
-                >
-                  {getRunnerExposure(teamA) != null
-                    ? Math.round(getRunnerExposure(teamA)).toLocaleString("en-IN")
-                    : "0"}
+                <span className={`font-mono font-bold ${getRunnerExposure(teamA, 'match_odds') < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                  {Math.round(getRunnerExposure(teamA, 'match_odds')).toLocaleString("en-IN")}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span>{teamB}:</span>
-                <span
-                  className={`font-mono font-bold ${getRunnerExposure(teamB) < 0
-                    ? "text-red-600"
-                    : getRunnerExposure(teamB) > 0
-                      ? "text-emerald-600"
-                      : "text-gray-600"
-                    }`}
-                >
-                  {getRunnerExposure(teamB) != null
-                    ? Math.round(getRunnerExposure(teamB)).toLocaleString("en-IN")
-                    : "0"}
+                <span className={`font-mono font-bold ${getRunnerExposure(teamB, 'match_odds') < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                  {Math.round(getRunnerExposure(teamB, 'match_odds')).toLocaleString("en-IN")}
                 </span>
               </div>
             </div>
           )}
 
-          {/* ══════════ BETTOR-STYLE LIVE SCORECARD (TV REMOVED) ══════════ */}
-          <div className="rounded-sm overflow-hidden border border-gray-200 shadow-2xs bg-white">
-            {/* Header */}
-            <div className="bg-[#00a884] text-white px-3 py-2 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xs sm:text-[13px] font-black uppercase tracking-wider">
-                  Score Card
-                </span>
-                {isCompleted ? (
-                  <span className="bg-purple-900/80 text-white text-[10px] font-bold px-1.5 py-0.2 rounded uppercase">
-                    Result Declared
-                  </span>
-                ) : isLive ? (
-                  <span className="bg-[#00c766] text-white text-[10px] font-black px-1.5 py-0.2 rounded uppercase animate-pulse">
-                    INPLAY
-                  </span>
-                ) : null}
-              </div>
-              <button
-                onClick={() => setSoundEnabled((prev) => !prev)}
-                className="text-white/90 hover:text-white transition-colors cursor-pointer p-0.5"
-                title={soundEnabled ? "Mute commentary" : "Unmute commentary"}
-              >
-                {soundEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
-              </button>
-            </div>
-
-            {/* Scorecard Body */}
-            <div className="bg-[#0e1f2c] text-white p-3 flex flex-col gap-3">
-              {/* Teams & Runs */}
-              <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
-                {/* Team A */}
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-extrabold text-gray-400 uppercase tracking-wider truncate max-w-[110px]">
-                      {teamA}
-                    </span>
-                    {scoreData.isChasingA && (
-                      <span className="w-1.5 h-1.5 bg-[#00e676] rounded-full animate-ping" />
-                    )}
-                  </div>
-                  <div className="text-xl sm:text-2xl font-black text-white font-mono tracking-tight">
-                    {scoreData.parsedA.runs}
-                    <span className="text-gray-400 text-base font-bold mx-0.5">/</span>
-                    {scoreData.parsedA.wickets}
-                  </div>
-                </div>
-
-                {/* Overs Divider */}
-                <div className="flex flex-col items-center px-2">
-                  <span className="text-[9px] font-bold text-gray-400 uppercase">Overs</span>
-                  <span className="text-sm sm:text-base font-extrabold text-[#79c0ff] font-mono">
-                    {scoreData.displayOvers}
-                  </span>
-                </div>
-
-                {/* Team B */}
-                <div className="flex flex-col items-end">
-                  <div className="flex items-center gap-1.5">
-                    {!scoreData.isChasingA && (
-                      <span className="w-1.5 h-1.5 bg-[#00e676] rounded-full animate-ping" />
-                    )}
-                    <span className="text-[11px] font-extrabold text-gray-400 uppercase tracking-wider truncate max-w-[110px]">
-                      {teamB}
-                    </span>
-                  </div>
-                  <div className="text-xl sm:text-2xl font-black text-white font-mono tracking-tight">
-                    {scoreData.parsedB.runs}
-                    <span className="text-gray-400 text-base font-bold mx-0.5">/</span>
-                    {scoreData.parsedB.wickets}
-                  </div>
-                </div>
-              </div>
-
-              {/* Granular Stats Cards: CRR, RRR, Target */}
-              <div className="grid grid-cols-3 gap-2">
-                <div className="bg-[#1b2f42] p-1.5 rounded flex flex-col items-center justify-center border border-white/5 shadow-2xs">
-                  <span className="text-[9px] font-bold text-gray-400 uppercase">CRR</span>
-                  <span className="text-xs sm:text-[13px] font-black text-[#00e676] font-mono">
-                    {scoreData.crr || "0.00"}
-                  </span>
-                </div>
-
-                <div className="bg-[#1b2f42] p-1.5 rounded flex flex-col items-center justify-center border border-white/5 shadow-2xs">
-                  <span className="text-[9px] font-bold text-gray-400 uppercase">RRR</span>
-                  <span className="text-xs sm:text-[13px] font-black text-amber-400 font-mono">
-                    {scoreData.rrr || "0.00"}
-                  </span>
-                </div>
-
-                <div className="bg-[#1b2f42] p-1.5 rounded flex flex-col items-center justify-center border border-white/5 shadow-2xs">
-                  <span className="text-[9px] font-bold text-gray-400 uppercase">Target</span>
-                  <span className="text-xs sm:text-[13px] font-black text-sky-400 font-mono">
-                    {scoreData.target || "--"}
-                  </span>
-                </div>
-              </div>
-
-              {/* This Over & Remaining Balls / Situation */}
-              <div className="flex items-center justify-between border-t border-white/10 pt-2 text-xs">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-bold text-gray-400">This Over:</span>
-                  <div className="flex items-center gap-1">
-                    {scoreData.thisOverList.length > 0 ? (
-                      scoreData.thisOverList.map((ball, bidx) => (
-                        <span
-                          key={bidx}
-                          className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-black ${
-                            ball === "W"
-                              ? "bg-red-500 text-white"
-                              : ["4", "6"].includes(ball)
-                                ? "bg-[#00e676] text-gray-950"
-                                : "bg-[#253d52] text-gray-200"
-                          }`}
-                        >
-                          {ball}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-[10px] text-gray-400 italic">Waiting...</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="text-[11px] font-black text-[#00e676]">
-                  {isCompleted ? (
-                    <span>Match Ended ({winner || "Result Declared"})</span>
-                  ) : scoreData.remRuns > 0 && scoreData.remBalls > 0 ? (
-                    `Need ${scoreData.remRuns} runs in ${scoreData.remBalls} balls`
-                  ) : scoreData.target > 0 ? (
-                    "Target achieved"
-                  ) : (
-                    "1st Innings in progress"
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ══════════ OPEN BETS TABLE (MATCHING SCREENSHOT) ══════════ */}
-          <div className="bg-white border border-gray-300 rounded-sm shadow-2xs overflow-hidden">
+          {/* ══════════ OPEN BETS TABLE ══════════ */}
+          <div className="bg-white border border-gray-300 rounded-sm shadow-xs overflow-hidden">
             <div
               onClick={() => setIsOpenBetsOpen((prev) => !prev)}
               className="bg-[#dce8f5] px-3 py-1.5 border-b border-[#cbdfe9] flex items-center justify-between cursor-pointer select-none"
@@ -1211,10 +1696,7 @@ export default function MatchDetailAdminView({
                   <tbody className="divide-y divide-white/60">
                     {allOpenBets.length === 0 ? (
                       <tr>
-                        <td
-                          colSpan={5}
-                          className="p-3 text-center text-xs text-gray-400 font-medium"
-                        >
+                        <td colSpan={5} className="p-3 text-center text-xs text-gray-400 font-medium">
                           No open bets
                         </td>
                       </tr>
@@ -1224,17 +1706,18 @@ export default function MatchDetailAdminView({
                         return (
                           <tr
                             key={bet.id || bIdx}
-                            className={
-                              isBack
-                                ? "bg-[#dcecfd] text-gray-900 border-b border-white/60"
-                                : "bg-[#fbe2e8] text-gray-900 border-b border-white/60"
-                            }
+                            className={isBack ? "bg-[#dcecfd] text-gray-900 border-b border-white/60" : "bg-[#fbe2e8] text-gray-900 border-b border-white/60"}
                           >
                             <td className="px-3 py-1.5 font-bold text-gray-900 text-xs sm:text-[13px] leading-tight text-left">
                               {formatBetRunner(bet)}
                             </td>
                             <td className="px-2 py-1.5 text-center font-bold text-gray-900 text-xs sm:text-[13px]">
-                              {bet.price || bet.odds || "--"}
+                              <div>{bet.price || bet.odds || "--"}</div>
+                              {bet.effectiveOdds && bet.effectiveOdds !== (bet.price || bet.odds) && (
+                                <span className="block text-[10px] text-emerald-700 font-semibold" title={`Effective rate: ${bet.effectiveOdds}`}>
+                                  (Eff: {bet.effectiveOdds})
+                                </span>
+                              )}
                             </td>
                             <td className="px-3 py-1.5 text-right font-black text-gray-900 text-xs sm:text-[13px]">
                               {Number(bet.size || bet.stake || 0).toLocaleString("en-IN")}
@@ -1255,8 +1738,8 @@ export default function MatchDetailAdminView({
             )}
           </div>
 
-          {/* ══════════ MATCHED BETS TABLE (MATCHING SCREENSHOT) ══════════ */}
-          <div className="bg-white border border-gray-300 rounded-sm shadow-2xs overflow-hidden">
+          {/* ══════════ MATCHED BETS TABLE ══════════ */}
+          <div className="bg-white border border-gray-300 rounded-sm shadow-xs overflow-hidden">
             <div className="bg-[#dce8f5] px-3 py-1.5 border-b border-[#cbdfe9] flex items-center justify-between">
               <div
                 onClick={() => setIsMatchedBetsOpen((prev) => !prev)}
@@ -1272,7 +1755,7 @@ export default function MatchDetailAdminView({
 
               <button
                 onClick={() => setIsFullBetListOpen(true)}
-                className="bg-[#009866] hover:bg-[#008257] active:scale-95 text-white text-[10px] sm:text-[11px] font-bold px-2.5 py-0.5 rounded shadow-2xs transition-all cursor-pointer"
+                className="bg-[#009866] hover:bg-[#008257] active:scale-95 text-white text-[10px] sm:text-[11px] font-bold px-2.5 py-0.5 rounded shadow-xs transition-all cursor-pointer"
               >
                 Full Bet List
               </button>
@@ -1293,10 +1776,7 @@ export default function MatchDetailAdminView({
                   <tbody className="divide-y divide-white/60">
                     {allMatchedBets.length === 0 ? (
                       <tr>
-                        <td
-                          colSpan={5}
-                          className="p-3 text-center text-xs text-gray-400 font-medium"
-                        >
+                        <td colSpan={5} className="p-3 text-center text-xs text-gray-400 font-medium">
                           No matched bets on this match
                         </td>
                       </tr>
@@ -1323,10 +1803,9 @@ export default function MatchDetailAdminView({
                                 <span>{formatBetRunner(bet)}</span>
                                 {isCompleted && (
                                   <span
-                                    className={`text-[9px] font-black px-1 py-0.2 rounded uppercase ${isBetWon
-                                      ? "bg-emerald-700 text-white"
-                                      : "bg-red-700 text-white"
-                                      }`}
+                                    className={`text-[9px] font-black px-1 py-0.2 rounded uppercase ${
+                                      isBetWon ? "bg-emerald-700 text-white" : "bg-red-700 text-white"
+                                    }`}
                                   >
                                     {isBetWon ? "WON" : "LOST"}
                                   </span>
@@ -1334,7 +1813,12 @@ export default function MatchDetailAdminView({
                               </div>
                             </td>
                             <td className="px-2 py-1.5 text-center font-bold text-gray-900 text-xs sm:text-[13px]">
-                              {bet.price || bet.odds || "--"}
+                              <div>{bet.price || bet.odds || "--"}</div>
+                              {bet.effectiveOdds && bet.effectiveOdds !== (bet.price || bet.odds) && (
+                                <span className="block text-[10px] text-emerald-700 font-semibold" title={`Effective rate: ${bet.effectiveOdds}`}>
+                                  (Eff: {bet.effectiveOdds})
+                                </span>
+                              )}
                             </td>
                             <td className="px-3 py-1.5 text-right font-black text-gray-900 text-xs sm:text-[13px]">
                               {Number(bet.size || bet.stake || 0).toLocaleString("en-IN")}
@@ -1354,66 +1838,6 @@ export default function MatchDetailAdminView({
               </div>
             )}
           </div>
-
-          {/* ══════════ MATCH SETTLEMENT ACTIONS (HIERARCHY DISTRIBUTION) ══════════ */}
-          {isCompleted ? (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-sm p-2.5 shadow-2xs mt-1 flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={16} className="text-emerald-600" />
-                <span className="text-xs sm:text-sm font-bold text-emerald-950">
-                  Match Settled: Winner declared as <strong>{winner || matchData?.winner}</strong>
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-emerald-800 font-semibold">
-                  Hierarchy share distributed to wallets
-                </span>
-                <button
-                  onClick={() => handleDeclareWinner("REFUND")}
-                  className="bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded text-[11px] font-bold transition-colors cursor-pointer"
-                >
-                  Void / Refund
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-white border border-gray-300 rounded-sm p-2.5 shadow-2xs mt-1">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-1.5">
-                  <Trophy size={14} className="text-[#f1c40f]" />
-                  <span className="text-xs font-bold text-gray-800">
-                    Declare Match Winner (Hierarchy Settlement):
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <button
-                    onClick={() => handleDeclareWinner(teamA)}
-                    className="bg-[#2980b9] hover:bg-[#1f618d] text-white px-2 py-1 rounded text-[11px] font-bold uppercase transition-colors cursor-pointer"
-                  >
-                    {teamA} Won
-                  </button>
-                  <button
-                    onClick={() => handleDeclareWinner(teamB)}
-                    className="bg-[#2980b9] hover:bg-[#1f618d] text-white px-2 py-1 rounded text-[11px] font-bold uppercase transition-colors cursor-pointer"
-                  >
-                    {teamB} Won
-                  </button>
-                  <button
-                    onClick={() => handleDeclareWinner("TIE")}
-                    className="bg-amber-600 hover:bg-amber-500 text-white px-2 py-1 rounded text-[11px] font-bold uppercase transition-colors cursor-pointer"
-                  >
-                    Tie
-                  </button>
-                  <button
-                    onClick={() => handleDeclareWinner("REFUND")}
-                    className="bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded text-[11px] font-bold uppercase transition-colors cursor-pointer"
-                  >
-                    Refund
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* ══════════ FULL BET LIST MODAL ══════════ */}
           {isFullBetListOpen && (
@@ -1484,42 +1908,21 @@ export default function MatchDetailAdminView({
                         })
                         .map((bet, idx) => {
                           const isBack = (bet.type || "").toLowerCase() === "back";
-                          const isBookmaker = (bet.marketType || "").toLowerCase() === "bookmaker";
                           return (
                             <tr
                               key={bet.id || idx}
-                              className={
-                                isBack
-                                  ? "bg-blue-50/40 hover:bg-blue-50/70"
-                                  : "bg-red-50/40 hover:bg-red-50/70"
-                              }
+                              className={isBack ? "bg-blue-50/40 hover:bg-blue-50/70" : "bg-red-50/40 hover:bg-red-50/70"}
                             >
                               <td className="px-3 py-2 font-bold text-gray-800">
                                 {formatBetRunner(bet)}
                               </td>
                               <td className="px-2 py-2 text-center">
-                                <span
-                                  className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${isBookmaker
-                                    ? "bg-purple-100 text-purple-700 border border-purple-200"
-                                    : bet.marketType === "toss"
-                                      ? "bg-gray-100 text-gray-700 border border-gray-200"
-                                      : "bg-gray-100 text-gray-700 border border-gray-200"
-                                    }`}
-                                >
-                                  {isBookmaker
-                                    ? "Bookmaker"
-                                    : bet.marketType === "toss"
-                                      ? "Toss"
-                                      : "Match Odds"}
+                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded uppercase bg-gray-100 text-gray-700 border border-gray-200">
+                                  {bet.marketType || "Match Odds"}
                                 </span>
                               </td>
                               <td className="px-2 py-2 text-center">
-                                <span
-                                  className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${isBack
-                                    ? "bg-blue-100 text-blue-700 border border-blue-200"
-                                    : "bg-red-100 text-red-700 border border-red-200"
-                                    }`}
-                                >
+                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${isBack ? "bg-blue-100 text-blue-700" : "bg-red-100 text-red-700"}`}>
                                   {bet.type}
                                 </span>
                               </td>
@@ -1533,12 +1936,7 @@ export default function MatchDetailAdminView({
                                 {bet.sharePercent != null ? `${bet.sharePercent}%` : "--"}
                               </td>
                               <td className="px-3 py-2 text-right font-black text-blue-700">
-                                ₹
-                                {Number(
-                                  bet.parentStake != null
-                                    ? bet.parentStake
-                                    : (bet.size || 0) * ((bet.sharePercent || 10) / 100)
-                                ).toLocaleString("en-IN")}
+                                ₹{Number(bet.parentStake != null ? bet.parentStake : (bet.size || 0) * ((bet.sharePercent || 10) / 100)).toLocaleString("en-IN")}
                               </td>
                               <td className="px-3 py-2 font-bold text-gray-800">
                                 {bet.better || bet.userId}
@@ -1547,12 +1945,7 @@ export default function MatchDetailAdminView({
                                 {bet.master || "Direct"}
                               </td>
                               <td className="px-3 py-2 text-right text-gray-400 font-mono text-[10px]">
-                                {bet.createdAt
-                                  ? new Date(bet.createdAt).toLocaleTimeString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit"
-                                  })
-                                  : "--"}
+                                {bet.createdAt ? new Date(bet.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}
                               </td>
                             </tr>
                           );
@@ -1572,6 +1965,7 @@ export default function MatchDetailAdminView({
               </div>
             </div>
           )}
+
         </div>
       </div>
     </div>

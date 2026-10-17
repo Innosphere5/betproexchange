@@ -364,9 +364,16 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
 
   const showOdds = isLive || isToday || (actualMatch && actualMatch.backOddsA);
 
-  const availableTabs = showLiveMarkets
-    ? ['ALL', 'Bookmaker', 'Fancy-2', 'Figure', 'Even-Odd', 'Others']
-    : ['ALL', 'Bookmaker', 'Toss'];
+  const availableTabs = [
+    'ALL',
+    'Bookmaker',
+    'Toss',
+    'Score Card',
+    'Figure',
+    'Fancy-2',
+    'Even-Odd',
+    'Others'
+  ];
 
   useEffect(() => {
     if (!availableTabs.includes(activeTab)) {
@@ -598,11 +605,14 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
         {/* BPEXCH LIVE SCORE & BALL CHALOO STRIP */}
         {showLiveMarkets && (() => {
           const sc = actualMatch?.score || {};
-          const teamCode = actualMatch.teamA ? (actualMatch.teamA.toLowerCase().includes('india') ? 'IND' : actualMatch.teamA.slice(0, 3).toUpperCase()) : 'IND';
+          const isTeamBBatting = sc.battingTeam === 'teamB' || (Number(sc.target) > 0 && !sc.battingTeam);
+          const activeTeamName = isTeamBBatting ? (actualMatch.teamB || 'Team B') : (actualMatch.teamA || 'Team A');
+          const teamCode = activeTeamName ? (activeTeamName.length <= 4 ? activeTeamName.toUpperCase() : activeTeamName.slice(0, 3).toUpperCase()) : 'BAT';
+          const activeRunsStr = isTeamBBatting ? (sc.teamB_runs || '0') : (sc.teamA_runs || '0');
           let runs = '0';
           let wickets = '0';
-          if (sc.teamA_runs) {
-            const parts = String(sc.teamA_runs).split(/[\/-]/);
+          if (activeRunsStr) {
+            const parts = String(activeRunsStr).split(/[\/-]/);
             runs = parts[0] || '0';
             wickets = parts[1] || '0';
           }
@@ -776,15 +786,120 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
         </div>
       )}
 
-      {/* 2.6. BPEXCH TV & SCORE CARD (Directly after Bookmaker Odds) */}
-      {(activeTab === 'ALL' || activeTab === 'Bookmaker') && (
+      {/* 3. TOSS MARKET SECTION */}
+      {(activeTab === 'ALL' || activeTab === 'Toss') && actualMatch.status !== 'completed' && (
+        <div className="order-2 flex flex-col px-2 mb-2">
+          <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
+            <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                </div>
+                <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                  TOSS MARKET <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: 2M)</span>
+                  <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
+                </span>
+              </div>
+              <div className="flex items-center gap-6 text-[11px] font-black tracking-widest uppercase">
+                <div className="w-14 text-center border-b-2 border-[#bbd9f9]">BACK</div>
+                <div className="w-14 text-center border-b-2 border-[#f8c9d4]">LAY</div>
+              </div>
+            </div>
+
+            {/* Admin Quick Declare Toss Winner Bar */}
+            {isAdmin && !actualMatch.tossWinner && (
+              <div className="bg-[#243f55] text-white px-3 py-2 flex flex-wrap items-center justify-between gap-2 border-b border-gray-200">
+                <span className="flex items-center gap-1.5 text-yellow-400 text-xs font-black">
+                  <Trophy size={14} /> Admin Declare Toss Winner:
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => handleDeclareTossWinner(actualMatch.teamA)}
+                    className="bg-[#009866] hover:bg-[#007f55] text-white px-2.5 py-1 rounded text-[11px] font-black uppercase shadow-sm cursor-pointer"
+                  >
+                    {actualMatch.teamA}
+                  </button>
+                  <button
+                    onClick={() => handleDeclareTossWinner(actualMatch.teamB)}
+                    className="bg-[#009866] hover:bg-[#007f55] text-white px-2.5 py-1 rounded text-[11px] font-black uppercase shadow-sm cursor-pointer"
+                  >
+                    {actualMatch.teamB}
+                  </button>
+                  <button
+                    onClick={() => handleDeclareTossWinner('REFUND')}
+                    className="bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded text-[11px] font-black uppercase shadow-sm cursor-pointer"
+                  >
+                    Refund
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Toss Result Banner (if already settled) */}
+            {actualMatch.tossWinner ? (
+              <div className="bg-[#ecfdf5] border-b border-emerald-200 px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Trophy size={16} className="text-[#009866]" />
+                  <span className="text-xs font-black text-[#065f46] uppercase">
+                    Toss Winner: {actualMatch.tossWinner}
+                  </span>
+                </div>
+                <span className="bg-[#009866] text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase">
+                  Settled
+                </span>
+              </div>
+            ) : (
+              <div className="relative flex flex-col">
+                {actualMatch.tossMarketStatus && actualMatch.tossMarketStatus !== 'OPEN' && (
+                  <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                    <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
+                      TOSS MARKET SUSPENDED
+                    </div>
+                  </div>
+                )}
+                {tossRunners.map((runner, ridx) => (
+                  <div key={ridx} className="flex items-stretch border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                    <div className="flex-1 flex flex-col justify-center px-3 py-2.5">
+                      <div className="font-bold text-[#1c3246] text-[13px] leading-tight">
+                        {runner.name}
+                      </div>
+                      {renderRunnerExposure(runner.name)}
+                    </div>
+                    <div className="flex w-32 shrink-0">
+                      <button
+                        disabled={actualMatch.tossMarketStatus === 'CLOSED' || runner.back === '-'}
+                        onClick={() => onSelectOutcome(runner.name, runner.back, 'back', actualMatch.status === 'live', 'toss')}
+                        className="flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all border-r border-white/40 disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden bg-[#bbd9f9] hover:bg-[#a5d3f8]"
+                      >
+                        <span className="text-[15px] font-black leading-none z-10 text-[#1c3246]">{runner.back}</span>
+                        <span className="text-[9px] font-bold mt-1 z-10 text-gray-500">{runner.backVol}</span>
+                      </button>
+                      <button
+                        disabled={actualMatch.tossMarketStatus === 'CLOSED' || runner.lay === '-'}
+                        onClick={() => onSelectOutcome(runner.name, runner.lay, 'lay', actualMatch.status === 'live', 'toss')}
+                        className="flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden bg-[#f8c9d4] hover:bg-[#f9b6c6]"
+                      >
+                        <span className="text-[15px] font-black leading-none z-10 text-[#1c3246]">{runner.lay}</span>
+                        <span className="text-[9px] font-bold mt-1 z-10 text-gray-500">{runner.layVol}</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 4. BPEXCH TV & SCORE CARD */}
+      {(activeTab === 'ALL' || activeTab === 'Score Card') && (
         <div className="order-2 flex flex-col mb-2">
           {/* TV & Score Card Tab Bar */}
           <div className="px-2 mb-2">
             <div className="grid grid-cols-2 rounded-sm overflow-hidden shadow-sm">
               <button
                 onClick={() => setBottomTab('tv')}
-                className={`py-2.5 text-center text-[13px] font-black uppercase tracking-wider transition-colors ${
+                className={`py-2.5 text-center text-[13px] font-black uppercase tracking-wider transition-colors cursor-pointer ${
                   bottomTab === 'tv'
                     ? 'bg-[#009866] text-white'
                     : 'bg-[#007f55] text-white/80 hover:text-white'
@@ -794,7 +909,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
               </button>
               <button
                 onClick={() => setBottomTab('scorecard')}
-                className={`py-2.5 text-center text-[13px] font-black uppercase tracking-wider transition-colors ${
+                className={`py-2.5 text-center text-[13px] font-black uppercase tracking-wider transition-colors cursor-pointer ${
                   bottomTab === 'scorecard'
                     ? 'bg-[#009866] text-white'
                     : 'bg-[#007f55] text-white/80 hover:text-white'
@@ -853,7 +968,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
               <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="bg-[#f1f4f8] rounded-sm overflow-hidden shadow-sm border border-gray-200">
                   <div className="px-4 py-3 bg-white text-[#1c3246]">
-                    {/* Header: Team Name and Status */}
+                    {/* Header */}
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                          <h2 className="text-xl font-black text-[#243f55] uppercase tracking-tight">
@@ -870,7 +985,12 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                        <div className="flex items-baseline gap-3 flex-wrap">
                           <div className="flex flex-col">
-                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 truncate max-w-[120px]">{actualMatch.teamA}</span>
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate max-w-[120px]">{actualMatch.teamA}</span>
+                                {actualMatch.score?.battingTeam === 'teamA' && (
+                                  <span className="px-1.5 py-0.2 rounded text-[8px] bg-[#00c766] text-white font-extrabold uppercase animate-pulse">Batting</span>
+                                )}
+                              </div>
                               <div className="flex items-baseline gap-2">
                                   <span className="text-3xl md:text-4xl font-black text-[#1c3246] tracking-tighter">
                                   {actualMatch.score?.teamA_runs?.split('/')[0] || 0}
@@ -883,7 +1003,12 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                           <div className="h-10 w-[1px] bg-gray-200 mx-1 self-center"></div>
 
                           <div className="flex flex-col">
-                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 truncate max-w-[120px]">{actualMatch.teamB}</span>
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate max-w-[120px]">{actualMatch.teamB}</span>
+                                {actualMatch.score?.battingTeam === 'teamB' && (
+                                  <span className="px-1.5 py-0.2 rounded text-[8px] bg-[#00c766] text-white font-extrabold uppercase animate-pulse">Batting</span>
+                                )}
+                              </div>
                               <div className="flex items-baseline gap-2">
                                   <span className="text-3xl md:text-4xl font-black text-[#1c3246] tracking-tighter">
                                   {actualMatch.score?.teamB_runs?.split('/')[0] || 0}
@@ -950,6 +1075,41 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                           )}
                        </div>
                     </div>
+
+                    {/* Official Period Scores Breakdown */}
+                    {actualMatch.score?.periods && Object.keys(actualMatch.score.periods).length > 0 && (
+                      <div className="border-t border-gray-100 pt-3 mt-3">
+                        <div className="text-[11px] font-black text-gray-500 uppercase tracking-wider mb-2">Period Breakdown (Official OddsAPI Scores)</div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs border border-gray-200 rounded">
+                            <thead className="bg-[#1c3246] text-white text-[10px] uppercase font-bold">
+                              <tr>
+                                <th className="py-1.5 px-3">Period / Innings</th>
+                                <th className="py-1.5 px-3">{actualMatch.teamA}</th>
+                                <th className="py-1.5 px-3">{actualMatch.teamB}</th>
+                                <th className="py-1.5 px-3 text-right">Updated</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 font-semibold text-gray-700">
+                              {Object.entries(actualMatch.score.periods)
+                                .sort(([a], [b]) => (a === '0' ? 1 : b === '0' ? -1 : a.localeCompare(b)))
+                                .map(([periodKey, pScore]) => (
+                                  <tr key={periodKey} className={periodKey === '0' ? 'bg-blue-50/50 font-bold' : ''}>
+                                    <td className="py-1.5 px-3">
+                                      {periodKey === '0' ? 'Overall Match (Total)' : `Innings ${periodKey} (Period ${periodKey})`}
+                                    </td>
+                                    <td className="py-1.5 px-3 text-[#1c3246] font-black">{pScore?.participant1Score ?? 0}</td>
+                                    <td className="py-1.5 px-3 text-[#1c3246] font-black">{pScore?.participant2Score ?? 0}</td>
+                                    <td className="py-1.5 px-3 text-right text-[10px] text-gray-400">
+                                      {pScore?.updatedAt ? new Date(pScore.updatedAt).toLocaleTimeString() : '--'}
+                                    </td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -970,8 +1130,78 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
         </div>
       )}
 
-      {/* 2.6. FANCY 2 MARKET SECTION - BPExch style with BACK/LAY + Book link */}
-      {(activeTab === 'ALL' || activeTab === 'Fancy-2') && showLiveMarkets && actualMatch.status !== 'completed' && actualMatch.fancyMarkets && actualMatch.fancyMarkets.length > 0 && (
+      {/* 5. FIGURE MARKET SECTION (0-9 Digit Grid) */}
+      {(activeTab === 'ALL' || activeTab === 'Figure') && actualMatch.status !== 'completed' && actualMatch.figureMarkets && actualMatch.figureMarkets.length > 0 && (
+        actualMatch.figureMarkets.map((figureMarket, fmIdx) => (
+          <div key={fmIdx} className="order-2 flex flex-col px-2 mb-2">
+            <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
+              <div className="bg-[#5d7d9a] text-white h-10 flex items-center px-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                    <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  </div>
+                  <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                    {figureMarket.name} <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: {figureMarket.maxBet >= 1000000 ? `${(figureMarket.maxBet / 1000000).toFixed(0)}M` : `${(figureMarket.maxBet / 1000).toFixed(0)}K`})</span>
+                    <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
+                  </span>
+                </div>
+              </div>
+
+              {/* Digit Grid - 5 per row */}
+              <div className="relative p-4 bg-white">
+                {figureMarket.status === 'SUSPENDED' && (
+                  <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                    <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
+                      SUSPENDED
+                    </div>
+                  </div>
+                )}
+                {/* Row 1: Digits 0-4 */}
+                <div className="flex justify-center -space-x-[1px] mb-1.5">
+                  {(figureMarket.digits || []).filter(d => d.digit >= 0 && d.digit <= 4).map((d) => (
+                    <button
+                      key={d.digit}
+                      disabled={d.status === 'SUSPENDED' || figureMarket.status === 'SUSPENDED'}
+                      onClick={() => onSelectOutcome(`${figureMarket.name} - Digit ${d.digit}`, d.odds, 'back', actualMatch.status === 'live', 'figure')}
+                      className="w-12 sm:w-14 border border-black cursor-pointer hover:opacity-90 active:scale-95 transition-all shadow-xs disabled:opacity-50 disabled:pointer-events-none overflow-hidden"
+                    >
+                      <div className="h-8 bg-[#bfe2f7] border-b border-black flex items-center justify-center text-[16px] font-black text-black">
+                        {d.digit}
+                      </div>
+                      <div className="h-6 bg-white flex items-center justify-center text-[12px] font-black text-[#1c3246]">
+                        {d.odds}
+                      </div>
+                      {renderDigitExposure(figureMarket.name, d.digit)}
+                    </button>
+                  ))}
+                </div>
+                {/* Row 2: Digits 5-9 */}
+                <div className="flex justify-center -space-x-[1px]">
+                  {(figureMarket.digits || []).filter(d => d.digit >= 5 && d.digit <= 9).map((d) => (
+                    <button
+                      key={d.digit}
+                      disabled={d.status === 'SUSPENDED' || figureMarket.status === 'SUSPENDED'}
+                      onClick={() => onSelectOutcome(`${figureMarket.name} - Digit ${d.digit}`, d.odds, 'back', actualMatch.status === 'live', 'figure')}
+                      className="w-12 sm:w-14 border border-black cursor-pointer hover:opacity-90 active:scale-95 transition-all shadow-xs disabled:opacity-50 disabled:pointer-events-none overflow-hidden"
+                    >
+                      <div className="h-8 bg-[#bfe2f7] border-b border-black flex items-center justify-center text-[16px] font-black text-black">
+                        {d.digit}
+                      </div>
+                      <div className="h-6 bg-white flex items-center justify-center text-[12px] font-black text-[#1c3246]">
+                        {d.odds}
+                      </div>
+                      {renderDigitExposure(figureMarket.name, d.digit)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))
+      )}
+
+      {/* 6. FANCY 2 MARKET SECTION */}
+      {(activeTab === 'ALL' || activeTab === 'Fancy-2') && actualMatch.status !== 'completed' && actualMatch.fancyMarkets && actualMatch.fancyMarkets.length > 0 && (
         <div className="order-2 flex flex-col px-2 mb-2">
           <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
             <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
@@ -1041,190 +1271,10 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
         </div>
       )}
 
-      {/* 3. TOSS MARKET SECTION (Visible on 'ALL' and 'Toss' tabs, hidden if match completed) */}
-      {(activeTab === 'ALL' || activeTab === 'Toss') && actualMatch.status !== 'completed' && (
+      {/* 7. EVEN / ODD MARKET SECTION */}
+      {(activeTab === 'ALL' || activeTab === 'Even-Odd') && actualMatch.status !== 'completed' && actualMatch.evenOddMarkets && actualMatch.evenOddMarkets.length > 0 && (
         <div className="order-2 flex flex-col px-2 mb-2">
           <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
-            {/* Market Header Tab */}
-            <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
-                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                </div>
-                <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                  TOSS MARKET <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: 2M)</span>
-                  <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
-                </span>
-              </div>
-              <div className="flex items-center gap-6 text-[11px] font-black tracking-widest uppercase">
-                <div className="w-14 text-center border-b-2 border-[#bbd9f9]">BACK</div>
-                <div className="w-14 text-center border-b-2 border-[#f8c9d4]">LAY</div>
-              </div>
-            </div>
-
-            {/* Admin Quick Declare Toss Winner Bar */}
-            {isAdmin && !actualMatch.tossWinner && (
-              <div className="bg-[#243f55] text-white px-3 py-2 flex flex-wrap items-center justify-between gap-2 border-b border-gray-200">
-                <span className="flex items-center gap-1.5 text-yellow-400 text-xs font-black">
-                  <Trophy size={14} /> Admin Declare Toss Winner:
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => handleDeclareTossWinner(actualMatch.teamA)}
-                    className="bg-[#009866] hover:bg-[#007f55] text-white px-2.5 py-1 rounded text-[11px] font-black uppercase shadow-sm"
-                  >
-                    {actualMatch.teamA}
-                  </button>
-                  <button
-                    onClick={() => handleDeclareTossWinner(actualMatch.teamB)}
-                    className="bg-[#009866] hover:bg-[#007f55] text-white px-2.5 py-1 rounded text-[11px] font-black uppercase shadow-sm"
-                  >
-                    {actualMatch.teamB}
-                  </button>
-                  <button
-                    onClick={() => handleDeclareTossWinner('REFUND')}
-                    className="bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded text-[11px] font-black uppercase shadow-sm"
-                  >
-                    Refund
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Toss Result Banner (if already settled) */}
-            {actualMatch.tossWinner ? (
-              <div className="bg-[#ecfdf5] border-b border-emerald-200 px-4 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Trophy size={16} className="text-[#009866]" />
-                  <span className="text-xs font-black text-[#065f46] uppercase">
-                    Toss Winner: {actualMatch.tossWinner}
-                  </span>
-                </div>
-                <span className="bg-[#009866] text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase">
-                  Settled
-                </span>
-              </div>
-            ) : (
-              /* Runners List */
-              <div className="relative flex flex-col">
-                {actualMatch.tossMarketStatus && actualMatch.tossMarketStatus !== 'OPEN' && (
-                  <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] z-10 flex items-center justify-center">
-                    <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
-                      TOSS MARKET SUSPENDED
-                    </div>
-                  </div>
-                )}
-                {tossRunners.map((runner, ridx) => (
-                  <div key={ridx} className="flex items-stretch border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
-                    <div className="flex-1 flex flex-col justify-center px-3 py-2.5">
-                      <div className="font-bold text-[#1c3246] text-[13px] leading-tight">
-                        {runner.name}
-                      </div>
-                      {/* Feature 1: Toss Runner Exposure */}
-                      {renderRunnerExposure(runner.name)}
-                    </div>
-                    <div className="flex w-32 shrink-0">
-                      <button
-                        disabled={actualMatch.tossMarketStatus === 'CLOSED' || runner.back === '-'}
-                        onClick={() => onSelectOutcome(runner.name, runner.back, 'back', actualMatch.status === 'live', 'toss')}
-                        className="flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all border-r border-white/40 disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden bg-[#bbd9f9] hover:bg-[#a5d3f8]"
-                      >
-                        <span className="text-[15px] font-black leading-none z-10 text-[#1c3246]">{runner.back}</span>
-                        <span className="text-[9px] font-bold mt-1 z-10 text-gray-500">{runner.backVol}</span>
-                      </button>
-                      <button
-                        disabled={actualMatch.tossMarketStatus === 'CLOSED' || runner.lay === '-'}
-                        onClick={() => onSelectOutcome(runner.name, runner.lay, 'lay', actualMatch.status === 'live', 'toss')}
-                        className="flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden bg-[#f8c9d4] hover:bg-[#f9b6c6]"
-                      >
-                        <span className="text-[15px] font-black leading-none z-10 text-[#1c3246]">{runner.lay}</span>
-                        <span className="text-[9px] font-bold mt-1 z-10 text-gray-500">{runner.layVol}</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 3.5. FIGURE MARKET SECTION (0-9 Digit Grid) */}
-      {(activeTab === 'ALL' || activeTab === 'Figure') && showLiveMarkets && actualMatch.status !== 'completed' && actualMatch.figureMarkets && actualMatch.figureMarkets.length > 0 && (
-        actualMatch.figureMarkets.map((figureMarket, fmIdx) => (
-          <div key={fmIdx} className="order-2 flex flex-col px-2 mb-2">
-            <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
-              {/* Header */}
-              <div className="bg-[#5d7d9a] text-white h-10 flex items-center px-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
-                    <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                  </div>
-                  <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                    {figureMarket.name} <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: {figureMarket.maxBet >= 1000000 ? `${(figureMarket.maxBet / 1000000).toFixed(0)}M` : `${(figureMarket.maxBet / 1000).toFixed(0)}K`})</span>
-                    <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
-                  </span>
-                </div>
-              </div>
-
-              {/* Digit Grid - 5 per row, matching BPExch screenshot */}
-              <div className="relative p-4 bg-white">
-                {figureMarket.status === 'SUSPENDED' && (
-                  <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
-                    <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
-                      SUSPENDED
-                    </div>
-                  </div>
-                )}
-                {/* Row 1: Digits 0-4 */}
-                <div className="flex justify-center -space-x-[1px] mb-1.5">
-                  {(figureMarket.digits || []).filter(d => d.digit >= 0 && d.digit <= 4).map((d) => (
-                    <button
-                      key={d.digit}
-                      disabled={d.status === 'SUSPENDED' || figureMarket.status === 'SUSPENDED'}
-                      onClick={() => onSelectOutcome(`${figureMarket.name} - Digit ${d.digit}`, d.odds, 'back', actualMatch.status === 'live', 'figure')}
-                      className="w-12 sm:w-14 border border-black cursor-pointer hover:opacity-90 active:scale-95 transition-all shadow-xs disabled:opacity-50 disabled:pointer-events-none overflow-hidden"
-                    >
-                      <div className="h-8 bg-[#bfe2f7] border-b border-black flex items-center justify-center text-[16px] font-black text-black">
-                        {d.digit}
-                      </div>
-                      <div className="h-6 bg-white flex items-center justify-center text-[12px] font-black text-[#1c3246]">
-                        {d.odds}
-                      </div>
-                      {renderDigitExposure(figureMarket.name, d.digit)}
-                    </button>
-                  ))}
-                </div>
-                {/* Row 2: Digits 5-9 */}
-                <div className="flex justify-center -space-x-[1px]">
-                  {(figureMarket.digits || []).filter(d => d.digit >= 5 && d.digit <= 9).map((d) => (
-                    <button
-                      key={d.digit}
-                      disabled={d.status === 'SUSPENDED' || figureMarket.status === 'SUSPENDED'}
-                      onClick={() => onSelectOutcome(`${figureMarket.name} - Digit ${d.digit}`, d.odds, 'back', actualMatch.status === 'live', 'figure')}
-                      className="w-12 sm:w-14 border border-black cursor-pointer hover:opacity-90 active:scale-95 transition-all shadow-xs disabled:opacity-50 disabled:pointer-events-none overflow-hidden"
-                    >
-                      <div className="h-8 bg-[#bfe2f7] border-b border-black flex items-center justify-center text-[16px] font-black text-black">
-                        {d.digit}
-                      </div>
-                      <div className="h-6 bg-white flex items-center justify-center text-[12px] font-black text-[#1c3246]">
-                        {d.odds}
-                      </div>
-                      {renderDigitExposure(figureMarket.name, d.digit)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        ))
-      )}
-
-      {/* 3.6. EVEN / ODD MARKET SECTION */}
-      {(activeTab === 'ALL' || activeTab === 'Even-Odd') && showLiveMarkets && actualMatch.status !== 'completed' && actualMatch.evenOddMarkets && actualMatch.evenOddMarkets.length > 0 && (
-        <div className="order-2 flex flex-col px-2 mb-2">
-          <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
-            {/* Header */}
             <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
@@ -1245,7 +1295,6 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
               </div>
             </div>
 
-            {/* Even/Odd Runners */}
             <div className="divide-y divide-gray-100">
               {actualMatch.evenOddMarkets.map((eoMarket, eoIdx) => {
                 const isSuspended = eoMarket.status === 'SUSPENDED';
@@ -1293,11 +1342,10 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
         </div>
       )}
 
-      {/* 3.7. TIED MATCH (OTHERS) MARKET SECTION */}
-      {(activeTab === 'ALL' || activeTab === 'Others') && showLiveMarkets && actualMatch.status !== 'completed' && actualMatch.tiedMatchMarket && (
+      {/* 8. TIED MATCH (OTHERS) MARKET SECTION */}
+      {(activeTab === 'ALL' || activeTab === 'Others') && actualMatch.status !== 'completed' && actualMatch.tiedMatchMarket && (
         <div className="order-2 flex flex-col px-2 mb-2">
           <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
-            {/* Header */}
             <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
@@ -1314,7 +1362,6 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
               </div>
             </div>
 
-            {/* Tied Match Runners (Yes / No) */}
             <div className="relative divide-y divide-gray-100">
               {actualMatch.tiedMatchMarket.status === 'SUSPENDED' && (
                 <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
@@ -1334,10 +1381,9 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                       {renderRunnerExposure(`tied_${runner.name.toLowerCase()}`)}
                     </div>
                     <div className="flex shrink-0">
-                      {/* Back 3 slots */}
                       {Array.from({ length: 3 }).map((_, slotIdx) => {
                         const odd = backOdds[2 - slotIdx];
-                        const isMain = slotIdx === 2; // rightmost back is main
+                        const isMain = slotIdx === 2;
                         if (!odd) {
                           return (
                             <div key={`b-empty-${slotIdx}`} className={`w-13 sm:w-14 border-r border-white/40 ${isMain ? 'bg-[#bbd9f9]/40' : 'bg-transparent'}`}></div>
@@ -1357,10 +1403,9 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                           </button>
                         );
                       })}
-                      {/* Lay 3 slots */}
                       {Array.from({ length: 3 }).map((_, slotIdx) => {
                         const odd = layOdds[slotIdx];
-                        const isMain = slotIdx === 0; // leftmost lay is main
+                        const isMain = slotIdx === 0;
                         if (!odd) {
                           return (
                             <div key={`l-empty-${slotIdx}`} className="w-13 sm:w-14 border-r border-white/40 bg-transparent"></div>

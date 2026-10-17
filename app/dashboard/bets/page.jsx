@@ -107,8 +107,9 @@ export default function BetsPage() {
                   bets.map((bet, idx) => {
                     const isWin = bet.status === 'won' || bet.status === 'WIN';
                     const isLose = bet.status === 'lost' || bet.status === 'LOSE';
+                    const effectiveRate = bet.effectiveOdds || bet.odds;
                     const pl = isWin 
-                        ? ((bet.stake * (bet.odds || (bet.sport === 'Casino' ? 2.0 : 1))) - bet.stake) 
+                        ? (bet.payout != null ? (bet.payout - bet.stake) : ((bet.stake * (effectiveRate || (bet.sport === 'Casino' ? 2.0 : 1))) - bet.stake)) 
                         : (isLose ? -bet.stake : 0);
                     
                     return (
@@ -126,7 +127,14 @@ export default function BetsPage() {
                               {bet.type || 'BACK'}
                            </span>
                         </td>
-                        <td className="p-2 border-r border-gray-200 text-right pr-4 font-mono">{bet.odds}</td>
+                        <td className="p-2 border-r border-gray-200 text-right pr-4 font-mono">
+                          <div>{bet.odds}</div>
+                          {bet.effectiveOdds && bet.effectiveOdds !== bet.odds && (
+                            <div className="text-[10px] text-emerald-600 font-semibold" title={`Settled rate: ${bet.effectiveOdds}`}>
+                              Eff: {bet.effectiveOdds}
+                            </div>
+                          )}
+                        </td>
                         <td className="p-2 border-r border-gray-200 text-right pr-4 font-bold">₹{bet.stake.toLocaleString()}</td>
                         <td className={`p-2 border-r border-gray-200 text-right pr-4 font-black ${pl > 0 ? 'text-[#00b050]' : pl < 0 ? 'text-[#dc3545]' : 'text-gray-400'}`}>
                            {pl > 0 ? '+' : ''}{pl.toLocaleString()}
