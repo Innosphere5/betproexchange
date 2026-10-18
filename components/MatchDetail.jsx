@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Info, Tv, Clock, Trophy, Users, ShieldCheck, ChevronDown, CheckCircle2, Lock, X, Volume2, ArrowLeft } from "lucide-react";
 import { useDashboard } from "./DashboardLayout";
 import { getApiUrl } from "../lib/apiConfig";
@@ -323,11 +323,38 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
       }
     };
 
+    const handleMatchUpdate = (data) => {
+      if (String(data.matchId) === String(matchId)) {
+        setFetchedMatch(prev => ({
+          ...(prev || {}),
+          ...data,
+          status: data.status,
+          winner: data.winner,
+          isCompleted: data.status === 'completed' || Boolean(data.winner)
+        }));
+        fetchBetsAndExposure();
+      }
+    };
+
+    const handleMatchSettled = (data) => {
+      if (String(data.matchId) === String(matchId)) {
+        setFetchedMatch(prev => ({
+          ...(prev || {}),
+          status: 'completed',
+          winner: data.winner,
+          isCompleted: true
+        }));
+        fetchBetsAndExposure();
+      }
+    };
+
     socket.on('fancy_market_update', handleFancyUpdate);
     socket.on('figure_market_update', handleFigureUpdate);
     socket.on('even_odd_market_update', handleEvenOddUpdate);
     socket.on('tied_match_market_update', handleTiedMatchUpdate);
     socket.on('live_score_update', handleLiveScore);
+    socket.on('match_updated', handleMatchUpdate);
+    socket.on('match_settled', handleMatchSettled);
 
     return () => {
       socket.off('fancy_market_update', handleFancyUpdate);
@@ -335,6 +362,8 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
       socket.off('even_odd_market_update', handleEvenOddUpdate);
       socket.off('tied_match_market_update', handleTiedMatchUpdate);
       socket.off('live_score_update', handleLiveScore);
+      socket.off('match_updated', handleMatchUpdate);
+      socket.off('match_settled', handleMatchSettled);
     };
   }, [socket, matchId]);
 
@@ -349,6 +378,22 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
     score: { ...(rawMatch?.score || {}), ...(fetchedMatch?.score || {}) }
   };
 
+  const isCompleted = Boolean(
+    actualMatch &&
+    (actualMatch.isCompleted === true ||
+      actualMatch.status === 'completed' ||
+      actualMatch.status === 'resulted' ||
+      Boolean(actualMatch.winner))
+  );
+  const winner = actualMatch?.winner || null;
+
+  const isRunnerWinner = (runnerName) => {
+    if (!isCompleted || !winner || !runnerName) return false;
+    const cleanR = runnerName.replace(/\s+bm$/i, '').trim().toLowerCase();
+    const cleanW = String(winner).replace(/\s+bm$/i, '').trim().toLowerCase();
+    return cleanR === cleanW || cleanR.includes(cleanW) || cleanW.includes(cleanR);
+  };
+
   const startTimeObj = actualMatch ? new Date(actualMatch.startTime) : new Date();
   const formattedDate = actualMatch ? startTimeObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : "";
   const formattedTime = actualMatch ? startTimeObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }).toLowerCase() : "";
@@ -358,11 +403,11 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
   const isToday = actualMatch ? (startTimeObj >= todayStart && startTimeObj < todayEnd) : false;
-  const isLive = Boolean(actualMatch && (actualMatch.status === 'live' || actualMatch.inplay === true));
+  const isLive = Boolean(actualMatch && (actualMatch.status === 'live' || actualMatch.inplay === true)) && !isCompleted;
   // In-play markets (Fancy-2, Figure, Even-Odd, Others/Tied) strictly show when match is LIVE
   const showLiveMarkets = isLive;
 
-  const showOdds = isLive || isToday || (actualMatch && actualMatch.backOddsA);
+  const showOdds = !isCompleted && (isLive || isToday || (actualMatch && actualMatch.backOddsA));
 
   const availableTabs = [
     'ALL',
@@ -417,6 +462,21 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
       relativeSchedule = `in ${Math.floor(diffHours / 24)} days`;
     }
   }
+
+  const elapsedFormatted = useMemo(() => {
+    if (!actualMatch?.startTime) return "00:00:00";
+    try {
+      const start = new Date(actualMatch.startTime).getTime();
+      const end = actualMatch?.lastUpdated ? new Date(actualMatch.lastUpdated).getTime() : Date.now();
+      const diffSec = Math.max(0, Math.floor((end - start) / 1000));
+      const hours = String(Math.floor(diffSec / 3600)).padStart(2, '0');
+      const mins = String(Math.floor((diffSec % 3600) / 60)).padStart(2, '0');
+      const secs = String(diffSec % 60).padStart(2, '0');
+      return `${hours}:${mins}:${secs}`;
+    } catch {
+      return "00:00:00";
+    }
+  }, [actualMatch?.startTime, actualMatch?.lastUpdated]);
 
   useEffect(() => {
     if (actualMatch) {
@@ -661,138 +721,224 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
         })()}
       </div>
 
-      {/* 2. MATCH ODDS MARKET SECTION (Visible on 'ALL' tab, hidden if completed) */}
-      {activeTab === 'ALL' && actualMatch.status !== 'completed' && (
+      {/* 2. MATCH ODDS MARKET SECTION */}
+      {(activeTab === 'ALL' || activeTab === 'Match Odds') && (
         <div className="order-2 flex flex-col px-2 mb-2">
           <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
             {/* Market Header Tab */}
             <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                <div className={`w-5 h-5 ${isCompleted ? 'bg-purple-600' : 'bg-[#00c766] animate-pulse'} rounded-full flex items-center justify-center shrink-0 shadow-sm`}>
                   <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                 </div>
                 <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                  MATCH ODDS <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: 5M)</span>
-                  <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
+                  {isCompleted ? (
+                    <span className="flex items-center gap-1.5 text-white">
+                      <span>{matchName} - Match Odds</span>
+                      <span className="text-pink-300 font-extrabold">SUSPENDED</span>
+                      <Lock size={13} className="text-white inline" />
+                    </span>
+                  ) : (
+                    <>
+                      MATCH ODDS <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: 5M)</span>
+                      <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
+                    </>
+                  )}
                 </span>
               </div>
-              <div className="flex items-center gap-6 text-[11px] font-black tracking-widest uppercase">
-                <div className="w-14 text-center border-b-2 border-[#bbd9f9]">BACK</div>
-                <div className="w-14 text-center border-b-2 border-[#f8c9d4]">LAY</div>
-              </div>
+              {!isCompleted ? (
+                <div className="flex items-center gap-6 text-[11px] font-black tracking-widest uppercase">
+                  <div className="w-14 text-center border-b-2 border-[#bbd9f9]">BACK</div>
+                  <div className="w-14 text-center border-b-2 border-[#f8c9d4]">LAY</div>
+                </div>
+              ) : (
+                <div className="text-[11px] font-black tracking-widest uppercase text-emerald-200">
+                  CLOSED
+                </div>
+              )}
             </div>
+
+            {/* Completed Match Subheader matching bpexch.org */}
+            {isCompleted && (
+              <div className="bg-[#f0f2f5] text-[#333333] text-[12px] font-bold px-3 py-1.5 flex items-center justify-between border-b border-gray-200">
+                <span>{formattedDate} {formattedTime}</span>
+                <span>Elapsed: {elapsedFormatted}</span>
+              </div>
+            )}
 
             {/* Runners List with Feature 1: Profit/Loss in Green/Red under each Team */}
             <div className="relative flex flex-col">
-              {actualMatch.marketStatus && actualMatch.marketStatus !== 'OPEN' && (
+              {actualMatch.marketStatus && actualMatch.marketStatus !== 'OPEN' && !isCompleted && (
                 <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
                   <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
                     MARKET SUSPENDED
                   </div>
                 </div>
               )}
-              {runners.map((runner, ridx) => (
-                <div key={ridx} className="flex items-stretch border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
-                  <div className="flex-1 flex flex-col justify-center px-3 py-2.5">
-                    <div className="font-bold text-[#1c3246] text-[13px] leading-tight">
-                      {runner.name}
+              {runners.map((runner, ridx) => {
+                const isWinner = isRunnerWinner(runner.name);
+                return (
+                  <div 
+                    key={ridx} 
+                    className={`flex items-stretch border-b border-gray-100 last:border-0 transition-colors ${
+                      isWinner ? 'bg-[#bef264]' : 'bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className={`flex-1 flex flex-col justify-center px-3 py-2.5 ${isWinner ? 'bg-[#bef264]' : ''}`}>
+                      <div className="font-bold text-[#1c3246] text-[13px] leading-tight flex items-center gap-1.5">
+                        <span>{runner.name}</span>
+                      </div>
+                      {/* Feature 1: Accurate Profit/Loss in green/red directly under team name */}
+                      {renderRunnerExposure(runner.name)}
                     </div>
-                    {/* Feature 1: Accurate Profit/Loss in green/red directly under team name */}
-                    {renderRunnerExposure(runner.name)}
+                    {isCompleted ? (
+                      <div className="flex w-32 shrink-0">
+                        {/* Completed match: empty pastel boxes matching bpexch.org */}
+                        <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#dcecfd] border-r border-white/40">
+                        </div>
+                        <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#fbe2e8]">
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex w-32 shrink-0">
+                        <button
+                          disabled={(actualMatch.marketStatus && actualMatch.marketStatus !== 'OPEN') || runner.back === '-'}
+                          onClick={() => onSelectOutcome(runner.name, runner.back, 'back', actualMatch.status === 'live', 'match_odds')}
+                          className={`flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all border-r border-white/40 disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden ${runner.flash?.back ? 'bg-[#5d99d6]' : 'bg-[#bbd9f9] hover:bg-[#a5d3f8]'}`}
+                        >
+                          <span className={`text-[15px] font-black leading-none z-10 transition-colors ${runner.flash?.back ? 'text-white' : 'text-[#1c3246]'}`}>{runner.back}</span>
+                          <span className={`text-[9px] font-bold mt-1 z-10 transition-colors ${runner.flash?.back ? 'text-white/80' : 'text-gray-500'}`}>{runner.backVol}</span>
+                        </button>
+                        <button
+                          disabled={(actualMatch.marketStatus && actualMatch.marketStatus !== 'OPEN') || runner.lay === '-'}
+                          onClick={() => onSelectOutcome(runner.name, runner.lay, 'lay', actualMatch.status === 'live', 'match_odds')}
+                          className={`flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden ${runner.flash?.lay ? 'bg-[#d65d7a]' : 'bg-[#f8c9d4] hover:bg-[#f9b6c6]'}`}
+                        >
+                          <span className={`text-[15px] font-black leading-none z-10 transition-colors ${runner.flash?.lay ? 'text-white' : 'text-[#1c3246]'}`}>{runner.lay}</span>
+                          <span className={`text-[9px] font-bold mt-1 z-10 transition-colors ${runner.flash?.lay ? 'text-white/80' : 'text-gray-500'}`}>{runner.layVol}</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex w-32 shrink-0">
-                    <button
-                      disabled={(actualMatch.marketStatus && actualMatch.marketStatus !== 'OPEN') || runner.back === '-'}
-                      onClick={() => onSelectOutcome(runner.name, runner.back, 'back', actualMatch.status === 'live', 'match_odds')}
-                      className={`flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all border-r border-white/40 disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden ${runner.flash?.back ? 'bg-[#5d99d6]' : 'bg-[#bbd9f9] hover:bg-[#a5d3f8]'}`}
-                    >
-                      <span className={`text-[15px] font-black leading-none z-10 transition-colors ${runner.flash?.back ? 'text-white' : 'text-[#1c3246]'}`}>{runner.back}</span>
-                      <span className={`text-[9px] font-bold mt-1 z-10 transition-colors ${runner.flash?.back ? 'text-white/80' : 'text-gray-500'}`}>{runner.backVol}</span>
-                    </button>
-                    <button
-                      disabled={(actualMatch.marketStatus && actualMatch.marketStatus !== 'OPEN') || runner.lay === '-'}
-                      onClick={() => onSelectOutcome(runner.name, runner.lay, 'lay', actualMatch.status === 'live', 'match_odds')}
-                      className={`flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden ${runner.flash?.lay ? 'bg-[#d65d7a]' : 'bg-[#f8c9d4] hover:bg-[#f9b6c6]'}`}
-                    >
-                      <span className={`text-[15px] font-black leading-none z-10 transition-colors ${runner.flash?.lay ? 'text-white' : 'text-[#1c3246]'}`}>{runner.lay}</span>
-                      <span className={`text-[9px] font-bold mt-1 z-10 transition-colors ${runner.flash?.lay ? 'text-white/80' : 'text-gray-500'}`}>{runner.layVol}</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
       )}
 
       {/* 2.5. BOOKMAKER MARKET SECTION (Image 1 BPExch representation) */}
-      {(activeTab === 'ALL' || activeTab === 'Bookmaker') && actualMatch.status !== 'completed' && (
+      {(activeTab === 'ALL' || activeTab === 'Bookmaker') && (
         <div className="order-2 flex flex-col px-2 mb-2">
           <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
             {/* Header */}
             <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                <div className={`w-5 h-5 ${isCompleted ? 'bg-purple-600' : 'bg-[#00c766] animate-pulse'} rounded-full flex items-center justify-center shrink-0 shadow-sm`}>
                   <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                 </div>
                 <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                  BOOKMAKER <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: 1M)</span>
-                  <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
+                  {isCompleted ? (
+                    <span className="flex items-center gap-1.5 text-white">
+                      <span>{matchName} - Bookmaker</span>
+                      <span className="text-pink-300 font-extrabold">SUSPENDED</span>
+                      <Lock size={13} className="text-white inline" />
+                    </span>
+                  ) : (
+                    <>
+                      BOOKMAKER <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: 1M)</span>
+                      <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
+                    </>
+                  )}
                 </span>
               </div>
-              <div className="flex items-center gap-6 text-[11px] font-black tracking-widest uppercase">
-                <div className="w-14 text-center border-b-2 border-[#bbd9f9]">BACK</div>
-                <div className="w-14 text-center border-b-2 border-[#f8c9d4]">LAY</div>
-              </div>
+              {!isCompleted ? (
+                <div className="flex items-center gap-6 text-[11px] font-black tracking-widest uppercase">
+                  <div className="w-14 text-center border-b-2 border-[#bbd9f9]">BACK</div>
+                  <div className="w-14 text-center border-b-2 border-[#f8c9d4]">LAY</div>
+                </div>
+              ) : (
+                <div className="text-[11px] font-black tracking-widest uppercase text-emerald-200">
+                  CLOSED
+                </div>
+              )}
             </div>
+
+            {/* Completed Match Subheader matching bpexch.org */}
+            {isCompleted && (
+              <div className="bg-[#f0f2f5] text-[#333333] text-[12px] font-bold px-3 py-1.5 flex items-center justify-between border-b border-gray-200">
+                <span>{formattedDate} {formattedTime}</span>
+                <span>Elapsed: {elapsedFormatted}</span>
+              </div>
+            )}
 
             {/* Runners List */}
             <div className="relative flex flex-col">
-              {isBookmakerSuspended && (
+              {isBookmakerSuspended && !isCompleted && (
                 <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
                   <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
                     MARKET SUSPENDED
                   </div>
                 </div>
               )}
-              {bookmakerRunners.map((runner, bidx) => (
-                <div key={bidx} className="flex items-stretch border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
-                  <div className="flex-1 flex flex-col justify-center px-3 py-2.5">
-                    <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{runner.name}</span>
-                    {renderRunnerExposure(`${runner.name}_bm`)}
+              {bookmakerRunners.map((runner, bidx) => {
+                const isWinner = isRunnerWinner(runner.name);
+                return (
+                  <div 
+                    key={bidx} 
+                    className={`flex items-stretch border-b border-gray-100 last:border-0 transition-colors ${
+                      isWinner ? 'bg-[#bef264]' : 'bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className={`flex-1 flex flex-col justify-center px-3 py-2.5 ${isWinner ? 'bg-[#bef264]' : ''}`}>
+                      <div className="font-bold text-[#1c3246] text-[13px] leading-tight flex items-center gap-1.5">
+                        <span>{runner.name}</span>
+                      </div>
+                      {renderRunnerExposure(`${runner.name}_bm`)}
+                    </div>
+                    {isCompleted ? (
+                      <div className="flex w-32 shrink-0">
+                        {/* Completed match: empty pastel boxes matching bpexch.org */}
+                        <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#dcecfd] border-r border-white/40">
+                        </div>
+                        <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#fbe2e8]">
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex w-32 shrink-0">
+                        <button
+                          disabled={isBookmakerSuspended || runner.back === '-'}
+                          onClick={() => onSelectOutcome(runner.name, runner.back, 'back', actualMatch.status === 'live', 'bookmaker')}
+                          className={`flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all border-r border-white/40 disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden ${runner.flash?.back ? 'bg-[#5d99d6]' : 'bg-[#bbd9f9] hover:bg-[#a5d3f8]'}`}
+                        >
+                          <span className={`text-[15px] font-black leading-none z-10 transition-colors ${runner.flash?.back ? 'text-white' : 'text-[#1c3246]'}`}>{runner.back}</span>
+                          <span className={`text-[9px] font-bold mt-1 z-10 transition-colors ${runner.flash?.back ? 'text-white/80' : 'text-gray-500'}`}>{runner.backVol}</span>
+                        </button>
+                        <button
+                          disabled={isBookmakerSuspended || runner.lay === '-'}
+                          onClick={() => onSelectOutcome(runner.name, runner.lay, 'lay', actualMatch.status === 'live', 'bookmaker')}
+                          className={`flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden ${runner.flash?.lay ? 'bg-[#d65d7a]' : 'bg-[#f8c9d4] hover:bg-[#f9b6c6]'}`}
+                        >
+                          <span className={`text-[15px] font-black leading-none z-10 transition-colors ${runner.flash?.lay ? 'text-white' : 'text-[#1c3246]'}`}>{runner.lay}</span>
+                          <span className={`text-[9px] font-bold mt-1 z-10 transition-colors ${runner.flash?.lay ? 'text-white/80' : 'text-gray-500'}`}>{runner.layVol}</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex w-32 shrink-0">
-                    <button
-                      disabled={isBookmakerSuspended || runner.back === '-'}
-                      onClick={() => onSelectOutcome(runner.name, runner.back, 'back', actualMatch.status === 'live', 'bookmaker')}
-                      className={`flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all border-r border-white/40 disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden ${runner.flash?.back ? 'bg-[#5d99d6]' : 'bg-[#bbd9f9] hover:bg-[#a5d3f8]'}`}
-                    >
-                      <span className={`text-[15px] font-black leading-none z-10 transition-colors ${runner.flash?.back ? 'text-white' : 'text-[#1c3246]'}`}>{runner.back}</span>
-                      <span className={`text-[9px] font-bold mt-1 z-10 transition-colors ${runner.flash?.back ? 'text-white/80' : 'text-gray-500'}`}>{runner.backVol}</span>
-                    </button>
-                    <button
-                      disabled={isBookmakerSuspended || runner.lay === '-'}
-                      onClick={() => onSelectOutcome(runner.name, runner.lay, 'lay', actualMatch.status === 'live', 'bookmaker')}
-                      className={`flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden ${runner.flash?.lay ? 'bg-[#d65d7a]' : 'bg-[#f8c9d4] hover:bg-[#f9b6c6]'}`}
-                    >
-                      <span className={`text-[15px] font-black leading-none z-10 transition-colors ${runner.flash?.lay ? 'text-white' : 'text-[#1c3246]'}`}>{runner.lay}</span>
-                      <span className={`text-[9px] font-bold mt-1 z-10 transition-colors ${runner.flash?.lay ? 'text-white/80' : 'text-gray-500'}`}>{runner.layVol}</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
       )}
 
       {/* 3. TOSS MARKET SECTION */}
-      {(activeTab === 'ALL' || activeTab === 'Toss') && actualMatch.status !== 'completed' && (
+      {(activeTab === 'ALL' || activeTab === 'Toss') && (
         <div className="order-2 flex flex-col px-2 mb-2">
           <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
             <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                <div className={`w-5 h-5 ${isCompleted ? 'bg-purple-600' : 'bg-[#00c766] animate-pulse'} rounded-full flex items-center justify-center shrink-0 shadow-sm`}>
                   <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                 </div>
                 <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
@@ -807,7 +953,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
             </div>
 
             {/* Admin Quick Declare Toss Winner Bar */}
-            {isAdmin && !actualMatch.tossWinner && (
+            {isAdmin && !actualMatch.tossWinner && !isCompleted && (
               <div className="bg-[#243f55] text-white px-3 py-2 flex flex-wrap items-center justify-between gap-2 border-b border-gray-200">
                 <span className="flex items-center gap-1.5 text-yellow-400 text-xs font-black">
                   <Trophy size={14} /> Admin Declare Toss Winner:
@@ -857,39 +1003,78 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                     </div>
                   </div>
                 )}
-                {tossRunners.map((runner, ridx) => (
-                  <div key={ridx} className="flex items-stretch border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
-                    <div className="flex-1 flex flex-col justify-center px-3 py-2.5">
-                      <div className="font-bold text-[#1c3246] text-[13px] leading-tight">
-                        {runner.name}
+                {tossRunners.map((runner, ridx) => {
+                  const isTossWinner = Boolean(actualMatch.tossWinner && runner.team && actualMatch.tossWinner.toLowerCase().includes(runner.team.toLowerCase()));
+                  return (
+                    <div 
+                      key={ridx} 
+                      className={`flex items-stretch border-b border-gray-100 last:border-0 transition-colors ${
+                        isTossWinner ? 'bg-[#bef264]' : 'bg-white hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className={`flex-1 flex flex-col justify-center px-3 py-2.5 ${isTossWinner ? 'bg-[#bef264]' : ''}`}>
+                        <div className="font-bold text-[#1c3246] text-[13px] leading-tight flex items-center gap-1.5">
+                          <span>{runner.name}</span>
+                          {isTossWinner && (
+                            <span className="bg-emerald-700 text-white text-[9px] font-black px-1.5 py-0.2 rounded uppercase flex items-center gap-1">
+                              <Trophy size={10} className="text-yellow-300" /> Winner
+                            </span>
+                          )}
+                        </div>
+                        {renderRunnerExposure(runner.name)}
                       </div>
-                      {renderRunnerExposure(runner.name)}
+                      {isCompleted || actualMatch.tossMarketStatus === 'CLOSED' ? (
+                        <div className="flex w-32 shrink-0">
+                          <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#dcecfd] border-r border-white/40">
+                          </div>
+                          <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#fbe2e8]">
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex w-32 shrink-0">
+                          <button
+                            disabled={actualMatch.tossMarketStatus === 'CLOSED' || runner.back === '-'}
+                            onClick={() => onSelectOutcome(runner.name, runner.back, 'back', actualMatch.status === 'live', 'toss')}
+                            className="flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all border-r border-white/40 disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden bg-[#bbd9f9] hover:bg-[#a5d3f8]"
+                          >
+                            <span className="text-[15px] font-black leading-none z-10 text-[#1c3246]">{runner.back}</span>
+                            <span className="text-[9px] font-bold mt-1 z-10 text-gray-500">{runner.backVol}</span>
+                          </button>
+                          <button
+                            disabled={actualMatch.tossMarketStatus === 'CLOSED' || runner.lay === '-'}
+                            onClick={() => onSelectOutcome(runner.name, runner.lay, 'lay', actualMatch.status === 'live', 'toss')}
+                            className="flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden bg-[#f8c9d4] hover:bg-[#f9b6c6]"
+                          >
+                            <span className="text-[15px] font-black leading-none z-10 text-[#1c3246]">{runner.lay}</span>
+                            <span className="text-[9px] font-bold mt-1 z-10 text-gray-500">{runner.layVol}</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex w-32 shrink-0">
-                      <button
-                        disabled={actualMatch.tossMarketStatus === 'CLOSED' || runner.back === '-'}
-                        onClick={() => onSelectOutcome(runner.name, runner.back, 'back', actualMatch.status === 'live', 'toss')}
-                        className="flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all border-r border-white/40 disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden bg-[#bbd9f9] hover:bg-[#a5d3f8]"
-                      >
-                        <span className="text-[15px] font-black leading-none z-10 text-[#1c3246]">{runner.back}</span>
-                        <span className="text-[9px] font-bold mt-1 z-10 text-gray-500">{runner.backVol}</span>
-                      </button>
-                      <button
-                        disabled={actualMatch.tossMarketStatus === 'CLOSED' || runner.lay === '-'}
-                        onClick={() => onSelectOutcome(runner.name, runner.lay, 'lay', actualMatch.status === 'live', 'toss')}
-                        className="flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden bg-[#f8c9d4] hover:bg-[#f9b6c6]"
-                      >
-                        <span className="text-[15px] font-black leading-none z-10 text-[#1c3246]">{runner.lay}</span>
-                        <span className="text-[9px] font-bold mt-1 z-10 text-gray-500">{runner.layVol}</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
         </div>
       )}
+
+      {/* ACTION BUTTONS: Bet Lock & User Book (Matching Image 1) */}
+      <div className="order-2 px-2 mb-2 flex gap-2">
+        <button
+          onClick={() => alert("Betting locked for this market")}
+          className="flex-1 bg-[#00a884] hover:bg-[#009172] active:scale-98 text-white py-2 px-3 rounded-sm flex items-center justify-center gap-1.5 text-xs sm:text-[13px] font-bold shadow-xs transition-all cursor-pointer"
+        >
+          <span>Bet Lock</span>
+          <ChevronDown size={14} />
+        </button>
+        <button
+          onClick={() => setIsFullBetListOpen(true)}
+          className="flex-1 bg-[#00a884] hover:bg-[#009172] active:scale-98 text-white py-2 px-3 rounded-sm flex items-center justify-center text-xs sm:text-[13px] font-bold shadow-xs transition-all cursor-pointer"
+        >
+          User Book
+        </button>
+      </div>
 
       {/* 4. BPEXCH TV & SCORE CARD */}
       {(activeTab === 'ALL' || activeTab === 'Score Card') && (

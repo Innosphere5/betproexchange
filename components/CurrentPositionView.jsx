@@ -274,9 +274,38 @@ export default function CurrentPositionView({
                             {/* Left Column: {Match Name} / {Market Name} in Teal Green */}
                             <td className="px-3 py-2.5 border-r border-gray-300 align-middle">
                               <div className="flex items-center justify-between gap-2">
-                                <span className="text-[#20a88a] group-hover:underline font-medium text-xs sm:text-sm leading-snug break-words">
-                                  {market.marketTitle}
-                                </span>
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-[#20a88a] group-hover:underline font-medium text-xs sm:text-sm leading-snug break-words">
+                                    {market.marketTitle}
+                                  </span>
+                                  {market.isResulted && (
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <span className="bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded uppercase flex items-center gap-1">
+                                        <Trophy size={9} className="text-yellow-300" /> Winner: {market.winner || "Declared"}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          router.push(`/${role}/reports?tab=Daily Report`);
+                                        }}
+                                        className="text-[10px] font-bold text-[#20a88a] hover:underline cursor-pointer"
+                                      >
+                                        Daily Report →
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          router.push(`/${role}/reports?tab=Final Sheet`);
+                                        }}
+                                        className="text-[10px] font-bold text-gray-600 hover:underline cursor-pointer"
+                                      >
+                                        Final Sheet →
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                                 <span className="text-gray-400 group-hover:text-[#20a88a] flex-shrink-0 transition-colors">
                                   <ChevronDown size={14} />
                                 </span>

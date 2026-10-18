@@ -383,14 +383,21 @@ export default function MatchDetailAdminView({
 
   // Status computation
   const isCompleted = Boolean(
-    (matchData?.isCompleted === true ||
-      matchData?.status === "completed" ||
-      matchData?.status === "resulted") &&
-    matchData?.status !== "live"
+    matchData?.isCompleted === true ||
+    matchData?.status === "completed" ||
+    matchData?.status === "resulted" ||
+    Boolean(matchData?.winner)
   );
-  const winner = isCompleted ? (matchData?.winner || null) : null;
-  const isLive = Boolean(matchData && (matchData.status === "live" || matchData.inplay === true));
+  const winner = matchData?.winner || null;
+  const isLive = Boolean(matchData && (matchData.status === "live" || matchData.inplay === true)) && !isCompleted;
   const isSuspended = Boolean(matchData?.marketStatus === "SUSPENDED" || matchData?.isSuspended === true || matchData?.status === "suspended");
+
+  const isRunnerWinner = useCallback((runnerName) => {
+    if (!isCompleted || !winner || !runnerName) return false;
+    const cleanR = runnerName.replace(/\s+bm$/i, '').trim().toLowerCase();
+    const cleanW = String(winner).replace(/\s+bm$/i, '').trim().toLowerCase();
+    return cleanR === cleanW || cleanR.includes(cleanW) || cleanW.includes(cleanR);
+  }, [isCompleted, winner]);
 
   // Volume format helper
   const formatVol = (val, fallback = "100") => {
@@ -775,6 +782,21 @@ export default function MatchDetailAdminView({
     return "Today";
   }, [matchData?.startTime]);
 
+  const elapsedFormatted = useMemo(() => {
+    if (!matchData?.startTime) return "00:00:00";
+    try {
+      const start = new Date(matchData.startTime).getTime();
+      const end = matchData?.lastUpdated ? new Date(matchData.lastUpdated).getTime() : Date.now();
+      const diffSec = Math.max(0, Math.floor((end - start) / 1000));
+      const hours = String(Math.floor(diffSec / 3600)).padStart(2, '0');
+      const mins = String(Math.floor((diffSec % 3600) / 60)).padStart(2, '0');
+      const secs = String(diffSec % 60).padStart(2, '0');
+      return `${hours}:${mins}:${secs}`;
+    } catch {
+      return "00:00:00";
+    }
+  }, [matchData?.startTime, matchData?.lastUpdated]);
+
   // Dynamic Runner Odds for Match Odds
   const runnerOddsA = useMemo(() => ({
     back: matchData?.backOddsA ? Number(matchData.backOddsA).toFixed(2) : "1.98",
@@ -938,28 +960,91 @@ export default function MatchDetailAdminView({
         {/* ─── 2. MAIN CONTENT AREA (All requested sections accurately rendered) ─── */}
         <div className="p-2 sm:p-3 flex flex-col gap-3 bg-[#eaedf1] flex-1">
 
+          {/* ══════════ COMPLETED MATCH RESULT & REPORT REDIRECTION BANNER ══════════ */}
+          {isCompleted && (
+            <div className="bg-emerald-50 border border-emerald-300 rounded-sm p-3 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <Trophy size={18} className="text-yellow-300" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs sm:text-sm font-black text-emerald-950 uppercase tracking-tight">
+                      Match Completed • Winner: {winner || "Result Declared"}
+                    </span>
+                    <span className="bg-emerald-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                      Settled
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-emerald-800 font-medium">
+                    All bets have been settled and profit/loss redirected to your Daily Report and Final Sheet.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => router.push(`/${role}/reports?tab=Daily Report`)}
+                  className="bg-[#00a884] hover:bg-[#008f70] active:scale-95 text-white text-xs font-bold px-3 py-1.5 rounded-xs shadow-xs transition-all flex items-center gap-1 cursor-pointer"
+                >
+                  <span>📊 Daily Report</span>
+                </button>
+                <button
+                  onClick={() => router.push(`/${role}/reports?tab=Final Sheet`)}
+                  className="bg-[#1c3246] hover:bg-[#142433] active:scale-95 text-white text-xs font-bold px-3 py-1.5 rounded-xs shadow-xs transition-all flex items-center gap-1 cursor-pointer"
+                >
+                  <span>📑 Final Sheet</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ══════════ SECTION 1: MATCH ODDS MARKET ══════════ */}
           {(isShowAll || selectedMarketType === "Match Odds") && (
             <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
               <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                  <div className={`w-5 h-5 ${isCompleted ? 'bg-purple-600' : 'bg-[#00c766] animate-pulse'} rounded-full flex items-center justify-center shrink-0 shadow-sm`}>
                     <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                   </div>
                   <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                    MATCH ODDS <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: 5M)</span>
-                    <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
+                    {isCompleted ? (
+                      <span className="flex items-center gap-1.5 text-white">
+                        <span>{matchName} - Match Odds</span>
+                        <span className="text-pink-300 font-extrabold">SUSPENDED</span>
+                        <Lock size={13} className="text-white inline" />
+                      </span>
+                    ) : (
+                      <>
+                        MATCH ODDS <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: 5M)</span>
+                        <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
+                      </>
+                    )}
                   </span>
                 </div>
-                <div className="flex items-center gap-6 text-[11px] font-black tracking-widest uppercase">
-                  <div className="w-14 text-center border-b-2 border-[#bbd9f9]">BACK</div>
-                  <div className="w-14 text-center border-b-2 border-[#f8c9d4]">LAY</div>
-                </div>
+                {!isCompleted ? (
+                  <div className="flex items-center gap-6 text-[11px] font-black tracking-widest uppercase">
+                    <div className="w-14 text-center border-b-2 border-[#bbd9f9]">BACK</div>
+                    <div className="w-14 text-center border-b-2 border-[#f8c9d4]">LAY</div>
+                  </div>
+                ) : (
+                  <div className="text-[11px] font-black tracking-widest uppercase text-emerald-200">
+                    CLOSED
+                  </div>
+                )}
               </div>
+
+              {/* Completed Match Subheader matching bpexch.org */}
+              {isCompleted && (
+                <div className="bg-[#f0f2f5] text-[#333333] text-[12px] font-bold px-3 py-1.5 flex items-center justify-between border-b border-gray-200">
+                  <span>{matchDateFormatted}</span>
+                  <span>Elapsed: {elapsedFormatted}</span>
+                </div>
+              )}
 
               {/* Runners List with Net Parent Profit/Loss in Bold Green/Red under each Team */}
               <div className="relative flex flex-col divide-y divide-gray-100">
-                {isSuspended && (
+                {isSuspended && !isCompleted && (
                   <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
                     <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
                       MARKET SUSPENDED
@@ -968,53 +1053,61 @@ export default function MatchDetailAdminView({
                 )}
 
                 {/* Team A */}
-                <div className="flex items-stretch hover:bg-gray-50 transition-colors">
-                  <div className="flex-1 flex flex-col justify-center px-3 py-2.5">
+                <div className={`flex items-stretch border-b border-gray-100 last:border-0 transition-colors ${isCompleted && isRunnerWinner(teamA) ? 'bg-[#bef264]' : 'bg-white hover:bg-gray-50'}`}>
+                  <div className={`flex-1 flex flex-col justify-center px-3 py-2.5 ${isCompleted && isRunnerWinner(teamA) ? 'bg-[#bef264]' : ''}`}>
                     <div className="flex items-center gap-1.5">
                       <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{teamA}</span>
-                      {isCompleted && winner && (winner.toLowerCase().includes(teamA.toLowerCase()) || teamA.toLowerCase().includes(winner.toLowerCase())) && (
-                        <span className="bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded flex items-center gap-1 uppercase">
-                          <Trophy size={10} className="text-yellow-300" /> Winner
-                        </span>
-                      )}
                     </div>
                     {renderRunnerExposure(teamA, 'match_odds')}
                   </div>
-                  <div className="flex w-32 shrink-0">
-                    <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] border-r border-white/40">
-                      <span className="text-[15px] font-black leading-none text-[#1c3246]">{runnerOddsA.back}</span>
-                      <span className="text-[9px] font-bold mt-1 text-gray-500">{runnerOddsA.backVol}</span>
+                  {isCompleted ? (
+                    <div className="flex w-32 shrink-0">
+                      <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#dcecfd] border-r border-white/40">
+                      </div>
+                      <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#fbe2e8]">
+                      </div>
                     </div>
-                    <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4]">
-                      <span className="text-[15px] font-black leading-none text-[#1c3246]">{runnerOddsA.lay}</span>
-                      <span className="text-[9px] font-bold mt-1 text-gray-500">{runnerOddsA.layVol}</span>
+                  ) : (
+                    <div className="flex w-32 shrink-0">
+                      <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] border-r border-white/40">
+                        <span className="text-[15px] font-black leading-none text-[#1c3246]">{runnerOddsA.back}</span>
+                        <span className="text-[9px] font-bold mt-1 text-gray-500">{runnerOddsA.backVol}</span>
+                      </div>
+                      <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4]">
+                        <span className="text-[15px] font-black leading-none text-[#1c3246]">{runnerOddsA.lay}</span>
+                        <span className="text-[9px] font-bold mt-1 text-gray-500">{runnerOddsA.layVol}</span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Team B */}
-                <div className="flex items-stretch hover:bg-gray-50 transition-colors">
-                  <div className="flex-1 flex flex-col justify-center px-3 py-2.5">
+                <div className={`flex items-stretch border-b border-gray-100 last:border-0 transition-colors ${isCompleted && isRunnerWinner(teamB) ? 'bg-[#bef264]' : 'bg-white hover:bg-gray-50'}`}>
+                  <div className={`flex-1 flex flex-col justify-center px-3 py-2.5 ${isCompleted && isRunnerWinner(teamB) ? 'bg-[#bef264]' : ''}`}>
                     <div className="flex items-center gap-1.5">
                       <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{teamB}</span>
-                      {isCompleted && winner && (winner.toLowerCase().includes(teamB.toLowerCase()) || teamB.toLowerCase().includes(winner.toLowerCase())) && (
-                        <span className="bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded flex items-center gap-1 uppercase">
-                          <Trophy size={10} className="text-yellow-300" /> Winner
-                        </span>
-                      )}
                     </div>
                     {renderRunnerExposure(teamB, 'match_odds')}
                   </div>
-                  <div className="flex w-32 shrink-0">
-                    <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] border-r border-white/40">
-                      <span className="text-[15px] font-black leading-none text-[#1c3246]">{runnerOddsB.back}</span>
-                      <span className="text-[9px] font-bold mt-1 text-gray-500">{runnerOddsB.backVol}</span>
+                  {isCompleted ? (
+                    <div className="flex w-32 shrink-0">
+                      <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#dcecfd] border-r border-white/40">
+                      </div>
+                      <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#fbe2e8]">
+                      </div>
                     </div>
-                    <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4]">
-                      <span className="text-[15px] font-black leading-none text-[#1c3246]">{runnerOddsB.lay}</span>
-                      <span className="text-[9px] font-bold mt-1 text-gray-500">{runnerOddsB.layVol}</span>
+                  ) : (
+                    <div className="flex w-32 shrink-0">
+                      <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] border-r border-white/40">
+                        <span className="text-[15px] font-black leading-none text-[#1c3246]">{runnerOddsB.back}</span>
+                        <span className="text-[9px] font-bold mt-1 text-gray-500">{runnerOddsB.backVol}</span>
+                      </div>
+                      <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4]">
+                        <span className="text-[15px] font-black leading-none text-[#1c3246]">{runnerOddsB.lay}</span>
+                        <span className="text-[9px] font-bold mt-1 text-gray-500">{runnerOddsB.layVol}</span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
@@ -1054,22 +1147,46 @@ export default function MatchDetailAdminView({
             <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
               <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                  <div className={`w-5 h-5 ${isCompleted ? 'bg-purple-600' : 'bg-[#00c766] animate-pulse'} rounded-full flex items-center justify-center shrink-0 shadow-sm`}>
                     <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                   </div>
                   <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                    BOOKMAKER <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: 1M)</span>
-                    <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
+                    {isCompleted ? (
+                      <span className="flex items-center gap-1.5 text-white">
+                        <span>{matchName} - Bookmaker</span>
+                        <span className="text-pink-300 font-extrabold">SUSPENDED</span>
+                        <Lock size={13} className="text-white inline" />
+                      </span>
+                    ) : (
+                      <>
+                        BOOKMAKER <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: 1M)</span>
+                        <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
+                      </>
+                    )}
                   </span>
                 </div>
-                <div className="flex items-center gap-6 text-[11px] font-black tracking-widest uppercase">
-                  <div className="w-14 text-center border-b-2 border-[#bbd9f9]">BACK</div>
-                  <div className="w-14 text-center border-b-2 border-[#f8c9d4]">LAY</div>
-                </div>
+                {!isCompleted ? (
+                  <div className="flex items-center gap-6 text-[11px] font-black tracking-widest uppercase">
+                    <div className="w-14 text-center border-b-2 border-[#bbd9f9]">BACK</div>
+                    <div className="w-14 text-center border-b-2 border-[#f8c9d4]">LAY</div>
+                  </div>
+                ) : (
+                  <div className="text-[11px] font-black tracking-widest uppercase text-emerald-200">
+                    CLOSED
+                  </div>
+                )}
               </div>
 
+              {/* Completed Match Subheader matching bpexch.org */}
+              {isCompleted && (
+                <div className="bg-[#f0f2f5] text-[#333333] text-[12px] font-bold px-3 py-1.5 flex items-center justify-between border-b border-gray-200">
+                  <span>{matchDateFormatted}</span>
+                  <span>Elapsed: {elapsedFormatted}</span>
+                </div>
+              )}
+
               <div className="relative flex flex-col divide-y divide-gray-100">
-                {isBookmakerSuspended && (
+                {isBookmakerSuspended && !isCompleted && (
                   <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
                     <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
                       MARKET SUSPENDED
@@ -1078,39 +1195,61 @@ export default function MatchDetailAdminView({
                 )}
 
                 {/* Team A Bookmaker */}
-                <div className="flex items-stretch hover:bg-gray-50 transition-colors">
-                  <div className="flex-1 flex flex-col justify-center px-3 py-2.5">
-                    <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{teamA}</span>
+                <div className={`flex items-stretch border-b border-gray-100 last:border-0 transition-colors ${isCompleted && isRunnerWinner(teamA) ? 'bg-[#bef264]' : 'bg-white hover:bg-gray-50'}`}>
+                  <div className={`flex-1 flex flex-col justify-center px-3 py-2.5 ${isCompleted && isRunnerWinner(teamA) ? 'bg-[#bef264]' : ''}`}>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{teamA}</span>
+                    </div>
                     {renderRunnerExposure(`${teamA}_bm`, 'bookmaker')}
                   </div>
-                  <div className="flex w-32 shrink-0">
-                    <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] border-r border-white/40">
-                      <span className="text-[15px] font-black leading-none text-[#1c3246]">{bmBackOddsA}</span>
-                      <span className="text-[9px] font-bold mt-1 text-gray-500">100</span>
+                  {isCompleted ? (
+                    <div className="flex w-32 shrink-0">
+                      <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#dcecfd] border-r border-white/40">
+                      </div>
+                      <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#fbe2e8]">
+                      </div>
                     </div>
-                    <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4]">
-                      <span className="text-[15px] font-black leading-none text-[#1c3246]">{bmLayOddsA}</span>
-                      <span className="text-[9px] font-bold mt-1 text-gray-500">100</span>
+                  ) : (
+                    <div className="flex w-32 shrink-0">
+                      <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] border-r border-white/40">
+                        <span className="text-[15px] font-black leading-none text-[#1c3246]">{bmBackOddsA}</span>
+                        <span className="text-[9px] font-bold mt-1 text-gray-500">100</span>
+                      </div>
+                      <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4]">
+                        <span className="text-[15px] font-black leading-none text-[#1c3246]">{bmLayOddsA}</span>
+                        <span className="text-[9px] font-bold mt-1 text-gray-500">100</span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Team B Bookmaker */}
-                <div className="flex items-stretch hover:bg-gray-50 transition-colors">
-                  <div className="flex-1 flex flex-col justify-center px-3 py-2.5">
-                    <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{teamB}</span>
+                <div className={`flex items-stretch border-b border-gray-100 last:border-0 transition-colors ${isCompleted && isRunnerWinner(teamB) ? 'bg-[#bef264]' : 'bg-white hover:bg-gray-50'}`}>
+                  <div className={`flex-1 flex flex-col justify-center px-3 py-2.5 ${isCompleted && isRunnerWinner(teamB) ? 'bg-[#bef264]' : ''}`}>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{teamB}</span>
+                    </div>
                     {renderRunnerExposure(`${teamB}_bm`, 'bookmaker')}
                   </div>
-                  <div className="flex w-32 shrink-0">
-                    <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] border-r border-white/40">
-                      <span className="text-[15px] font-black leading-none text-[#1c3246]">{bmBackOddsB}</span>
-                      <span className="text-[9px] font-bold mt-1 text-gray-500">100</span>
+                  {isCompleted ? (
+                    <div className="flex w-32 shrink-0">
+                      <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#dcecfd] border-r border-white/40">
+                      </div>
+                      <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#fbe2e8]">
+                      </div>
                     </div>
-                    <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4]">
-                      <span className="text-[15px] font-black leading-none text-[#1c3246]">{bmLayOddsB}</span>
-                      <span className="text-[9px] font-bold mt-1 text-gray-500">100</span>
+                  ) : (
+                    <div className="flex w-32 shrink-0">
+                      <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] border-r border-white/40">
+                        <span className="text-[15px] font-black leading-none text-[#1c3246]">{bmBackOddsB}</span>
+                        <span className="text-[9px] font-bold mt-1 text-gray-500">100</span>
+                      </div>
+                      <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4]">
+                        <span className="text-[15px] font-black leading-none text-[#1c3246]">{bmLayOddsB}</span>
+                        <span className="text-[9px] font-bold mt-1 text-gray-500">100</span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
