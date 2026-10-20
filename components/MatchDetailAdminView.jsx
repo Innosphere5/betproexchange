@@ -383,10 +383,11 @@ export default function MatchDetailAdminView({
 
   // Status computation
   const isCompleted = Boolean(
-    matchData?.isCompleted === true ||
+    matchData?.status !== 'live' && // A live match is NEVER completed
+    (matchData?.isCompleted === true ||
     matchData?.status === "completed" ||
     matchData?.status === "resulted" ||
-    Boolean(matchData?.winner)
+    Boolean(matchData?.winner))
   );
   const winner = matchData?.winner || null;
   const isLive = Boolean(matchData && (matchData.status === "live" || matchData.inplay === true)) && !isCompleted;

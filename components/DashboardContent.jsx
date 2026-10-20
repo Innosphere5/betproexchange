@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Info, Tv, Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useDashboard } from "./DashboardLayout";
@@ -19,6 +19,30 @@ const CricketIcon = () => (
 export default function DashboardContent() {
   const router = useRouter();
   const { currentView, selectedMatchId, handleSelectMatch, handleSelectOutcome, betSelection, clearBetSelection, cricketMatches } = useDashboard();
+  const [activeCricketFilter, setActiveCricketFilter] = useState("ALL");
+
+  const filteredMatches = useMemo(() => {
+    if (!cricketMatches || cricketMatches.length === 0) return [];
+    if (activeCricketFilter === "LIVE") {
+      return cricketMatches.filter(m => m.status === 'live');
+    }
+    if (activeCricketFilter === "PAK_IND") {
+      return cricketMatches.filter(m => {
+        const tA = (m.teamA || '').toLowerCase();
+        const tB = (m.teamB || '').toLowerCase();
+        return tA.includes('pakistan') || tB.includes('pakistan') || tA.includes('india') || tB.includes('india');
+      });
+    }
+    if (activeCricketFilter === "INTERNATIONAL") {
+      return cricketMatches.filter(m => {
+        const tA = (m.teamA || '').toLowerCase();
+        const tB = (m.teamB || '').toLowerCase();
+        const l = (m.league || '').toLowerCase();
+        return m.sportKey === 'cricket_international' || /\b(odi|t20|t20i|test|tri series|world cup)\b/i.test(l) || tA.includes('pakistan') || tB.includes('pakistan') || tA.includes('india') || tB.includes('india');
+      });
+    }
+    return cricketMatches;
+  }, [cricketMatches, activeCricketFilter]);
 
   if (currentView === "match") {
     return (
@@ -46,7 +70,7 @@ export default function DashboardContent() {
       id: "cricket-header", sport: "cricket", isHeader: true, label: "Cricket",
       rightCols: ["Matched", "1", "X", "2"]
     },
-    ...cricketMatches
+    ...filteredMatches
   ];
 
   return (
@@ -133,19 +157,46 @@ export default function DashboardContent() {
         {matchRows.map((row) => (
           <div key={row.matchId || row.id}>
             {row.isHeader ? (
-              <div id="cricket-matches-section" className="flex items-center px-3 py-2 border-b border-gray-300 bg-[#5d7d9a] text-white">
-                <div className="w-6 flex justify-center mr-2">
-                  <CricketIcon />
-                </div>
-                <div className="font-bold text-[14px] flex-1">{row.label || row.league}</div>
-                {row.rightCols && (
-                  <div className="flex text-xs font-bold w-48 justify-between text-center pr-2 lg:pr-10">
-                    <div className="w-16">{row.rightCols[0]}</div>
-                    <div className="w-8">{row.rightCols[1]}</div>
-                    <div className="w-8">{row.rightCols[2]}</div>
-                    <div className="w-8">{row.rightCols[3]}</div>
+              <div>
+                <div id="cricket-matches-section" className="flex items-center px-3 py-2 border-b border-gray-300 bg-[#5d7d9a] text-white">
+                  <div className="w-6 flex justify-center mr-2">
+                    <CricketIcon />
                   </div>
-                )}
+                  <div className="font-bold text-[14px] flex-1">{row.label || row.league}</div>
+                  {row.rightCols && (
+                    <div className="flex text-xs font-bold w-48 justify-between text-center pr-2 lg:pr-10">
+                      <div className="w-16">{row.rightCols[0]}</div>
+                      <div className="w-8">{row.rightCols[1]}</div>
+                      <div className="w-8">{row.rightCols[2]}</div>
+                      <div className="w-8">{row.rightCols[3]}</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 🏏 BPExch Category Tabs: All / Pakistan & India / Live / International */}
+                <div className="flex items-center gap-1.5 px-3 py-2 bg-[#1c3246] border-b border-[#3b546b] overflow-x-auto no-scrollbar">
+                  {[
+                    { id: "ALL", label: "All Matches" },
+                    { id: "PAK_IND", label: "🇵🇰 Pakistan & 🇮🇳 India" },
+                    { id: "LIVE", label: "🔴 In-Play (Live)" },
+                    { id: "INTERNATIONAL", label: "🏏 International (ODI / T20 / Test)" }
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveCricketFilter(tab.id);
+                      }}
+                      className={`px-3 py-1 rounded text-[11px] font-black transition-all whitespace-nowrap uppercase tracking-wider ${
+                        activeCricketFilter === tab.id
+                          ? "bg-[#bf1212] text-white shadow-md"
+                          : "bg-[#243f55] text-gray-300 hover:bg-[#32526e] hover:text-white"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             ) : row.status === 'live' ? (
               <div
@@ -231,7 +282,17 @@ export default function DashboardContent() {
                     <div className="flex items-center gap-2 mb-0.5">
                       <div className="flex items-center gap-1 px-1.5 py-0.5 bg-[#eb5d08]/5 text-[#eb5d08] border border-[#eb5d08]/20 rounded text-[9px] font-black uppercase tracking-tighter shrink-0">
                         <Clock size={10} strokeWidth={3} />
-                        {new Date(row.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {(() => {
+                          const d = new Date(row.startTime);
+                          const now = new Date();
+                          const isToday = d.toDateString() === now.toDateString();
+                          const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+                          const isTomorrow = d.toDateString() === tomorrow.toDateString();
+                          const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                          if (isToday) return `Today ${timeStr}`;
+                          if (isTomorrow) return `Tomorrow ${timeStr}`;
+                          return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${timeStr}`;
+                        })()}
                       </div>
                       {row.league && <span className="text-[9px] text-gray-400 font-bold uppercase truncate opacity-70 tracking-tight">{row.league}</span>}
                     </div>

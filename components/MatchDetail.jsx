@@ -380,6 +380,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
 
   const isCompleted = Boolean(
     actualMatch &&
+    actualMatch.status !== 'live' && // A live match is NEVER completed, even if winner has a stale value
     (actualMatch.isCompleted === true ||
       actualMatch.status === 'completed' ||
       actualMatch.status === 'resulted' ||
