@@ -238,12 +238,12 @@ export default function MatchDetailAdminView({
       if (String(matchId) === incomingId) {
         setMatchData((prev) => ({
           ...(prev || {}),
-          tossBackA: data.tossBackA ?? prev?.tossBackA,
-          tossLayA: data.tossLayA ?? prev?.tossLayA,
-          tossBackB: data.tossBackB ?? prev?.tossBackB,
-          tossLayB: data.tossLayB ?? prev?.tossLayB,
-          tossMarketStatus: data.tossMarketStatus ?? prev?.tossMarketStatus,
-          tossWinner: data.tossWinner ?? prev?.tossWinner
+          tossBackA: data.tossBackA !== undefined ? data.tossBackA : prev?.tossBackA,
+          tossLayA: data.tossLayA !== undefined ? data.tossLayA : prev?.tossLayA,
+          tossBackB: data.tossBackB !== undefined ? data.tossBackB : prev?.tossBackB,
+          tossLayB: data.tossLayB !== undefined ? data.tossLayB : prev?.tossLayB,
+          tossMarketStatus: data.tossMarketStatus !== undefined ? data.tossMarketStatus : prev?.tossMarketStatus,
+          tossWinner: data.tossWinner !== undefined ? data.tossWinner : prev?.tossWinner
         }));
       }
     };
@@ -820,24 +820,28 @@ export default function MatchDetailAdminView({
   const bmLayOddsB = matchData?.bookmakerLayB || (matchData?.layOddsB ? Number((matchData.layOddsB >= 2 ? matchData.layOddsB + 0.02 : matchData.layOddsB + 0.02).toFixed(2)) : "-");
   const isBookmakerSuspended = matchData?.bookmakerMarketStatus === "SUSPENDED" || (!matchData?.bookmakerBackA && !matchData?.backOddsA);
 
+  // Real cricket logic: if match is live, completed, or toss settled, Toss is closed
+  const isMatchLive = isLive || matchData?.status === 'live' || (matchData?.startTime && new Date() >= new Date(matchData.startTime));
+  const isTossClosed = isCompleted || isMatchLive || matchData?.tossMarketStatus === 'CLOSED' || Boolean(matchData?.tossWinner);
+  const isTossSuspended = matchData?.tossMarketStatus === "SUSPENDED";
+
   // Toss Runners
   const tossRunners = [
     {
       name: `${teamA} To Win The Toss`,
-      back: matchData?.tossBackA || "1.98",
-      backVol: matchData?.tossDepthBackA || "100",
-      lay: matchData?.tossLayA || "2.02",
-      layVol: matchData?.tossDepthLayA || "100"
+      back: isTossClosed ? "-" : (matchData?.tossBackA || "-"),
+      backVol: isTossClosed ? "0" : (matchData?.tossDepthBackA || "100"),
+      lay: isTossClosed ? "-" : (matchData?.tossLayA || "-"),
+      layVol: isTossClosed ? "0" : (matchData?.tossDepthLayA || "100")
     },
     {
       name: `${teamB} To Win The Toss`,
-      back: matchData?.tossBackB || "1.98",
-      backVol: matchData?.tossDepthBackB || "100",
-      lay: matchData?.tossLayB || "2.02",
-      layVol: matchData?.tossDepthLayB || "100"
+      back: isTossClosed ? "-" : (matchData?.tossBackB || "-"),
+      backVol: isTossClosed ? "0" : (matchData?.tossDepthBackB || "100"),
+      lay: isTossClosed ? "-" : (matchData?.tossLayB || "-"),
+      layVol: isTossClosed ? "0" : (matchData?.tossDepthLayB || "100")
     }
   ];
-  const isTossSuspended = matchData?.tossMarketStatus === "SUSPENDED";
 
   // Figure Markets
   const figureMarkets = matchData?.figureMarkets && matchData.figureMarkets.length > 0
@@ -1261,7 +1265,7 @@ export default function MatchDetailAdminView({
             <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
               <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                  <div className={`w-5 h-5 ${isTossClosed ? 'bg-purple-600' : 'bg-[#00c766] animate-pulse'} rounded-full flex items-center justify-center shrink-0 shadow-sm`}>
                     <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                   </div>
                   <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
@@ -1269,10 +1273,16 @@ export default function MatchDetailAdminView({
                     <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
                   </span>
                 </div>
-                <div className="flex items-center gap-6 text-[11px] font-black tracking-widest uppercase">
-                  <div className="w-14 text-center border-b-2 border-[#bbd9f9]">BACK</div>
-                  <div className="w-14 text-center border-b-2 border-[#f8c9d4]">LAY</div>
-                </div>
+                {!isTossClosed ? (
+                  <div className="flex items-center gap-6 text-[11px] font-black tracking-widest uppercase">
+                    <div className="w-14 text-center border-b-2 border-[#bbd9f9]">BACK</div>
+                    <div className="w-14 text-center border-b-2 border-[#f8c9d4]">LAY</div>
+                  </div>
+                ) : (
+                  <div className="text-[11px] font-black tracking-widest uppercase text-emerald-200">
+                    CLOSED
+                  </div>
+                )}
               </div>
 
               {/* Admin Quick Declare Toss Winner Bar */}
@@ -1317,9 +1327,21 @@ export default function MatchDetailAdminView({
                     Settled
                   </span>
                 </div>
-              ) : (
+              ) : isTossClosed ? (
+                <div className="bg-[#f0f2f5] border-b border-gray-200 px-4 py-2.5 flex items-center justify-between text-[#333333] text-[12px] font-bold">
+                  <div className="flex items-center gap-1.5 text-gray-700">
+                    <Lock size={13} className="text-gray-500" />
+                    <span>TOSS COMPLETED (Match in-play, declare winner above)</span>
+                  </div>
+                  <span className="bg-gray-200 text-gray-700 text-[10px] font-black px-2 py-0.5 rounded uppercase">
+                    Closed
+                  </span>
+                </div>
+              ) : null}
+
+              {!matchData?.tossWinner && (
                 <div className="relative flex flex-col divide-y divide-gray-100">
-                  {isTossSuspended && (
+                  {isTossSuspended && !isTossClosed && (
                     <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] z-10 flex items-center justify-center">
                       <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
                         TOSS MARKET SUSPENDED
@@ -1332,16 +1354,23 @@ export default function MatchDetailAdminView({
                         <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{runner.name}</span>
                         {renderRunnerExposure(runner.name, 'toss')}
                       </div>
-                      <div className="flex w-32 shrink-0">
-                        <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] border-r border-white/40">
-                          <span className="text-[15px] font-black leading-none text-[#1c3246]">{runner.back}</span>
-                          <span className="text-[9px] font-bold mt-1 text-gray-500">{runner.backVol}</span>
+                      {isTossClosed ? (
+                        <div className="flex w-32 shrink-0">
+                          <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#dcecfd] border-r border-white/40"></div>
+                          <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#fbe2e8]"></div>
                         </div>
-                        <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4]">
-                          <span className="text-[15px] font-black leading-none text-[#1c3246]">{runner.lay}</span>
-                          <span className="text-[9px] font-bold mt-1 text-gray-500">{runner.layVol}</span>
+                      ) : (
+                        <div className="flex w-32 shrink-0">
+                          <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] border-r border-white/40">
+                            <span className="text-[15px] font-black leading-none text-[#1c3246]">{runner.back}</span>
+                            <span className="text-[9px] font-bold mt-1 text-gray-500">{runner.backVol}</span>
+                          </div>
+                          <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4]">
+                            <span className="text-[15px] font-black leading-none text-[#1c3246]">{runner.lay}</span>
+                            <span className="text-[9px] font-bold mt-1 text-gray-500">{runner.layVol}</span>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   ))}
                 </div>

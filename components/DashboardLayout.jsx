@@ -284,16 +284,16 @@ export default function DashboardLayout({ children }) {
             if (String(m.matchId) === incomingId) {
                 return {
                     ...m,
-                    tossMarketStatus: data.tossMarketStatus ?? m.tossMarketStatus,
-                    tossWinner: data.tossWinner ?? m.tossWinner,
-                    tossBackA: data.tossBackA ?? m.tossBackA,
-                    tossLayA: data.tossLayA ?? m.tossLayA,
-                    tossBackB: data.tossBackB ?? m.tossBackB,
-                    tossLayB: data.tossLayB ?? m.tossLayB,
-                    tossDepthBackA: data.tossDepthBackA ?? m.tossDepthBackA,
-                    tossDepthLayA: data.tossDepthLayA ?? m.tossDepthLayA,
-                    tossDepthBackB: data.tossDepthBackB ?? m.tossDepthBackB,
-                    tossDepthLayB: data.tossDepthLayB ?? m.tossDepthLayB,
+                    tossMarketStatus: data.tossMarketStatus !== undefined ? data.tossMarketStatus : m.tossMarketStatus,
+                    tossWinner: data.tossWinner !== undefined ? data.tossWinner : m.tossWinner,
+                    tossBackA: data.tossBackA !== undefined ? data.tossBackA : m.tossBackA,
+                    tossLayA: data.tossLayA !== undefined ? data.tossLayA : m.tossLayA,
+                    tossBackB: data.tossBackB !== undefined ? data.tossBackB : m.tossBackB,
+                    tossLayB: data.tossLayB !== undefined ? data.tossLayB : m.tossLayB,
+                    tossDepthBackA: data.tossDepthBackA !== undefined ? data.tossDepthBackA : m.tossDepthBackA,
+                    tossDepthLayA: data.tossDepthLayA !== undefined ? data.tossDepthLayA : m.tossDepthLayA,
+                    tossDepthBackB: data.tossDepthBackB !== undefined ? data.tossDepthBackB : m.tossDepthBackB,
+                    tossDepthLayB: data.tossDepthLayB !== undefined ? data.tossDepthLayB : m.tossDepthLayB,
                     lastUpdated: data.updatedAt || new Date()
                 };
             }

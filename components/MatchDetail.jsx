@@ -348,6 +348,24 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
       }
     };
 
+    const handleTossUpdate = (data) => {
+      if (String(data.matchId) === String(matchId)) {
+        setFetchedMatch(prev => ({
+          ...(prev || {}),
+          tossMarketStatus: data.tossMarketStatus !== undefined ? data.tossMarketStatus : prev?.tossMarketStatus,
+          tossWinner: data.tossWinner !== undefined ? data.tossWinner : prev?.tossWinner,
+          tossBackA: data.tossBackA !== undefined ? data.tossBackA : prev?.tossBackA,
+          tossLayA: data.tossLayA !== undefined ? data.tossLayA : prev?.tossLayA,
+          tossBackB: data.tossBackB !== undefined ? data.tossBackB : prev?.tossBackB,
+          tossLayB: data.tossLayB !== undefined ? data.tossLayB : prev?.tossLayB,
+          tossDepthBackA: data.tossDepthBackA !== undefined ? data.tossDepthBackA : prev?.tossDepthBackA,
+          tossDepthLayA: data.tossDepthLayA !== undefined ? data.tossDepthLayA : prev?.tossDepthLayA,
+          tossDepthBackB: data.tossDepthBackB !== undefined ? data.tossDepthBackB : prev?.tossDepthBackB,
+          tossDepthLayB: data.tossDepthLayB !== undefined ? data.tossDepthLayB : prev?.tossDepthLayB,
+        }));
+      }
+    };
+
     socket.on('fancy_market_update', handleFancyUpdate);
     socket.on('figure_market_update', handleFigureUpdate);
     socket.on('even_odd_market_update', handleEvenOddUpdate);
@@ -355,6 +373,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
     socket.on('live_score_update', handleLiveScore);
     socket.on('match_updated', handleMatchUpdate);
     socket.on('match_settled', handleMatchSettled);
+    socket.on('toss_odds_update', handleTossUpdate);
 
     return () => {
       socket.off('fancy_market_update', handleFancyUpdate);
@@ -364,6 +383,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
       socket.off('live_score_update', handleLiveScore);
       socket.off('match_updated', handleMatchUpdate);
       socket.off('match_settled', handleMatchSettled);
+      socket.off('toss_odds_update', handleTossUpdate);
     };
   }, [socket, matchId]);
 
@@ -550,22 +570,26 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
     }
   ];
 
+  // Real cricket logic: if match is live, completed, or toss settled, Toss is closed
+  const isMatchLive = actualMatch.status === 'live' || (actualMatch.startTime && new Date() >= new Date(actualMatch.startTime));
+  const isTossClosed = isCompleted || isMatchLive || actualMatch.tossMarketStatus === 'CLOSED' || Boolean(actualMatch.tossWinner);
+
   const tossRunners = [
     {
       name: `${actualMatch.teamA} To Win The Toss`,
       team: actualMatch.teamA,
-      back: actualMatch.tossBackA || 1.98,
-      backVol: actualMatch.tossDepthBackA || "98",
-      lay: actualMatch.tossLayA || 2.02,
-      layVol: actualMatch.tossDepthLayA || "102"
+      back: isTossClosed ? "-" : (actualMatch.tossBackA || "-"),
+      backVol: isTossClosed ? "0" : (actualMatch.tossDepthBackA || "100"),
+      lay: isTossClosed ? "-" : (actualMatch.tossLayA || "-"),
+      layVol: isTossClosed ? "0" : (actualMatch.tossDepthLayA || "100")
     },
     {
       name: `${actualMatch.teamB} To Win The Toss`,
       team: actualMatch.teamB,
-      back: actualMatch.tossBackB || 1.98,
-      backVol: actualMatch.tossDepthBackB || "102",
-      lay: actualMatch.tossLayB || 2.02,
-      layVol: actualMatch.tossDepthLayB || "98"
+      back: isTossClosed ? "-" : (actualMatch.tossBackB || "-"),
+      backVol: isTossClosed ? "0" : (actualMatch.tossDepthBackB || "100"),
+      lay: isTossClosed ? "-" : (actualMatch.tossLayB || "-"),
+      layVol: isTossClosed ? "0" : (actualMatch.tossDepthLayB || "100")
     }
   ];
 
@@ -939,7 +963,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
           <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
             <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
               <div className="flex items-center gap-2.5">
-                <div className={`w-5 h-5 ${isCompleted ? 'bg-purple-600' : 'bg-[#00c766] animate-pulse'} rounded-full flex items-center justify-center shrink-0 shadow-sm`}>
+                <div className={`w-5 h-5 ${isTossClosed ? 'bg-purple-600' : 'bg-[#00c766] animate-pulse'} rounded-full flex items-center justify-center shrink-0 shadow-sm`}>
                   <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                 </div>
                 <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
@@ -947,10 +971,16 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                   <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
                 </span>
               </div>
-              <div className="flex items-center gap-6 text-[11px] font-black tracking-widest uppercase">
-                <div className="w-14 text-center border-b-2 border-[#bbd9f9]">BACK</div>
-                <div className="w-14 text-center border-b-2 border-[#f8c9d4]">LAY</div>
-              </div>
+              {!isTossClosed ? (
+                <div className="flex items-center gap-6 text-[11px] font-black tracking-widest uppercase">
+                  <div className="w-14 text-center border-b-2 border-[#bbd9f9]">BACK</div>
+                  <div className="w-14 text-center border-b-2 border-[#f8c9d4]">LAY</div>
+                </div>
+              ) : (
+                <div className="text-[11px] font-black tracking-widest uppercase text-emerald-200">
+                  CLOSED
+                </div>
+              )}
             </div>
 
             {/* Admin Quick Declare Toss Winner Bar */}
@@ -995,9 +1025,21 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                   Settled
                 </span>
               </div>
-            ) : (
+            ) : isTossClosed ? (
+              <div className="bg-[#f0f2f5] border-b border-gray-200 px-4 py-2.5 flex items-center justify-between text-[#333333] text-[12px] font-bold">
+                <div className="flex items-center gap-1.5 text-gray-700">
+                  <Lock size={13} className="text-gray-500" />
+                  <span>TOSS COMPLETED (Match in-play, betting closed)</span>
+                </div>
+                <span className="bg-gray-200 text-gray-700 text-[10px] font-black px-2 py-0.5 rounded uppercase">
+                  Closed
+                </span>
+              </div>
+            ) : null}
+
+            {!actualMatch.tossWinner && (
               <div className="relative flex flex-col">
-                {actualMatch.tossMarketStatus && actualMatch.tossMarketStatus !== 'OPEN' && (
+                {actualMatch.tossMarketStatus === 'SUSPENDED' && !isTossClosed && (
                   <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] z-10 flex items-center justify-center">
                     <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
                       TOSS MARKET SUSPENDED
@@ -1024,7 +1066,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                         </div>
                         {renderRunnerExposure(runner.name)}
                       </div>
-                      {isCompleted || actualMatch.tossMarketStatus === 'CLOSED' ? (
+                      {isTossClosed ? (
                         <div className="flex w-32 shrink-0">
                           <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#dcecfd] border-r border-white/40">
                           </div>
@@ -1034,7 +1076,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                       ) : (
                         <div className="flex w-32 shrink-0">
                           <button
-                            disabled={actualMatch.tossMarketStatus === 'CLOSED' || runner.back === '-'}
+                            disabled={isTossClosed || runner.back === '-'}
                             onClick={() => onSelectOutcome(runner.name, runner.back, 'back', actualMatch.status === 'live', 'toss')}
                             className="flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all border-r border-white/40 disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden bg-[#bbd9f9] hover:bg-[#a5d3f8]"
                           >
@@ -1042,7 +1084,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                             <span className="text-[9px] font-bold mt-1 z-10 text-gray-500">{runner.backVol}</span>
                           </button>
                           <button
-                            disabled={actualMatch.tossMarketStatus === 'CLOSED' || runner.lay === '-'}
+                            disabled={isTossClosed || runner.lay === '-'}
                             onClick={() => onSelectOutcome(runner.name, runner.lay, 'lay', actualMatch.status === 'live', 'toss')}
                             className="flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden bg-[#f8c9d4] hover:bg-[#f9b6c6]"
                           >
