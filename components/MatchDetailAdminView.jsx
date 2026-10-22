@@ -829,16 +829,16 @@ export default function MatchDetailAdminView({
   const tossRunners = [
     {
       name: `${teamA} To Win The Toss`,
-      back: isTossClosed ? "-" : (matchData?.tossBackA || "-"),
+      back: isTossClosed ? "-" : (matchData?.tossBackA || 1.98),
       backVol: isTossClosed ? "0" : (matchData?.tossDepthBackA || "100"),
-      lay: isTossClosed ? "-" : (matchData?.tossLayA || "-"),
+      lay: isTossClosed ? "-" : (matchData?.tossLayA || 2.02),
       layVol: isTossClosed ? "0" : (matchData?.tossDepthLayA || "100")
     },
     {
       name: `${teamB} To Win The Toss`,
-      back: isTossClosed ? "-" : (matchData?.tossBackB || "-"),
+      back: isTossClosed ? "-" : (matchData?.tossBackB || 1.98),
       backVol: isTossClosed ? "0" : (matchData?.tossDepthBackB || "100"),
-      lay: isTossClosed ? "-" : (matchData?.tossLayB || "-"),
+      lay: isTossClosed ? "-" : (matchData?.tossLayB || 2.02),
       layVol: isTossClosed ? "0" : (matchData?.tossDepthLayB || "100")
     }
   ];

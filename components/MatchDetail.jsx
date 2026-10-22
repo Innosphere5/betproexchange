@@ -578,17 +578,17 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
     {
       name: `${actualMatch.teamA} To Win The Toss`,
       team: actualMatch.teamA,
-      back: isTossClosed ? "-" : (actualMatch.tossBackA || "-"),
+      back: isTossClosed ? "-" : (actualMatch.tossBackA || 1.98),
       backVol: isTossClosed ? "0" : (actualMatch.tossDepthBackA || "100"),
-      lay: isTossClosed ? "-" : (actualMatch.tossLayA || "-"),
+      lay: isTossClosed ? "-" : (actualMatch.tossLayA || 2.02),
       layVol: isTossClosed ? "0" : (actualMatch.tossDepthLayA || "100")
     },
     {
       name: `${actualMatch.teamB} To Win The Toss`,
       team: actualMatch.teamB,
-      back: isTossClosed ? "-" : (actualMatch.tossBackB || "-"),
+      back: isTossClosed ? "-" : (actualMatch.tossBackB || 1.98),
       backVol: isTossClosed ? "0" : (actualMatch.tossDepthBackB || "100"),
-      lay: isTossClosed ? "-" : (actualMatch.tossLayB || "-"),
+      lay: isTossClosed ? "-" : (actualMatch.tossLayB || 2.02),
       layVol: isTossClosed ? "0" : (actualMatch.tossDepthLayB || "100")
     }
   ];

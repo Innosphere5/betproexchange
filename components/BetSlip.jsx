@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, AlertCircle } from "lucide-react";
 import { useDashboard } from "./DashboardLayout";
 import { getApiUrl } from "../lib/apiConfig";
@@ -13,6 +13,14 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
   const [odds, setOdds] = useState(selection?.price || 0);
   const [stake, setStake] = useState("");
   const [profitText, setProfitText] = useState("- / -");
+
+  useEffect(() => {
+    if (selection?.price !== undefined) {
+      setOdds(selection.price);
+      setErrorMessage(null);
+      updateCalculations(stake, selection.price);
+    }
+  }, [selection?.price, selection?.runner, selection?.marketType]);
 
   const updateCalculations = (stkVal, oddsVal) => {
     const s = Math.round(parseFloat(stkVal) || 0);
@@ -46,21 +54,39 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
 
   const handleStakeChange = (val) => {
     setStake(val);
-    if (errorMessage) setErrorMessage(null);
+    if (errorMessage && errorMessage !== "Bet not placed to this market") setErrorMessage(null);
     updateCalculations(val, odds);
   };
 
-  const handleOddsChange = (val) => {
-    setOdds(val);
-    if (errorMessage) setErrorMessage(null);
-    updateCalculations(stake, val);
+  const handleDecrementOdds = () => {
+    const cur = parseFloat(odds) || 0;
+    const next = Math.max(1.01, parseFloat((cur - 0.01).toFixed(2)));
+    setOdds(next);
+    updateCalculations(stake, next);
+    if (parseFloat(next) !== parseFloat(selection?.price)) {
+      setErrorMessage("Bet not placed to this market");
+    } else {
+      setErrorMessage(null);
+    }
+  };
+
+  const handleIncrementOdds = () => {
+    const cur = parseFloat(odds) || 0;
+    const next = parseFloat((cur + 0.01).toFixed(2));
+    setOdds(next);
+    updateCalculations(stake, next);
+    if (parseFloat(next) !== parseFloat(selection?.price)) {
+      setErrorMessage("Bet not placed to this market");
+    } else {
+      setErrorMessage(null);
+    }
   };
 
   const addStake = (val) => {
     const current = parseFloat(stake) || 0;
     const next = (current + val).toString();
     setStake(next);
-    if (errorMessage) setErrorMessage(null);
+    if (errorMessage && errorMessage !== "Bet not placed to this market") setErrorMessage(null);
     updateCalculations(next, odds);
   };
 
@@ -68,6 +94,12 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
 
   const handleSubmit = async () => {
     setErrorMessage(null);
+
+    // If user increased, decreased or altered the odds away from the shown odds
+    if (parseFloat(odds) !== parseFloat(selection?.price)) {
+      setErrorMessage("Bet not placed to this market");
+      return;
+    }
 
     if (!stake || parseFloat(stake) <= 0) {
       setErrorMessage("Please enter a valid stake amount to place your bet.");
@@ -128,7 +160,7 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
 
       const data = await res.json();
       if (!res.ok) {
-        setErrorMessage(data.error || "Failed to place bet");
+        setErrorMessage(data.error || "Bet not placed to this market");
         setIsSubmitting(false);
         return;
       }
@@ -173,20 +205,39 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
       <div className={`p-2 ${type === 'back' ? 'bg-[#dcecfd]' : 'bg-[#fbe2e8]'}`}>
         <div className="flex items-center text-[11px] font-bold text-gray-600 mb-1 px-1">
           <div className="flex-1">Bet for</div>
-          <div className="w-16 text-center">Odds</div>
+          <div className="w-24 text-center">Odds</div>
           <div className="w-20 text-center">Stake</div>
           <div className="w-24 text-right">Profit</div>
         </div>
 
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex-1 font-bold text-[13px] text-[#1c3246] truncate">{selection.runner}</div>
-          <div className="w-16">
+          <div className="flex-1 font-bold text-[13px] text-[#1c3246] truncate" title={selection.runner}>
+            {selection.runner}
+          </div>
+          {/* Odds Stepper: + and - buttons instead of editable text field */}
+          <div className="w-24 flex items-center border border-gray-300 rounded-sm bg-white h-8 overflow-hidden shadow-xs">
+            <button
+              type="button"
+              onClick={handleDecrementOdds}
+              className="w-7 h-full bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-700 font-black text-sm flex items-center justify-center border-r border-gray-300 cursor-pointer select-none transition-colors"
+              title="Decrease odds (-)"
+            >
+              -
+            </button>
             <input
-              type="number"
-              value={odds}
-              onChange={(e) => handleOddsChange(e.target.value)}
-              className="w-full h-8 text-center border border-gray-300 rounded-sm text-[13px] font-bold focus:outline-none focus:border-blue-500"
+              type="text"
+              readOnly
+              value={odds !== undefined ? odds : ""}
+              className="w-10 h-full text-center text-[13px] font-bold text-gray-800 bg-white focus:outline-none cursor-default select-none px-0"
             />
+            <button
+              type="button"
+              onClick={handleIncrementOdds}
+              className="w-7 h-full bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-700 font-black text-sm flex items-center justify-center border-l border-gray-300 cursor-pointer select-none transition-colors"
+              title="Increase odds (+)"
+            >
+              +
+            </button>
           </div>
           <div className="w-20">
             <input
@@ -194,7 +245,7 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
               value={stake}
               placeholder="0"
               onChange={(e) => handleStakeChange(e.target.value)}
-              className="w-full h-8 text-center border border-gray-300 rounded-sm text-[13px] font-bold focus:outline-none focus:border-blue-500"
+              className="w-full h-8 text-center border border-gray-300 rounded-sm text-[13px] font-bold focus:outline-none focus:border-blue-500 bg-white"
             />
           </div>
           <div className="w-24 text-right font-black text-[12px] sm:text-[13px] text-[#1c3246] whitespace-nowrap">
@@ -202,7 +253,7 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
           </div>
         </div>
 
-        {/* Inline Error Message (no blocking popup) */}
+        {/* Inline Error Message */}
         {errorMessage && (
           <div className="bg-red-100 border border-red-300 text-red-700 text-[12px] font-bold px-2.5 py-1.5 rounded-sm mb-2.5 flex items-center justify-between shadow-xs">
             <div className="flex items-center gap-1.5">
@@ -254,7 +305,7 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
             Close
           </button>
           <button
-            onClick={() => { setStake(""); setProfitText("- / -"); setErrorMessage(null); }}
+            onClick={() => { setStake(""); setOdds(selection?.price || 0); setProfitText("- / -"); setErrorMessage(null); }}
             className="flex-1 bg-[#ffb80c] hover:bg-[#e6a60b] text-[#1c3246] font-black py-2 rounded-sm text-[13px] shadow-sm uppercase cursor-pointer"
           >
             Clear
