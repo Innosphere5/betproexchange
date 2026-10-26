@@ -235,16 +235,25 @@ export default function MatchDetailAdminView({
     // 4. Toss Odds Update
     const handleTossUpdate = (data) => {
       const incomingId = String(data.matchId ?? "");
-      if (String(matchId) === incomingId) {
+      const currentId = String(matchId ?? "");
+      const isSameMatch = incomingId === currentId || incomingId.replace(/^id/, '') === currentId.replace(/^id/, '');
+      if (isSameMatch) {
         setMatchData((prev) => ({
           ...(prev || {}),
           tossBackA: data.tossBackA !== undefined ? data.tossBackA : prev?.tossBackA,
           tossLayA: data.tossLayA !== undefined ? data.tossLayA : prev?.tossLayA,
           tossBackB: data.tossBackB !== undefined ? data.tossBackB : prev?.tossBackB,
           tossLayB: data.tossLayB !== undefined ? data.tossLayB : prev?.tossLayB,
+          tossDepthBackA: data.tossDepthBackA !== undefined ? data.tossDepthBackA : prev?.tossDepthBackA,
+          tossDepthLayA: data.tossDepthLayA !== undefined ? data.tossDepthLayA : prev?.tossDepthLayA,
+          tossDepthBackB: data.tossDepthBackB !== undefined ? data.tossDepthBackB : prev?.tossDepthBackB,
+          tossDepthLayB: data.tossDepthLayB !== undefined ? data.tossDepthLayB : prev?.tossDepthLayB,
           tossMarketStatus: data.tossMarketStatus !== undefined ? data.tossMarketStatus : prev?.tossMarketStatus,
           tossWinner: data.tossWinner !== undefined ? data.tossWinner : prev?.tossWinner
         }));
+        if (data.tossWinner || data.tossMarketStatus === 'CLOSED') {
+          fetchMatchData();
+        }
       }
     };
 
@@ -583,7 +592,7 @@ export default function MatchDetailAdminView({
   const renderRunnerExposure = useCallback(
     (runnerName, marketType = null) => {
       const exp = getRunnerExposure(runnerName, marketType);
-      if (exp === null || exp === undefined || isNaN(exp)) return null;
+      if (exp === null || exp === undefined || isNaN(exp) || exp === 0) return null;
 
       const isNegative = exp < 0;
       const isPositive = exp > 0;
@@ -592,10 +601,10 @@ export default function MatchDetailAdminView({
       return (
         <div
           className={`text-[12px] sm:text-[13px] font-black mt-0.5 tracking-tight ${
-            isNegative ? "text-[#dc2626]" : isPositive ? "text-[#009866]" : "text-gray-500"
+            isNegative ? "text-[#dc2626]" : "text-[#009866]"
           }`}
         >
-          {isNegative ? `-${formatted}` : isPositive ? `+${formatted}` : "0"}
+          {isNegative ? `-${formatted}` : `+${formatted}`}
         </div>
       );
     },
@@ -840,14 +849,16 @@ export default function MatchDetailAdminView({
   const isBookmakerSuspended = matchData?.bookmakerMarketStatus === "SUSPENDED" || (!matchData?.bookmakerBackA && !matchData?.backOddsA);
 
   // Real cricket logic: if match is live, completed, or toss settled, Toss is closed
+  const isUpcomingFutureMatch = matchData?.status === 'upcoming' && matchData?.startTime && new Date(matchData.startTime) > new Date() && !matchData?.tossWinner;
   const isMatchLive = isLive || matchData?.status === 'live' || (matchData?.startTime && new Date() >= new Date(matchData.startTime));
-  const isTossClosed = isCompleted || isMatchLive || matchData?.tossMarketStatus === 'CLOSED' || Boolean(matchData?.tossWinner);
+  const isTossClosed = !isUpcomingFutureMatch && (isCompleted || isMatchLive || matchData?.tossMarketStatus === 'CLOSED' || Boolean(matchData?.tossWinner));
   const isTossSuspended = matchData?.tossMarketStatus === "SUSPENDED";
 
   // Toss Runners
   const tossRunners = [
     {
       name: `${teamA} To Win The Toss`,
+      team: teamA,
       back: isTossClosed ? "-" : (matchData?.tossBackA || 1.98),
       backVol: isTossClosed ? "0" : (matchData?.tossDepthBackA || "100"),
       lay: isTossClosed ? "-" : (matchData?.tossLayA || 2.02),
@@ -855,6 +866,7 @@ export default function MatchDetailAdminView({
     },
     {
       name: `${teamB} To Win The Toss`,
+      team: teamB,
       back: isTossClosed ? "-" : (matchData?.tossBackB || 1.98),
       backVol: isTossClosed ? "0" : (matchData?.tossDepthBackB || "100"),
       lay: isTossClosed ? "-" : (matchData?.tossLayB || 2.02),
@@ -1358,42 +1370,62 @@ export default function MatchDetailAdminView({
                 </div>
               ) : null}
 
-              {!matchData?.tossWinner && (
-                <div className="relative flex flex-col divide-y divide-gray-100">
-                  {isTossSuspended && !isTossClosed && (
-                    <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] z-10 flex items-center justify-center">
-                      <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
-                        TOSS MARKET SUSPENDED
-                      </div>
+              <div className="relative flex flex-col divide-y divide-gray-100">
+                {isTossSuspended && !isTossClosed && (
+                  <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                    <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
+                      TOSS MARKET SUSPENDED
                     </div>
-                  )}
-                  {tossRunners.map((runner, ridx) => (
-                    <div key={ridx} className="flex items-stretch hover:bg-gray-50 transition-colors">
-                      <div className="flex-1 flex flex-col justify-center px-3 py-2.5">
-                        <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{runner.name}</span>
+                  </div>
+                )}
+                {tossRunners.map((runner, ridx) => {
+                  const isTossWinner = Boolean(
+                    matchData?.tossWinner &&
+                    matchData.tossWinner !== 'REFUND' &&
+                    (
+                      (runner.team && (matchData.tossWinner.toLowerCase().includes(runner.team.toLowerCase()) || runner.team.toLowerCase().includes(matchData.tossWinner.toLowerCase()))) ||
+                      runner.name.toLowerCase().includes(matchData.tossWinner.toLowerCase())
+                    )
+                  );
+                  return (
+                    <div 
+                      key={ridx} 
+                      className={`flex items-stretch border-b border-gray-100 last:border-0 transition-colors ${
+                        isTossWinner ? 'bg-[#bef264]' : 'bg-white hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className={`flex-1 flex flex-col justify-center px-3 py-2.5 ${isTossWinner ? 'bg-[#bef264]' : ''}`}>
+                        <div className="font-bold text-[#1c3246] text-[13px] leading-tight flex items-center gap-1.5">
+                          <span>{runner.name}</span>
+                          {isTossWinner && (
+                            <span className="bg-emerald-700 text-white text-[9px] font-black px-1.5 py-0.2 rounded uppercase flex items-center gap-1">
+                              <Trophy size={10} className="text-yellow-300" /> Winner
+                            </span>
+                          )}
+                        </div>
                         {renderRunnerExposure(runner.name, 'toss')}
                       </div>
                       {isTossClosed ? (
                         <div className="flex w-32 shrink-0">
-                          <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#dcecfd] border-r border-white/40"></div>
-                          <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#fbe2e8]"></div>
+                          <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#dcecfd] border-r border-white/40 min-h-[46px]"></div>
+                          <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#fbe2e8] min-h-[46px]"></div>
                         </div>
                       ) : (
                         <div className="flex w-32 shrink-0">
-                          <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] border-r border-white/40">
+                          <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#bbd9f9] border-r border-white/40 min-h-[46px]">
                             <span className="text-[15px] font-black leading-none text-[#1c3246]">{runner.back}</span>
                             <span className="text-[9px] font-bold mt-1 text-gray-500">{runner.backVol}</span>
                           </div>
-                          <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4]">
+                          <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#f8c9d4] min-h-[46px]">
                             <span className="text-[15px] font-black leading-none text-[#1c3246]">{runner.lay}</span>
                             <span className="text-[9px] font-bold mt-1 text-gray-500">{runner.layVol}</span>
                           </div>
                         </div>
                       )}
                     </div>
-                  ))}
-                </div>
-              )}
+                  );
+                })}
+              </div>
             </div>
           )}
 
