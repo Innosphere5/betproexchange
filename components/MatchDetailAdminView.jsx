@@ -300,14 +300,24 @@ export default function MatchDetailAdminView({
     };
 
     // 10. Live Cricket Score Update
+    const isSameMatch = (incomingId, currentId) => {
+      if (!incomingId || !currentId) return false;
+      const a = String(incomingId).trim();
+      const b = String(currentId).trim();
+      return a === b || a.replace(/^id/, '') === b.replace(/^id/, '');
+    };
+
     const handleScoreUpdate = (data) => {
-      if (String(data.matchId) === String(matchId)) {
+      if (isSameMatch(data.matchId, matchId)) {
         setMatchData((prev) => ({
           ...(prev || {}),
+          status: data.status || prev?.status || 'live',
           score: {
             ...(prev?.score || {}),
             teamA_runs: data.teamA_runs ?? prev?.score?.teamA_runs,
             teamB_runs: data.teamB_runs ?? prev?.score?.teamB_runs,
+            teamA_wickets: data.teamA_wickets ?? prev?.score?.teamA_wickets,
+            teamB_wickets: data.teamB_wickets ?? prev?.score?.teamB_wickets,
             overs: data.overs ?? prev?.score?.overs,
             wickets: data.wickets ?? prev?.score?.wickets,
             target: data.target ?? prev?.score?.target,
@@ -316,7 +326,15 @@ export default function MatchDetailAdminView({
             thisOver: data.thisOver ?? prev?.score?.thisOver,
             remRuns: data.remRuns ?? prev?.score?.remRuns,
             remBalls: data.remBalls ?? prev?.score?.remBalls,
-            overRuns: data.overRuns ?? prev?.score?.overRuns
+            overRuns: data.overRuns ?? prev?.score?.overRuns,
+            battingTeam: data.battingTeam ?? prev?.score?.battingTeam,
+            battingTeamName: data.battingTeamName ?? prev?.score?.battingTeamName,
+            statusText: data.statusText ?? prev?.score?.statusText,
+            batsmen: data.batsmen ?? prev?.score?.batsmen,
+            bowler: data.bowler ?? prev?.score?.bowler,
+            lastBall: data.lastBall ?? prev?.score?.lastBall,
+            periods: data.periods ?? prev?.score?.periods,
+            lastUpdated: new Date()
           }
         }));
       }
@@ -427,23 +445,24 @@ export default function MatchDetailAdminView({
     const sc = matchData?.score || {};
 
     const parseTeam = (rawRuns, fallbackWickets = 0) => {
+      const fbW = Number(fallbackWickets) || 0;
       if (!rawRuns || rawRuns === "0/0" || rawRuns === "0-0" || rawRuns === "0") {
-        return { runs: 0, wickets: 0, text: "0-0" };
+        return { runs: 0, wickets: fbW, text: `0-${fbW}` };
       }
       const str = String(rawRuns).trim();
       if (str.includes("/")) {
         const [r, w] = str.split("/");
-        return { runs: Number(r) || 0, wickets: Number(w) || 0, text: `${r || 0}-${w || 0}` };
+        return { runs: Number(r) || 0, wickets: Number(w !== undefined && w !== '' ? w : fbW), text: `${r || 0}-${w || fbW}` };
       }
       if (str.includes("-")) {
         const [r, w] = str.split("-");
-        return { runs: Number(r) || 0, wickets: Number(w) || 0, text: `${r || 0}-${w || 0}` };
+        return { runs: Number(r) || 0, wickets: Number(w !== undefined && w !== '' ? w : fbW), text: `${r || 0}-${w || fbW}` };
       }
-      return { runs: Number(str) || 0, wickets: Number(fallbackWickets) || 0, text: `${str}-${fallbackWickets}` };
+      return { runs: Number(str) || 0, wickets: fbW, text: `${str}-${fbW}` };
     };
 
-    const parsedA = parseTeam(sc.teamA_runs, sc.teamA_wickets || 0);
-    const parsedB = parseTeam(sc.teamB_runs, sc.teamB_wickets || sc.wickets || 0);
+    const parsedA = parseTeam(sc.teamA_runs, sc.teamA_wickets ?? (sc.battingTeam === 'teamA' ? sc.wickets : 0));
+    const parsedB = parseTeam(sc.teamB_runs, sc.teamB_wickets ?? (sc.battingTeam === 'teamB' ? sc.wickets : 0));
 
     let target = Number(sc.target) || 0;
     if (!target && parsedB.runs > 0 && parsedA.runs > parsedB.runs) {

@@ -16,6 +16,15 @@ const CricketIcon = () => (
   </svg>
 );
 
+const formatScoreDisplay = (runsStr, fallbackWickets = 0) => {
+  if (!runsStr || runsStr === "0/0" || runsStr === "0") {
+    return Number(fallbackWickets) > 0 ? `0/${fallbackWickets}` : "0/0";
+  }
+  const s = String(runsStr).trim();
+  if (s.includes('/') || s.includes('-')) return s.replace('-', '/');
+  return `${s}/${fallbackWickets || 0}`;
+};
+
 export default function DashboardContent() {
   const router = useRouter();
   const { currentView, selectedMatchId, handleSelectMatch, handleSelectOutcome, betSelection, clearBetSelection, cricketMatches } = useDashboard();
@@ -214,7 +223,9 @@ export default function DashboardContent() {
                 <div className="p-4 flex items-center justify-between">
                   <div className="flex-1">
                     <div className="text-white font-bold text-base mb-1">{row.teamA}</div>
-                    <div className="text-2xl font-black text-white">{row.score?.teamA_runs || "0/0"}</div>
+                    <div className="text-2xl font-black text-white">
+                      {formatScoreDisplay(row.score?.teamA_runs, row.score?.teamA_wickets ?? (row.score?.battingTeam === 'teamA' ? row.score?.wickets : 0))}
+                    </div>
                   </div>
 
                   <div className="px-6 flex flex-col items-center">
@@ -223,7 +234,9 @@ export default function DashboardContent() {
 
                   <div className="flex-1 text-right">
                     <div className="text-white font-bold text-base mb-1">{row.teamB}</div>
-                    <div className="text-2xl font-black text-green-400">{row.score?.teamB_runs || "0/0"}</div>
+                    <div className="text-2xl font-black text-green-400">
+                      {formatScoreDisplay(row.score?.teamB_runs, row.score?.teamB_wickets ?? (row.score?.battingTeam === 'teamB' ? row.score?.wickets : 0))}
+                    </div>
                   </div>
                 </div>
 
@@ -252,7 +265,9 @@ export default function DashboardContent() {
                 <div className="p-4 flex items-center justify-between">
                   <div className="flex-1">
                     <div className="text-gray-400 font-bold text-xs mb-1 uppercase opacity-60">{row.teamA}</div>
-                    <div className={`text-xl font-black ${row.winner === row.teamA ? 'text-white' : 'text-gray-500'}`}>{row.score?.teamA_runs || "0/0"}</div>
+                    <div className={`text-xl font-black ${row.winner === row.teamA ? 'text-white' : 'text-gray-500'}`}>
+                      {formatScoreDisplay(row.score?.teamA_runs, row.score?.teamA_wickets)}
+                    </div>
                   </div>
 
                   <div className="flex flex-col items-center px-4">
@@ -263,7 +278,9 @@ export default function DashboardContent() {
 
                   <div className="flex-1 text-right">
                     <div className="text-gray-400 font-bold text-xs mb-1 uppercase opacity-60">{row.teamB}</div>
-                    <div className={`text-xl font-black ${row.winner === row.teamB ? 'text-white' : 'text-gray-500'}`}>{row.score?.teamB_runs || "0/0"}</div>
+                    <div className={`text-xl font-black ${row.winner === row.teamB ? 'text-white' : 'text-gray-500'}`}>
+                      {formatScoreDisplay(row.score?.teamB_runs, row.score?.teamB_wickets)}
+                    </div>
                   </div>
                 </div>
 

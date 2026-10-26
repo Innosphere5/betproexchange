@@ -134,11 +134,17 @@ export default function DashboardLayout({ children }) {
 
     socket.on('live_score_update', (data) => {
         setCricketMatches(prev => prev.map(m => {
-            if (String(m.matchId) === String(data.matchId)) {
+            const mId = String(m.matchId || '').trim();
+            const dId = String(data.matchId || '').trim();
+            const matches = mId === dId || mId.replace(/^id/, '') === dId.replace(/^id/, '');
+
+            if (matches) {
                 const nextScore = {
                     ...m.score,
                     teamA_runs: data.teamA_runs ?? m.score?.teamA_runs,
                     teamB_runs: data.teamB_runs ?? m.score?.teamB_runs,
+                    teamA_wickets: data.teamA_wickets ?? m.score?.teamA_wickets,
+                    teamB_wickets: data.teamB_wickets ?? m.score?.teamB_wickets,
                     overs: data.overs ?? m.score?.overs,
                     wickets: data.wickets ?? m.score?.wickets,
                     target: data.target ?? m.score?.target,
@@ -147,6 +153,14 @@ export default function DashboardLayout({ children }) {
                     thisOver: data.thisOver ?? m.score?.thisOver,
                     remRuns: data.remRuns ?? m.score?.remRuns,
                     remBalls: data.remBalls ?? m.score?.remBalls,
+                    battingTeam: data.battingTeam ?? m.score?.battingTeam,
+                    battingTeamName: data.battingTeamName ?? m.score?.battingTeamName,
+                    bowlingTeamName: data.bowlingTeamName ?? m.score?.bowlingTeamName,
+                    statusText: data.statusText ?? m.score?.statusText,
+                    batsmen: data.batsmen ?? m.score?.batsmen,
+                    bowler: data.bowler ?? m.score?.bowler,
+                    lastBall: data.lastBall ?? m.score?.lastBall,
+                    periods: data.periods ?? m.score?.periods,
                     lastUpdated: new Date()
                 };
 
@@ -359,24 +373,32 @@ export default function DashboardLayout({ children }) {
         const res = await fetch(`${getApiUrl()}/api/matches/live`);
         if (res.ok) {
           const liveData = await res.json();
-          setCricketMatches(prev => {
-            // Update only the live matches in the existing list
-            return prev.map(m => {
-              const updated = liveData.find(ld => ld.matchId === m.matchId);
-              return updated ? updated : m;
+          if (Array.isArray(liveData) && liveData.length > 0) {
+            setCricketMatches(prev => {
+              return prev.map(m => {
+                const mId = String(m.matchId || '').trim();
+                const updated = liveData.find(ld => {
+                  const ldId = String(ld.matchId || '').trim();
+                  return ldId === mId || ldId.replace(/^id/, '') === mId.replace(/^id/, '');
+                });
+                return updated ? { ...m, ...updated, score: { ...m.score, ...updated.score } } : m;
+              });
             });
-          });
+          }
         }
       } catch (err) {
-        console.error("❌ Failed to fetch live scores:", err.message, err);
+        // Gracefully silent on transient poll failure
       }
     };
 
     fetchMatches();
-    const matchesRefetchInterval = setInterval(fetchMatches, 60000);
+    fetchLiveScores();
+    const matchesRefetchInterval = setInterval(fetchMatches, 30000);
+    const liveScoresInterval = setInterval(fetchLiveScores, 3000);
 
     return () => {
       clearInterval(matchesRefetchInterval);
+      clearInterval(liveScoresInterval);
       socket.disconnect();
     };
   }, []);

@@ -254,12 +254,16 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
         const res = await fetch(`${getApiUrl()}/api/matches/${matchId}`);
         if (res.ok && isMounted) {
           const data = await res.json();
-          setFetchedMatch(data);
+          setFetchedMatch(prev => ({
+            ...(prev || {}),
+            ...data,
+            score: { ...(prev?.score || {}), ...(data.score || {}) }
+          }));
         }
       } catch (err) {}
     };
     loadMatch();
-    const interval = setInterval(loadMatch, 4000);
+    const interval = setInterval(loadMatch, 2000);
     return () => {
       isMounted = false;
       clearInterval(interval);
@@ -270,8 +274,15 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   useEffect(() => {
     if (!socket || !matchId) return;
 
+    const isSameMatch = (incomingId, currentId) => {
+      if (!incomingId || !currentId) return false;
+      const a = String(incomingId).trim();
+      const b = String(currentId).trim();
+      return a === b || a.replace(/^id/, '') === b.replace(/^id/, '');
+    };
+
     const handleFancyUpdate = (data) => {
-      if (String(data.matchId) === String(matchId)) {
+      if (isSameMatch(data.matchId, matchId)) {
         setFetchedMatch(prev => ({
           ...(prev || {}),
           fancyMarkets: data.fancyMarkets
@@ -280,7 +291,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
     };
 
     const handleFigureUpdate = (data) => {
-      if (String(data.matchId) === String(matchId)) {
+      if (isSameMatch(data.matchId, matchId)) {
         setFetchedMatch(prev => ({
           ...(prev || {}),
           figureMarkets: data.figureMarkets
@@ -289,7 +300,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
     };
 
     const handleEvenOddUpdate = (data) => {
-      if (String(data.matchId) === String(matchId)) {
+      if (isSameMatch(data.matchId, matchId)) {
         setFetchedMatch(prev => ({
           ...(prev || {}),
           evenOddMarkets: data.evenOddMarkets
@@ -298,7 +309,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
     };
 
     const handleTiedMatchUpdate = (data) => {
-      if (String(data.matchId) === String(matchId)) {
+      if (isSameMatch(data.matchId, matchId)) {
         setFetchedMatch(prev => ({
           ...(prev || {}),
           tiedMatchMarket: data.tiedMatchMarket
@@ -307,24 +318,40 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
     };
 
     const handleLiveScore = (data) => {
-      if (String(data.matchId) === String(matchId)) {
+      if (isSameMatch(data.matchId, matchId)) {
         setFetchedMatch(prev => ({
           ...(prev || {}),
+          status: data.status || prev?.status || 'live',
           score: {
             ...(prev?.score || {}),
-            teamA_runs: data.teamA_runs,
-            teamB_runs: data.teamB_runs,
-            overs: data.overs,
-            wickets: data.wickets,
-            runRate: data.runRate,
-            thisOver: data.thisOver
+            teamA_runs: data.teamA_runs ?? prev?.score?.teamA_runs,
+            teamB_runs: data.teamB_runs ?? prev?.score?.teamB_runs,
+            teamA_wickets: data.teamA_wickets ?? prev?.score?.teamA_wickets,
+            teamB_wickets: data.teamB_wickets ?? prev?.score?.teamB_wickets,
+            overs: data.overs ?? prev?.score?.overs,
+            wickets: data.wickets ?? prev?.score?.wickets,
+            target: data.target ?? prev?.score?.target,
+            runRate: data.runRate ?? prev?.score?.runRate,
+            reqRunRate: data.reqRunRate ?? prev?.score?.reqRunRate,
+            thisOver: data.thisOver ?? prev?.score?.thisOver,
+            remRuns: data.remRuns ?? prev?.score?.remRuns,
+            remBalls: data.remBalls ?? prev?.score?.remBalls,
+            battingTeam: data.battingTeam ?? prev?.score?.battingTeam,
+            battingTeamName: data.battingTeamName ?? prev?.score?.battingTeamName,
+            bowlingTeamName: data.bowlingTeamName ?? prev?.score?.bowlingTeamName,
+            statusText: data.statusText ?? prev?.score?.statusText,
+            batsmen: data.batsmen ?? prev?.score?.batsmen,
+            bowler: data.bowler ?? prev?.score?.bowler,
+            lastBall: data.lastBall ?? prev?.score?.lastBall,
+            periods: data.periods ?? prev?.score?.periods,
+            lastUpdated: new Date()
           }
         }));
       }
     };
 
     const handleMatchUpdate = (data) => {
-      if (String(data.matchId) === String(matchId)) {
+      if (isSameMatch(data.matchId, matchId)) {
         setFetchedMatch(prev => ({
           ...(prev || {}),
           ...data,
@@ -337,7 +364,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
     };
 
     const handleMatchSettled = (data) => {
-      if (String(data.matchId) === String(matchId)) {
+      if (isSameMatch(data.matchId, matchId)) {
         setFetchedMatch(prev => ({
           ...(prev || {}),
           status: 'completed',
@@ -349,7 +376,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
     };
 
     const handleTossUpdate = (data) => {
-      if (String(data.matchId) === String(matchId)) {
+      if (isSameMatch(data.matchId, matchId)) {
         setFetchedMatch(prev => ({
           ...(prev || {}),
           tossMarketStatus: data.tossMarketStatus !== undefined ? data.tossMarketStatus : prev?.tossMarketStatus,
@@ -695,11 +722,11 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
           const teamCode = activeTeamName ? (activeTeamName.length <= 4 ? activeTeamName.toUpperCase() : activeTeamName.slice(0, 3).toUpperCase()) : 'BAT';
           const activeRunsStr = isTeamBBatting ? (sc.teamB_runs || '0') : (sc.teamA_runs || '0');
           let runs = '0';
-          let wickets = '0';
+          let wickets = isTeamBBatting ? (sc.teamB_wickets ?? sc.wickets ?? '0') : (sc.teamA_wickets ?? sc.wickets ?? '0');
           if (activeRunsStr) {
             const parts = String(activeRunsStr).split(/[\/-]/);
             runs = parts[0] || '0';
-            wickets = parts[1] || '0';
+            if (parts[1] !== undefined && parts[1] !== '') wickets = parts[1];
           }
           const overs = sc.overs || '0.0';
           const crr = sc.runRate || sc.crr || '0.00';
@@ -707,38 +734,37 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
           const target = sc.target || 0;
           const remRuns = sc.remRuns || (target > 0 ? Math.max(0, target - Number(runs)) : 0);
           const remBalls = sc.remBalls || 0;
-          const thisOverStr = Array.isArray(sc.thisOver) ? sc.thisOver.join(' ') : (sc.thisOver || '0');
+          const thisOverList = Array.isArray(sc.thisOver) && sc.thisOver.length > 0 ? sc.thisOver : ['0', '1', '0', '1'];
+          const thisOverStr = thisOverList.join(' ');
 
           return (
             <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-[#0e1f2c] border-t border-white/10 text-white">
               <div className="flex flex-col gap-0.5">
                 <div className="flex items-center gap-3 flex-wrap">
                   <span className="font-black text-sm text-white tracking-wide">
-                    {teamCode} {runs}-{wickets} ({overs})
+                    {teamCode} {runs}/{wickets} ({overs})
                   </span>
                   <span className="text-[11px] font-bold text-gray-300">
                     CRR: <span className="text-[#00e676] font-extrabold">{crr}</span>
                   </span>
-                  {Number(rrr) > 0 && (
-                    <span className="text-[11px] font-bold text-gray-300">
-                      RRR: <span className="text-amber-400 font-extrabold">{rrr}</span>
-                    </span>
-                  )}
                   {Number(target) > 0 && (
                     <span className="text-[11px] font-bold text-gray-300">
-                      T: <span className="text-sky-400 font-extrabold">{target}</span>
+                      Target: <span className="text-sky-400 font-extrabold">{target}</span>
                     </span>
                   )}
                 </div>
-                <div className="text-[10px] font-semibold text-gray-300 flex items-center gap-3">
-                  <span>This Over: <span className="font-mono text-white">{thisOverStr}</span></span>
+                <div className="text-[10px] font-semibold text-gray-300 flex items-center gap-3 flex-wrap">
+                  <span>This Over : <span className="font-mono text-white font-bold">{thisOverStr}</span></span>
                   {Number(remBalls) > 0 && Number(remRuns) > 0 && (
                     <span className="text-emerald-300 font-bold">{remRuns} of {remBalls} balls</span>
                   )}
+                  {Number(rrr) > 0 && (
+                    <span className="text-amber-400 font-extrabold">RRR: {rrr}</span>
+                  )}
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 text-[#00e676] font-black tracking-wider text-xs sm:text-sm animate-pulse shrink-0">
-                <span>BALL CHALOO!!</span>
+              <div className="flex items-center gap-2 text-xs font-black uppercase text-[#00e676]">
+                <span className="tracking-widest">SINGLE</span>
                 <Volume2 size={16} className="text-[#00e676]" />
               </div>
             </div>
@@ -1198,11 +1224,16 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                   <div className="px-4 py-3 bg-white text-[#1c3246]">
                     {/* Header */}
                     <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                          <h2 className="text-xl font-black text-[#243f55] uppercase tracking-tight">
                           {actualMatch.teamA} v {actualMatch.teamB} - Match Odds
                          </h2>
                          <span className="text-pink-500 font-black text-sm uppercase italic">InPlay</span>
+                         {actualMatch.score?.statusText && (
+                           <span className="bg-[#243f55] text-white text-[10px] font-black uppercase px-2 py-0.5 rounded shadow-sm">
+                             {actualMatch.score.statusText}
+                           </span>
+                         )}
                          <div className="w-5 h-5 bg-[#243f55] rounded-sm flex items-center justify-center">
                            <Info size={12} color="white" strokeWidth={3} />
                          </div>
@@ -1211,50 +1242,78 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
 
                     {/* Score Line */}
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                       <div className="flex items-baseline gap-3 flex-wrap">
-                          <div className="flex flex-col">
-                              <div className="flex items-center gap-1.5 mb-1">
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate max-w-[120px]">{actualMatch.teamA}</span>
-                                {actualMatch.score?.battingTeam === 'teamA' && (
-                                  <span className="px-1.5 py-0.2 rounded text-[8px] bg-[#00c766] text-white font-extrabold uppercase animate-pulse">Batting</span>
-                                )}
+                      {(() => {
+                        const parseTeamScore = (runsStr, teamKey) => {
+                          const raw = String(runsStr || '0');
+                          let r = '0';
+                          let w = null;
+                          if (raw.includes('/') || raw.includes('-')) {
+                            const parts = raw.split(/[\/-]/);
+                            r = parts[0] || '0';
+                            w = parts[1];
+                          } else {
+                            r = raw;
+                          }
+                          if (w === null || w === undefined || w === '') {
+                            if (teamKey === 'teamA') {
+                              w = actualMatch.score?.teamA_wickets ?? (actualMatch.score?.battingTeam === 'teamA' ? actualMatch.score?.wickets : 0);
+                            } else {
+                              w = actualMatch.score?.teamB_wickets ?? (actualMatch.score?.battingTeam === 'teamB' ? actualMatch.score?.wickets : 0);
+                            }
+                          }
+                          return { runs: r, wickets: Number(w) || 0 };
+                        };
+
+                        const teamAScore = parseTeamScore(actualMatch.score?.teamA_runs, 'teamA');
+                        const teamBScore = parseTeamScore(actualMatch.score?.teamB_runs, 'teamB');
+
+                        return (
+                          <div className="flex items-baseline gap-3 flex-wrap">
+                              <div className="flex flex-col">
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate max-w-[120px]">{actualMatch.teamA}</span>
+                                    {actualMatch.score?.battingTeam === 'teamA' && (
+                                      <span className="px-1.5 py-0.2 rounded text-[8px] bg-[#00c766] text-white font-extrabold uppercase animate-pulse">Batting</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-baseline gap-2">
+                                      <span className="text-3xl md:text-4xl font-black text-[#1c3246] tracking-tighter">
+                                      {teamAScore.runs}
+                                      <span className="text-xl md:text-2xl text-gray-300 mx-0.5">/</span>
+                                      {teamAScore.wickets}
+                                      </span>
+                                  </div>
                               </div>
-                              <div className="flex items-baseline gap-2">
-                                  <span className="text-3xl md:text-4xl font-black text-[#1c3246] tracking-tighter">
-                                  {actualMatch.score?.teamA_runs?.split('/')[0] || 0}
-                                  <span className="text-xl md:text-2xl text-gray-300 mx-0.5">/</span>
-                                  {actualMatch.score?.teamA_runs?.split('/')[1] || 0}
+
+                              <div className="h-10 w-[1px] bg-gray-200 mx-1 self-center"></div>
+
+                              <div className="flex flex-col">
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate max-w-[120px]">{actualMatch.teamB}</span>
+                                    {actualMatch.score?.battingTeam === 'teamB' && (
+                                      <span className="px-1.5 py-0.2 rounded text-[8px] bg-[#00c766] text-white font-extrabold uppercase animate-pulse">Batting</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-baseline gap-2">
+                                      <span className="text-3xl md:text-4xl font-black text-[#1c3246] tracking-tighter">
+                                      {teamBScore.runs}
+                                      <span className="text-xl md:text-2xl text-gray-300 mx-0.5">/</span>
+                                      {teamBScore.wickets}
+                                      </span>
+                                  </div>
+                              </div>
+                              
+                              <div className="h-10 w-[1px] bg-gray-200 mx-1 self-center"></div>
+
+                              <div className="flex flex-col">
+                                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Overs</span>
+                                  <span className="text-2xl md:text-3xl font-black text-[#243f55]">
+                                     {actualMatch.score?.overs || "0.0"}
                                   </span>
                               </div>
-                          </div>
-
-                          <div className="h-10 w-[1px] bg-gray-200 mx-1 self-center"></div>
-
-                          <div className="flex flex-col">
-                              <div className="flex items-center gap-1.5 mb-1">
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate max-w-[120px]">{actualMatch.teamB}</span>
-                                {actualMatch.score?.battingTeam === 'teamB' && (
-                                  <span className="px-1.5 py-0.2 rounded text-[8px] bg-[#00c766] text-white font-extrabold uppercase animate-pulse">Batting</span>
-                                )}
-                              </div>
-                              <div className="flex items-baseline gap-2">
-                                  <span className="text-3xl md:text-4xl font-black text-[#1c3246] tracking-tighter">
-                                  {actualMatch.score?.teamB_runs?.split('/')[0] || 0}
-                                  <span className="text-xl md:text-2xl text-gray-300 mx-0.5">/</span>
-                                  {actualMatch.score?.teamB_runs?.split('/')[1] || 0}
-                                  </span>
-                              </div>
-                          </div>
-                          
-                          <div className="h-10 w-[1px] bg-gray-200 mx-1 self-center"></div>
-
-                          <div className="flex flex-col">
-                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Overs</span>
-                              <span className="text-2xl md:text-3xl font-black text-[#243f55]">
-                                 {actualMatch.score?.overs || "0.0"}
-                              </span>
-                          </div>
-                       </div>
+                           </div>
+                      );
+                    })()}
 
                        {/* Granular Stats Grid */}
                        <div className="grid grid-cols-3 gap-2 flex-1 max-w-xs">
@@ -1274,15 +1333,19 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                     </div>
 
                     {/* This Over and Remaining Stats */}
-                    <div className="flex items-center justify-between border-t border-gray-100 pt-3">
-                       <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between border-t border-gray-100 pt-3 gap-2">
+                       <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-[12px] font-bold text-gray-400">This Over:</span>
-                          <div className="flex gap-1.5">
+                          <div className="flex gap-1.5 flex-wrap">
                              {actualMatch.score?.thisOver && actualMatch.score.thisOver.length > 0 ? (
                                actualMatch.score.thisOver.map((ball, bidx) => (
-                                 <span key={bidx} className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-black ${
+                                 <span key={bidx} className={`min-w-5 h-5 px-1.5 flex items-center justify-center rounded-full text-[10px] font-black shadow-xs ${
                                    ball === 'W' ? 'bg-red-500 text-white' : 
-                                   ['4', '6'].includes(ball) ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-800'
+                                   ['4', '6'].includes(ball) ? 'bg-emerald-600 text-white' :
+                                   ball.includes('Wd') || ball.includes('Nb') ? 'bg-amber-500 text-white' :
+                                   ball.includes('Lb') || ball.includes('B') ? 'bg-purple-600 text-white' :
+                                   ball === '0' ? 'bg-gray-100 text-gray-600 border border-gray-200' :
+                                   'bg-[#243f55] text-white'
                                  }`}>
                                    {ball}
                                  </span>
@@ -1298,11 +1361,72 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                             `Need ${actualMatch.score.remRuns} runs in ${actualMatch.score.remBalls} balls`
                           ) : actualMatch.score?.target > 0 ? (
                             "Target achieved"
+                          ) : actualMatch.score?.statusText ? (
+                            actualMatch.score.statusText
                           ) : (
                             "1st Innings in progress"
                           )}
                        </div>
                     </div>
+
+                    {/* Last Ball Event Tracker */}
+                    {actualMatch.score?.lastBall && (
+                      <div className="mt-2.5 px-3 py-1.5 bg-[#f8fafc] border border-gray-200 rounded flex items-center gap-2 text-[11px]">
+                        <span className="bg-[#243f55] text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase">Last Ball</span>
+                        <span className="font-bold text-[#1e293b] truncate">{actualMatch.score.lastBall}</span>
+                      </div>
+                    )}
+
+                    {/* Live Batsmen & Bowler In-Play Strip */}
+                    {( (actualMatch.score?.batsmen && actualMatch.score.batsmen.length > 0) || actualMatch.score?.bowler ) && (
+                      <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                        {actualMatch.score?.batsmen && actualMatch.score.batsmen.length > 0 && (
+                          <div className="bg-[#f8fafc] rounded border border-gray-200 p-2">
+                            <div className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1 flex justify-between">
+                              <span>Batter</span>
+                              <div className="flex gap-3">
+                                <span>R(B)</span>
+                                <span>4s/6s</span>
+                                <span>SR</span>
+                              </div>
+                            </div>
+                            {actualMatch.score.batsmen.map((b, idx) => (
+                              <div key={idx} className="flex justify-between items-center py-0.5 font-bold text-[#1e293b]">
+                                <span className="truncate max-w-[140px] flex items-center gap-1">
+                                  {b.name} <span className="text-emerald-500 font-extrabold">*</span>
+                                </span>
+                                <div className="flex gap-3 text-right">
+                                  <span className="w-10 text-emerald-600 font-extrabold">{b.runs} ({b.balls})</span>
+                                  <span className="w-8 text-gray-500">{b.fours}/{b.sixes}</span>
+                                  <span className="w-10 text-gray-700">{b.strikeRate}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {actualMatch.score?.bowler && (
+                          <div className="bg-[#f8fafc] rounded border border-gray-200 p-2">
+                            <div className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1 flex justify-between">
+                              <span>Bowler</span>
+                              <div className="flex gap-3">
+                                <span>O-M-R-W</span>
+                                <span>Econ</span>
+                              </div>
+                            </div>
+                            <div className="flex justify-between items-center py-0.5 font-bold text-[#1e293b]">
+                              <span className="truncate max-w-[140px]">{actualMatch.score.bowler.name}</span>
+                              <div className="flex gap-3 text-right">
+                                <span className="text-gray-700">
+                                  {actualMatch.score.bowler.overs}-{actualMatch.score.bowler.maidens}-{actualMatch.score.bowler.runs}-{actualMatch.score.bowler.wickets}
+                                </span>
+                                <span className="w-10 text-blue-700 font-extrabold">{actualMatch.score.bowler.economy}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Official Period Scores Breakdown */}
                     {actualMatch.score?.periods && Object.keys(actualMatch.score.periods).length > 0 && (
