@@ -14,14 +14,6 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
   const [stake, setStake] = useState("");
   const [profitText, setProfitText] = useState("- / -");
 
-  useEffect(() => {
-    if (selection?.price !== undefined) {
-      setOdds(selection.price);
-      setErrorMessage(null);
-      updateCalculations(stake, selection.price);
-    }
-  }, [selection?.price, selection?.runner, selection?.marketType]);
-
   const updateCalculations = (stkVal, oddsVal) => {
     const s = Math.round(parseFloat(stkVal) || 0);
     const o = parseFloat(oddsVal !== undefined ? oddsVal : odds) || 0;
@@ -52,9 +44,17 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
     }
   };
 
+  useEffect(() => {
+    if (selection?.price !== undefined) {
+      setOdds(selection.price);
+      setErrorMessage(null);
+      updateCalculations(stake, selection.price);
+    }
+  }, [selection?.price, selection?.runner, selection?.marketType]);
+
   const handleStakeChange = (val) => {
     setStake(val);
-    if (errorMessage && errorMessage !== "Bet not placed to this market") setErrorMessage(null);
+    if (errorMessage) setErrorMessage(null);
     updateCalculations(val, odds);
   };
 
@@ -63,11 +63,7 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
     const next = Math.max(1.01, parseFloat((cur - 0.01).toFixed(2)));
     setOdds(next);
     updateCalculations(stake, next);
-    if (parseFloat(next) !== parseFloat(selection?.price)) {
-      setErrorMessage("Bet not placed to this market");
-    } else {
-      setErrorMessage(null);
-    }
+    if (errorMessage) setErrorMessage(null);
   };
 
   const handleIncrementOdds = () => {
@@ -75,31 +71,23 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
     const next = parseFloat((cur + 0.01).toFixed(2));
     setOdds(next);
     updateCalculations(stake, next);
-    if (parseFloat(next) !== parseFloat(selection?.price)) {
-      setErrorMessage("Bet not placed to this market");
-    } else {
-      setErrorMessage(null);
-    }
+    if (errorMessage) setErrorMessage(null);
   };
 
   const addStake = (val) => {
     const current = parseFloat(stake) || 0;
     const next = (current + val).toString();
     setStake(next);
-    if (errorMessage && errorMessage !== "Bet not placed to this market") setErrorMessage(null);
+    if (errorMessage) setErrorMessage(null);
     updateCalculations(next, odds);
   };
+
+  const isOddsAltered = selection?.price !== undefined && parseFloat(odds) !== parseFloat(selection?.price);
 
   if (!selection) return null;
 
   const handleSubmit = async () => {
     setErrorMessage(null);
-
-    // If user increased, decreased or altered the odds away from the shown odds
-    if (parseFloat(odds) !== parseFloat(selection?.price)) {
-      setErrorMessage("Bet not placed to this market");
-      return;
-    }
 
     if (!stake || parseFloat(stake) <= 0) {
       setErrorMessage("Please enter a valid stake amount to place your bet.");
@@ -165,6 +153,11 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
           {selection?.marketType === 'bookmaker' && (
             <span className="bg-purple-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
               Bookmaker
+            </span>
+          )}
+          {isOddsAltered && (
+            <span className="bg-amber-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider" title="Odds differ from current market. Will be placed in Open Bets until market reaches this rate.">
+              Open Bet
             </span>
           )}
         </div>
@@ -283,9 +276,9 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="flex-1 bg-[#00c766] hover:bg-[#00a857] text-white font-black py-2 rounded-sm text-[13px] shadow-sm uppercase active:scale-95 transition-transform disabled:opacity-60 cursor-pointer"
+            className={`flex-1 ${isOddsAltered ? 'bg-[#ff9900] hover:bg-[#e08800]' : 'bg-[#00c766] hover:bg-[#00a857]'} text-white font-black py-2 rounded-sm text-[13px] shadow-sm uppercase active:scale-95 transition-transform disabled:opacity-60 cursor-pointer`}
           >
-            {isSubmitting ? "Placing..." : "Submit"}
+            {isSubmitting ? "Placing..." : (isOddsAltered ? "Place Open Bet" : "Submit")}
           </button>
         </div>
       </div>

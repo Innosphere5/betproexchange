@@ -8,6 +8,32 @@ import { getApiUrl } from "../lib/apiConfig";
 export default function RightPanel({ selection, clearSelection, type, matchId }) {
   const [matchedBets, setMatchedBets] = useState([]);
   const [openBets, setOpenBets] = useState([]);
+  const [cancellingBetId, setCancellingBetId] = useState(null);
+
+  const handleCancelOpenBet = async (betId) => {
+    if (cancellingBetId) return;
+    setCancellingBetId(betId);
+    try {
+      const raw = localStorage.getItem("user_session");
+      const token = raw ? JSON.parse(raw).token : '';
+      const res = await fetch(`${getApiUrl()}/api/user/bets/${betId}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        setOpenBets(prev => prev.filter(b => b.id !== betId));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('wallet-updated'));
+          window.dispatchEvent(new Event('bet-placed'));
+        }
+      }
+    } catch (e) {
+    } finally {
+      setCancellingBetId(null);
+    }
+  };
 
   useEffect(() => {
     if (!matchId) return;
@@ -92,6 +118,14 @@ export default function RightPanel({ selection, clearSelection, type, matchId })
                 <div className="w-14 text-right text-gray-800 font-bold">{Number(b.size).toLocaleString()}</div>
                 <div className="w-14 text-center text-gray-600 truncate">{b.better}</div>
                 <div className="w-14 text-right text-gray-600 truncate">{b.master}</div>
+                <button
+                  onClick={() => handleCancelOpenBet(b.id)}
+                  disabled={cancellingBetId === b.id}
+                  className="ml-1 text-[9px] text-red-600 hover:text-white hover:bg-red-600 border border-red-500 rounded px-1 py-0.5 font-bold transition-colors cursor-pointer"
+                  title="Cancel open bet"
+                >
+                  {cancellingBetId === b.id ? '...' : '×'}
+                </button>
               </div>
             ))}
           </div>

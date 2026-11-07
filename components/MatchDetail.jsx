@@ -522,7 +522,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
     if (!actualMatch?.startTime) return "00:00:00";
     try {
       const start = new Date(actualMatch.startTime).getTime();
-      const end = actualMatch?.lastUpdated ? new Date(actualMatch.lastUpdated).getTime() : Date.now();
+      const end = actualMatch?.lastUpdated ? new Date(actualMatch.lastUpdated).getTime() : start;
       const diffSec = Math.max(0, Math.floor((end - start) / 1000));
       const hours = String(Math.floor(diffSec / 3600)).padStart(2, '0');
       const mins = String(Math.floor((diffSec % 3600) / 60)).padStart(2, '0');
