@@ -1,14 +1,17 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Filter, Search, BookOpen, Edit2, X, DollarSign, Calendar, Layout, List } from "lucide-react";
+import { Filter, Search, BookOpen, Edit2, X, DollarSign, Calendar, Layout, List, ShieldAlert } from "lucide-react";
 import { getApiUrl } from "@/lib/apiConfig";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import EditClientModal from "@/components/EditClientModal";
+import UserProfitLimitsTable from "@/components/UserProfitLimitsTable";
 
 export default function SuperMasterUsers() {
   const searchParams = useSearchParams();
   const [users, setUsers] = useState([]);
+  const [viewTab, setViewTab] = useState("clients"); // "clients" or "profitLimits"
   const [searchQuery, setSearchQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -865,6 +868,15 @@ export default function SuperMasterUsers() {
             </div>
           </div>
         );
+      case "Profit Limits":
+        return (
+          <UserProfitLimitsTable
+            onEditUser={(u) => {
+              setSelectedUser(u);
+              setIsEditModalOpen(true);
+            }}
+          />
+        );
       default: return null;
     }
   };
@@ -982,66 +994,14 @@ export default function SuperMasterUsers() {
         </div>
       )}
 
-      {/* Edit User Modal */}
-      {isEditModalOpen && selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden border border-gray-300">
-            <div className="bg-[#f39c12] px-4 py-3 flex justify-between items-center text-white font-bold">
-              <h3>Edit User: {selectedUser.username}</h3>
-              <button onClick={() => setIsEditModalOpen(false)} className="hover:bg-white/20 p-1 rounded">
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleUpdateUser} className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">New Password (leave blank to keep current)</label>
-                <input
-                  type="password"
-                  value={editPassword}
-                  onChange={(e) => setEditPassword(e.target.value)}
-                  placeholder="Enter new password"
-                  className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#f39c12]"
-                />
-              </div>
-              {selectedUser.role === 'master' && (
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Share (%)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="85"
-                    value={editShare}
-                    onChange={(e) => setEditShare(e.target.value)}
-                    placeholder="Enter share percentage"
-                    className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#f39c12]"
-                  />
-                </div>
-              )}
-              {selectedUser?.role !== 'user' && (
-                <div className="flex items-center gap-2 pt-1">
-                  <input
-                    type="checkbox"
-                    id="editAllowSettlement"
-                    checked={editAllowSettlement}
-                    onChange={(e) => setEditAllowSettlement(e.target.checked)}
-                    className="w-4 h-4 text-[#f39c12] border-gray-300 rounded focus:ring-[#f39c12] accent-[#f39c12] cursor-pointer"
-                  />
-                  <label htmlFor="editAllowSettlement" className="text-sm font-bold text-gray-700 cursor-pointer">
-                    Enable S Settlement
-                  </label>
-                </div>
-              )}
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="w-full bg-[#f39c12] hover:bg-orange-600 text-white font-bold py-2.5 rounded shadow-sm"
-              >
-                {isSaving ? "Updating..." : "Update User"}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Edit Client Modal (Matching Image 1) */}
+      <EditClientModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        user={selectedUser}
+        onUserUpdated={fetchUsers}
+        currentRole="supermaster"
+      />
 
       {/* Load/Reduce Balance Modal */}
       {isLoadModalOpen && (
@@ -1260,7 +1220,7 @@ export default function SuperMasterUsers() {
           Report Type
         </div>
         <div className="p-4 flex flex-wrap gap-2">
-          {['Book Detail', 'Book Detail 2', 'Daily PL', 'Daily Report', 'Final Sheet', 'Accounts', 'Commission Report'].map(btn => (
+          {['Book Detail', 'Book Detail 2', 'Daily PL', 'Daily Report', 'Final Sheet', 'Accounts', 'Profit Limits', 'Commission Report'].map(btn => (
             <button
               key={btn}
               onClick={() => setActiveReportType(btn)}
@@ -1286,7 +1246,7 @@ export default function SuperMasterUsers() {
               </div>
               {searchQuery && (
                 <span className="text-[11px] font-normal text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                  Filtered: "{searchQuery}"
+                  Filtered: &quot;{searchQuery}&quot;
                 </span>
               )}
             </div>
@@ -1359,7 +1319,7 @@ export default function SuperMasterUsers() {
                           onClick={() => handleSearchSubmit()}
                           className="p-3 text-center text-xs text-gray-500 hover:text-gray-700 cursor-pointer italic hover:bg-gray-50"
                         >
-                          No local match. Click to search downline tree for "{searchQuery}" →
+                          No local match. Click to search downline tree for &quot;{searchQuery}&quot; →
                         </div>
                       )}
                     </div>
@@ -1478,6 +1438,13 @@ export default function SuperMasterUsers() {
                   <BookOpen size={16} />
                   Account Ledger
                 </Link>
+                <button
+                  onClick={() => setActiveReportType("Profit Limits")}
+                  className="bg-[#1abc9c] hover:bg-[#16a085] text-white px-3 py-1.5 text-sm font-semibold rounded-sm flex items-center gap-1 shadow-sm transition-all"
+                >
+                  <ShieldAlert size={16} />
+                  Profit Limits
+                </button>
               </div>
               <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-gray-600 uppercase font-black">
                 <span className="flex items-center gap-1"><span className="bg-[#fbbf24] text-white px-1.5 py-0.5 rounded-sm">C</span> Cash / Credit</span>
@@ -1620,7 +1587,7 @@ export default function SuperMasterUsers() {
                   ) : displayUsers.length === 0 ? (
                     <tr>
                       <td colSpan="9" className="px-4 py-10 text-center text-gray-500 font-medium">
-                        No users found. Click "New Player" to create one.
+                        No users found. Click &quot;New Player&quot; to create one.
                       </td>
                     </tr>
                   ) : (

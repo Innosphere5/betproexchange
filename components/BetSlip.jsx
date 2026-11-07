@@ -106,36 +106,6 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
       return;
     }
 
-    if (selection?.marketType === 'toss' && parseFloat(stake) > 2000000) {
-      setErrorMessage("Maximum stake for Toss Market is 2M.");
-      return;
-    }
-
-    if (selection?.marketType === 'bookmaker' && parseFloat(stake) > 1000000) {
-      setErrorMessage("Maximum stake for Bookmaker Market is 1M.");
-      return;
-    }
-
-    if (selection?.marketType === 'fancy' && parseFloat(stake) > 2000000) {
-      setErrorMessage("Maximum stake for Fancy 2 Market is 2M.");
-      return;
-    }
-
-    if (selection?.marketType === 'figure' && parseFloat(stake) > 100000) {
-      setErrorMessage("Maximum stake for Figure Market is 100K.");
-      return;
-    }
-
-    if (selection?.marketType === 'even_odd' && parseFloat(stake) > 2000000) {
-      setErrorMessage("Maximum stake for Even/Odd Market is 2M.");
-      return;
-    }
-
-    if (selection?.marketType === 'tied_match' && parseFloat(stake) > 500000) {
-      setErrorMessage("Maximum stake for Tied Match Market is 500K.");
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {

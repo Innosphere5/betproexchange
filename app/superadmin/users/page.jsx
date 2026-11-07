@@ -2,10 +2,12 @@
 
 // Next.js HMR trigger: Balance Upline updated in Summary Table
 import React, { useState, useEffect } from "react";
-import { Filter, Search, BookOpen, Edit2, X, DollarSign, AlertTriangle, Trash2, Calendar, Layout, List, RotateCcw } from "lucide-react";
+import { Filter, Search, BookOpen, Edit2, X, DollarSign, AlertTriangle, Trash2, Calendar, Layout, List, RotateCcw, ShieldAlert } from "lucide-react";
 import { getApiUrl } from "@/lib/apiConfig";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import EditClientModal from "@/components/EditClientModal";
+import UserProfitLimitsTable from "@/components/UserProfitLimitsTable";
 
 export default function SuperAdminUsers() {
   const searchParams = useSearchParams();
@@ -1105,6 +1107,15 @@ export default function SuperAdminUsers() {
             </div>
           </div>
         );
+      case "Profit Limits":
+        return (
+          <UserProfitLimitsTable
+            onEditUser={(u) => {
+              setSelectedUser(u);
+              setIsEditModalOpen(true);
+            }}
+          />
+        );
       default: return null;
     }
   };
@@ -1396,59 +1407,14 @@ export default function SuperAdminUsers() {
         </div>
       )}
 
-      {/* Edit User Modal */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="bg-[#1abc9c] px-4 py-3 flex justify-between items-center text-white font-bold uppercase tracking-tighter">
-              <h3>Edit User: {selectedUser?.username}</h3>
-              <button onClick={() => setIsEditModalOpen(false)} className="hover:bg-white/20 p-1 rounded">
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleUpdateUser} className="p-6 space-y-4">
-              {(selectedUser?.role === 'master' || selectedUser?.role === 'admin') && (
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1">Company Share (%)</label>
-                  <div className="w-full border border-gray-200 bg-gray-50 px-3 py-2 rounded font-bold text-gray-500 flex justify-between items-center text-sm">
-                    <span>{editShare}%</span>
-                    <span className="text-[10px] text-gray-400 font-normal italic">Locked after creation</span>
-                  </div>
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1 italic">New Password (leave blank to keep current)</label>
-                <input
-                  type="password"
-                  value={editPassword}
-                  onChange={(e) => setEditPassword(e.target.value)}
-                  placeholder="Enter new password"
-                  className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:border-[#1abc9c]"
-                />
-              </div>
-              {selectedUser?.role !== 'user' && (
-                <div className="flex items-center gap-2 pt-1">
-                  <input
-                    type="checkbox"
-                    id="editAllowSettlement"
-                    checked={editAllowSettlement}
-                    onChange={(e) => setEditAllowSettlement(e.target.checked)}
-                    className="w-4 h-4 text-[#1abc9c] border-gray-300 rounded focus:ring-[#1abc9c] accent-[#1abc9c] cursor-pointer"
-                  />
-                  <label htmlFor="editAllowSettlement" className="text-sm font-bold text-gray-700 cursor-pointer">
-                    Enable S Settlement
-                  </label>
-                </div>
-              )}
-              <div className="pt-2">
-                <button type="submit" disabled={isSaving} className="w-full bg-[#1abc9c] hover:bg-[#16a085] text-white font-black py-3 rounded-lg shadow-md transition-all disabled:opacity-50 uppercase tracking-widest">
-                  {isSaving ? "Updating..." : "Update User"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Edit Client Modal (Matching Image 1 & 2) */}
+      <EditClientModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        user={selectedUser}
+        onUserUpdated={fetchUsers}
+        currentRole="superadmin"
+      />
 
       {/* Report Type Panel */}
       <div className="bg-white border border-gray-300 shadow-sm rounded-sm">
@@ -1457,7 +1423,7 @@ export default function SuperAdminUsers() {
           Report Type
         </div>
         <div className="p-4 flex flex-wrap gap-2">
-          {['Book Detail', 'Book Detail 2', 'Daily PL', 'Daily Report', 'Final Sheet', 'Accounts', 'Commission Report'].map(btn => (
+          {['Book Detail', 'Book Detail 2', 'Daily PL', 'Daily Report', 'Final Sheet', 'Accounts', 'Profit Limits', 'Commission Report'].map(btn => (
             <button 
               key={btn} 
               onClick={() => setActiveReportType(btn)}
@@ -1484,7 +1450,7 @@ export default function SuperAdminUsers() {
               </div>
               {searchQuery && (
                 <span className="text-[11px] font-normal text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
-                  Filtered: "{searchQuery}"
+                  Filtered: &quot;{searchQuery}&quot;
                 </span>
               )}
             </div>
@@ -1557,7 +1523,7 @@ export default function SuperAdminUsers() {
                           onClick={() => handleSearchSubmit()}
                           className="p-3 text-center text-xs text-gray-500 hover:text-gray-700 cursor-pointer italic hover:bg-gray-50"
                         >
-                          No local match. Click to search downline tree for "{searchQuery}" →
+                          No local match. Click to search downline tree for &quot;{searchQuery}&quot; →
                         </div>
                       )}
                     </div>
@@ -1676,6 +1642,13 @@ export default function SuperAdminUsers() {
                   <BookOpen size={16} />
                   Account Ledger
                 </Link>
+                <button
+                  onClick={() => setActiveReportType("Profit Limits")}
+                  className="bg-[#1abc9c] hover:bg-[#16a085] text-white px-3 py-1.5 text-sm font-semibold rounded-sm flex items-center gap-1 shadow-sm transition-all"
+                >
+                  <ShieldAlert size={16} />
+                  Profit Limits
+                </button>
                 {isResetAllowed && (
                   <button
                     onClick={() => setIsResetModalOpen(true)}

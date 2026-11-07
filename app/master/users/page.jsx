@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Filter, Search, BookOpen, Edit2, X, DollarSign, Calendar, Layout, List } from "lucide-react";
+import { Filter, Search, BookOpen, Edit2, X, DollarSign, Calendar, Layout, List, ShieldAlert } from "lucide-react";
 import { getApiUrl } from "@/lib/apiConfig";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import EditClientModal from "@/components/EditClientModal";
+import UserProfitLimitsTable from "@/components/UserProfitLimitsTable";
 
 export default function MasterUsers() {
   const searchParams = useSearchParams();
@@ -925,6 +927,15 @@ export default function MasterUsers() {
             </div>
           </div>
         );
+      case "Profit Limits":
+        return (
+          <UserProfitLimitsTable
+            onEditUser={(u) => {
+              setSelectedUser(u);
+              setIsEditModalOpen(true);
+            }}
+          />
+        );
       default: return null;
     }
   };
@@ -1008,53 +1019,14 @@ export default function MasterUsers() {
         </div>
       )}
 
-      {/* Edit User Modal (Pencil) */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in duration-200">
-            <div className="bg-[#1abc9c] px-4 py-3 flex justify-between items-center text-white">
-              <h3 className="font-bold uppercase tracking-tighter italic flex items-center gap-2">
-                <Edit2 size={18} /> Edit Player: {selectedUser?.username}
-              </h3>
-              <button onClick={() => setIsEditModalOpen(false)} className="hover:bg-white/20 p-1 rounded transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleUpdateUser} className="p-6 space-y-5 font-sans">
-              <div className="bg-teal-50 p-3 rounded border border-teal-100 mb-2">
-                <p className="text-[11px] text-teal-700 font-bold uppercase tracking-widest">Account Status</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-sm font-black text-gray-800 uppercase">{selectedUser?.status || 'active'}</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Update Password</label>
-                <input
-                  type="password"
-                  value={editPassword}
-                  onChange={(e) => setEditPassword(e.target.value)}
-                  placeholder="Enter new password (optional)"
-                  className="w-full border border-gray-300 px-3 py-2.5 rounded-lg focus:outline-none focus:border-[#1abc9c] focus:ring-2 focus:ring-teal-100 transition-all font-mono"
-                />
-                <p className="text-[10px] text-gray-400 mt-1 italic">Leave blank to keep current password.</p>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="w-full bg-[#1abc9c] hover:bg-teal-700 text-white font-black py-3 rounded-lg shadow-lg shadow-teal-100 transition-all active:scale-95 disabled:opacity-50 uppercase tracking-widest"
-                >
-                  {isSaving ? "Saving..." : "Update Account"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Edit Client Modal (Matching Image 1 & 2) */}
+      <EditClientModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        user={selectedUser}
+        onUserUpdated={fetchUsers}
+        currentRole="master"
+      />
 
       {/* Load/Reduce Balance Modal */}
       {isLoadModalOpen && (
@@ -1257,7 +1229,7 @@ export default function MasterUsers() {
           Report Type
         </div>
         <div className="p-4 flex flex-wrap gap-2">
-          {['Book Detail', 'Book Detail 2', 'Daily PL', 'Daily Report', 'Final Sheet', 'Accounts', 'Commission Report'].map(btn => (
+          {['Book Detail', 'Book Detail 2', 'Daily PL', 'Daily Report', 'Final Sheet', 'Accounts', 'Profit Limits', 'Commission Report'].map(btn => (
             <button
               key={btn}
               onClick={() => setActiveReportType(btn)}
@@ -1283,7 +1255,7 @@ export default function MasterUsers() {
               </div>
               {searchQuery && (
                 <span className="text-[11px] font-normal text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                  Filtered: "{searchQuery}"
+                  Filtered: &quot;{searchQuery}&quot;
                 </span>
               )}
             </div>
@@ -1356,7 +1328,7 @@ export default function MasterUsers() {
                           onClick={() => handleSearchSubmit()}
                           className="p-3 text-center text-xs text-gray-500 hover:text-gray-700 cursor-pointer italic hover:bg-gray-50"
                         >
-                          No local match. Click to search downline tree for "{searchQuery}" →
+                          No local match. Click to search downline tree for &quot;{searchQuery}&quot; →
                         </div>
                       )}
                     </div>
@@ -1475,6 +1447,13 @@ export default function MasterUsers() {
                   <BookOpen size={16} />
                   Account Ledger
                 </Link>
+                <button
+                  onClick={() => setActiveReportType("Profit Limits")}
+                  className="bg-[#1abc9c] hover:bg-[#16a085] text-white px-3 py-1.5 text-sm font-semibold rounded-sm flex items-center gap-1 shadow-sm transition-all"
+                >
+                  <ShieldAlert size={16} />
+                  Profit Limits
+                </button>
               </div>
               <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-gray-600 uppercase font-black">
                 <span className="flex items-center gap-1"><span className="bg-[#fbbf24] text-white px-1.5 py-0.5 rounded-sm">C</span> Cash / Credit</span>
@@ -1517,7 +1496,7 @@ export default function MasterUsers() {
                   ) : displayUsers.length === 0 ? (
                     <tr>
                       <td colSpan="9" className="px-4 py-10 text-center text-gray-500 font-medium">
-                        No users found. Click "New Player" to create one.
+                        No users found. Click &quot;New Player&quot; to create one.
                       </td>
                     </tr>
                   ) : (

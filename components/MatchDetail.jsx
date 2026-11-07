@@ -1513,12 +1513,14 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
 
       {/* 5. FIGURE MARKET SECTION (0-9 Digit Grid) */}
       {(activeTab === 'ALL' || activeTab === 'Figure') && actualMatch.status !== 'completed' && actualMatch.figureMarkets && actualMatch.figureMarkets.length > 0 && (
-        actualMatch.figureMarkets.map((figureMarket, fmIdx) => (
+        actualMatch.figureMarkets.map((figureMarket, fmIdx) => {
+          const isFigureOpen = figureMarket.status === 'OPEN' && (figureMarket.digits || []).some(d => d.status === 'OPEN');
+          return (
           <div key={fmIdx} className="order-2 flex flex-col px-2 mb-2">
             <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
               <div className="bg-[#5d7d9a] text-white h-10 flex items-center px-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                  <div className={`w-5 h-5 ${isFigureOpen ? 'bg-[#00c766] animate-pulse' : 'bg-gray-400'} rounded-full flex items-center justify-center shrink-0 shadow-sm`}>
                     <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                   </div>
                   <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
@@ -1578,16 +1580,19 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
               </div>
             </div>
           </div>
-        ))
+          );
+        })
       )}
 
       {/* 6. FANCY 2 MARKET SECTION */}
-      {(activeTab === 'ALL' || activeTab === 'Fancy-2') && actualMatch.status !== 'completed' && actualMatch.fancyMarkets && actualMatch.fancyMarkets.length > 0 && (
+      {(activeTab === 'ALL' || activeTab === 'Fancy-2') && actualMatch.status !== 'completed' && actualMatch.fancyMarkets && actualMatch.fancyMarkets.length > 0 && (() => {
+        const hasOpenFancy = (actualMatch.fancyMarkets || []).some(f => f.status === 'OPEN');
+        return (
         <div className="order-2 flex flex-col px-2 mb-2">
           <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
             <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                <div className={`w-5 h-5 ${hasOpenFancy ? 'bg-[#00c766] animate-pulse' : 'bg-gray-400'} rounded-full flex items-center justify-center shrink-0 shadow-sm`}>
                   <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                 </div>
                 <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
@@ -1650,15 +1655,18 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* 7. EVEN / ODD MARKET SECTION */}
-      {(activeTab === 'ALL' || activeTab === 'Even-Odd') && actualMatch.status !== 'completed' && actualMatch.evenOddMarkets && actualMatch.evenOddMarkets.length > 0 && (
+      {(activeTab === 'ALL' || activeTab === 'Even-Odd') && actualMatch.status !== 'completed' && actualMatch.evenOddMarkets && actualMatch.evenOddMarkets.length > 0 && (() => {
+        const hasOpenEvenOdd = (actualMatch.evenOddMarkets || []).some(eo => eo.status === 'OPEN');
+        return (
         <div className="order-2 flex flex-col px-2 mb-2">
           <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
             <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                <div className={`w-5 h-5 ${hasOpenEvenOdd ? 'bg-[#00c766] animate-pulse' : 'bg-gray-400'} rounded-full flex items-center justify-center shrink-0 shadow-sm`}>
                   <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                 </div>
                 <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
@@ -1721,7 +1729,8 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* 8. TIED MATCH (OTHERS) MARKET SECTION */}
       {(activeTab === 'ALL' || activeTab === 'Others') && actualMatch.status !== 'completed' && actualMatch.tiedMatchMarket && (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   Menu,
@@ -59,6 +59,9 @@ export default function MatchDetailAdminView({
   const [isUserBookOpen, setIsUserBookOpen] = useState(false);
   const [selectedRunnerIdx, setSelectedRunnerIdx] = useState(null);
 
+  // Ref to track alternate match IDs for socket matching without causing reconnections
+  const matchIdAltRef = useRef({ sportmonksFixtureId: null, oddsApiEventId: null });
+
   // ── Retrieve User Session ──────────────────────────────────────────────────
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -104,6 +107,9 @@ export default function MatchDetailAdminView({
       if (resMatch && resMatch.ok) {
         const dataMatch = await resMatch.json();
         setMatchData(dataMatch);
+        // Keep ref in sync for socket matchId matching
+        matchIdAltRef.current.sportmonksFixtureId = dataMatch?.sportmonksFixtureId ? String(dataMatch.sportmonksFixtureId) : null;
+        matchIdAltRef.current.oddsApiEventId = dataMatch?.oddsApiEventId ? String(dataMatch.oddsApiEventId) : null;
       }
 
       if (resBets && resBets.ok) {
@@ -313,7 +319,14 @@ export default function MatchDetailAdminView({
       if (!incomingId || !currentId) return false;
       const a = String(incomingId).trim();
       const b = String(currentId).trim();
-      return a === b || a.replace(/^id/, '') === b.replace(/^id/, '');
+      // Direct match or stripped-prefix match
+      if (a === b || a.replace(/^id/, '') === b.replace(/^id/, '')) return true;
+      // Also check against sportmonksFixtureId and oddsApiEventId via ref (avoids socket reconnection)
+      const smId = matchIdAltRef.current.sportmonksFixtureId;
+      const oaId = matchIdAltRef.current.oddsApiEventId;
+      if (smId && (a === smId || a.replace(/^id/, '') === smId)) return true;
+      if (oaId && (a === oaId || a.replace(/^id/, '') === oaId.replace(/^id/, ''))) return true;
+      return false;
     };
 
     const handleScoreUpdate = (data) => {
@@ -745,6 +758,38 @@ export default function MatchDetailAdminView({
 
   const handleBackToPositions = () => {
     router.push(`/${role}/current-position`);
+  };
+
+  const formatTimeSince = (timestamp) => {
+    if (!timestamp) return '';
+    const elapsedSec = Math.max(0, Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000));
+    if (elapsedSec < 60) return `${elapsedSec}s ago`;
+    const mins = Math.floor(elapsedSec / 60);
+    const remSec = elapsedSec % 60;
+    return `${mins}m ${remSec}s ago`;
+  };
+
+  const handleToggleManualHold = async (marketName, currentIsHeld) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${getApiUrl()}/api/admin/market/${matchData?.matchId || matchId}/manual-hold`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ name: marketName, isHeld: !currentIsHeld })
+      });
+      const data = await res.json();
+      if (data.success && data.updatedSections) {
+        setMatchData(prev => ({
+          ...prev,
+          ...data.updatedSections
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to toggle manual hold:', err);
+    }
   };
 
   // Header user info stats
@@ -1613,11 +1658,14 @@ export default function MatchDetailAdminView({
 
           {/* ══════════ SECTION 5: FIGURE MARKET (0-9 Digits Grid) ══════════ */}
           {(isShowAll || selectedMarketType === "Figure") && (
-            figureMarkets.map((figureMarket, fmIdx) => (
-              <div key={fmIdx} className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
-                <div className="bg-[#5d7d9a] text-white h-10 flex items-center px-3">
+            figureMarkets.map((figureMarket, fmIdx) => {
+              const isFigureOpen = figureMarket.status === 'OPEN' && (figureMarket.digits || []).some(d => d.status === 'OPEN');
+              const isManuallyHeld = figureMarket.manualHold || (figureMarket.reasons && figureMarket.reasons.includes('MANUAL'));
+              return (
+              <div key={fmIdx} className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden mb-2">
+                <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
                   <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                    <div className={`w-5 h-5 ${isFigureOpen ? 'bg-[#00c766] animate-pulse' : 'bg-gray-400'} rounded-full flex items-center justify-center shrink-0 shadow-sm`}>
                       <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                     </div>
                     <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
@@ -1625,13 +1673,39 @@ export default function MatchDetailAdminView({
                       <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
                     </span>
                   </div>
+
+                  {/* Trader Controls for Figure Market */}
+                  <div className="flex items-center gap-2">
+                    {figureMarket.status === 'SUSPENDED' && (
+                      <div className="flex items-center gap-1 text-[10px] font-bold">
+                        <span className="bg-red-900/90 text-white px-2 py-0.5 rounded uppercase tracking-wider font-mono">
+                          {figureMarket.topReason || figureMarket.reasons?.[0] || 'SUSPENDED'}
+                        </span>
+                        {figureMarket.statusSince && (
+                          <span className="text-white/80 text-[10px]">({formatTimeSince(figureMarket.statusSince)})</span>
+                        )}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => handleToggleManualHold(figureMarket.name, isManuallyHeld)}
+                      className={`px-2 py-1 text-[10px] font-black rounded uppercase tracking-wider transition-all cursor-pointer shadow-xs ${
+                        isManuallyHeld ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-red-600 hover:bg-red-700 text-white'
+                      }`}
+                    >
+                      {isManuallyHeld ? 'Clear Hold' : 'Manual Suspend'}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="relative p-4 bg-white">
                   {figureMarket.status === 'SUSPENDED' && (
-                    <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
-                      <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
+                    <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex flex-col items-center justify-center gap-1">
+                      <div className="bg-[#1c3246] text-white px-6 py-1.5 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
                         SUSPENDED
+                      </div>
+                      <div className="text-[11px] font-bold text-red-700 bg-red-100 px-3 py-0.5 rounded border border-red-200">
+                        Top Reason: {figureMarket.topReason || figureMarket.reasons?.[0] || 'SUSPENDED'}
+                        {figureMarket.statusSince && ` • ${formatTimeSince(figureMarket.statusSince)}`}
                       </div>
                     </div>
                   )}
@@ -1673,15 +1747,18 @@ export default function MatchDetailAdminView({
                   </div>
                 </div>
               </div>
-            ))
+              );
+            })
           )}
 
           {/* ══════════ SECTION 6: FANCY 2 MARKETS ══════════ */}
-          {(isShowAll || selectedMarketType === "Fancy") && (
-            <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
+          {(isShowAll || selectedMarketType === "Fancy") && (() => {
+            const hasOpenFancy = (fancyMarkets || []).some(f => f.status === 'OPEN');
+            return (
+            <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden mb-2">
               <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                  <div className={`w-5 h-5 ${hasOpenFancy ? 'bg-[#00c766] animate-pulse' : 'bg-gray-400'} rounded-full flex items-center justify-center shrink-0 shadow-sm`}>
                     <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                   </div>
                   <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
@@ -1698,6 +1775,7 @@ export default function MatchDetailAdminView({
               <div className="divide-y divide-gray-100">
                 {fancyMarkets.map((fancy, fIdx) => {
                   const isSuspended = fancy.status === 'SUSPENDED';
+                  const isManuallyHeld = fancy.manualHold || (fancy.reasons && fancy.reasons.includes('MANUAL'));
                   return (
                     <div key={fIdx} className="relative flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
                       <div className="flex flex-col flex-1 min-w-0 pr-2">
@@ -1705,11 +1783,36 @@ export default function MatchDetailAdminView({
                         {renderFancyExposure(fancy.name)}
                       </div>
                       {isSuspended ? (
-                        <div className="flex shrink-0 w-28 sm:w-32 items-center justify-center py-2 bg-gray-50/50">
-                          <span className="text-[#dc2626] font-black text-[12px] tracking-wider">SUSPENDED</span>
+                        <div className="flex shrink-0 items-center gap-2 py-1 px-2 bg-gray-50 rounded">
+                          <div className="flex flex-col items-end">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[#dc2626] font-black text-[12px] tracking-wider">SUSPENDED</span>
+                              <span className="bg-red-100 text-[#b91c1c] border border-red-200 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase">
+                                {fancy.topReason || fancy.reasons?.[0] || 'SUSPENDED'}
+                              </span>
+                            </div>
+                            {fancy.statusSince && (
+                              <span className="text-[10px] text-gray-500 font-medium">{formatTimeSince(fancy.statusSince)}</span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleToggleManualHold(fancy.name, isManuallyHeld)}
+                            className={`px-2 py-1 text-[10px] font-black rounded uppercase tracking-wider transition-all cursor-pointer shadow-xs ${
+                              isManuallyHeld ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-red-600 hover:bg-red-700 text-white'
+                            }`}
+                          >
+                            {isManuallyHeld ? 'Clear' : 'Hold'}
+                          </button>
                         </div>
                       ) : (
-                        <div className="flex shrink-0">
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <button
+                            onClick={() => handleToggleManualHold(fancy.name, false)}
+                            title="Trader Manual Suspend Kill Switch"
+                            className="px-1.5 py-1 text-[10px] font-black rounded uppercase tracking-wider bg-gray-200 hover:bg-red-600 hover:text-white text-gray-700 transition-all cursor-pointer"
+                          >
+                            Hold
+                          </button>
                           <div className="w-14 sm:w-16 flex flex-col items-center justify-center py-1.5 bg-[#bbd9f9] border-r border-white/40">
                             <span className="text-[14px] font-black leading-none text-[#1c3246]">{fancy.backPrice ?? '-'}</span>
                             <span className="text-[9px] font-bold mt-1 text-gray-600">{fancy.backVol || '100'}</span>
@@ -1725,14 +1828,17 @@ export default function MatchDetailAdminView({
                 })}
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* ══════════ SECTION 7: EVEN / ODD MARKET ══════════ */}
-          {(isShowAll || selectedMarketType === "Even-Odd") && (
-            <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
+          {(isShowAll || selectedMarketType === "Even-Odd") && (() => {
+            const hasOpenEvenOdd = (evenOddMarkets || []).some(eo => eo.status === 'OPEN');
+            return (
+            <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden mb-2">
               <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 bg-[#00c766] rounded-full flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                  <div className={`w-5 h-5 ${hasOpenEvenOdd ? 'bg-[#00c766] animate-pulse' : 'bg-gray-400'} rounded-full flex items-center justify-center shrink-0 shadow-sm`}>
                     <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                   </div>
                   <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
@@ -1749,6 +1855,7 @@ export default function MatchDetailAdminView({
               <div className="divide-y divide-gray-100">
                 {evenOddMarkets.map((eoMarket, eoIdx) => {
                   const isSuspended = eoMarket.status === 'SUSPENDED';
+                  const isManuallyHeld = eoMarket.manualHold || (eoMarket.reasons && eoMarket.reasons.includes('MANUAL'));
                   return (
                     <div key={eoIdx} className="relative flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
                       <div className="flex flex-col flex-1 min-w-0 pr-2">
@@ -1756,11 +1863,36 @@ export default function MatchDetailAdminView({
                         {renderFancyExposure(eoMarket.name)}
                       </div>
                       {isSuspended ? (
-                        <div className="flex shrink-0 w-28 sm:w-32 items-center justify-center py-2 bg-gray-50/50">
-                          <span className="text-[#dc2626] font-black text-[12px] tracking-wider">SUSPENDED</span>
+                        <div className="flex shrink-0 items-center gap-2 py-1 px-2 bg-gray-50 rounded">
+                          <div className="flex flex-col items-end">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[#dc2626] font-black text-[12px] tracking-wider">SUSPENDED</span>
+                              <span className="bg-red-100 text-[#b91c1c] border border-red-200 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase">
+                                {eoMarket.topReason || eoMarket.reasons?.[0] || 'SUSPENDED'}
+                              </span>
+                            </div>
+                            {eoMarket.statusSince && (
+                              <span className="text-[10px] text-gray-500 font-medium">{formatTimeSince(eoMarket.statusSince)}</span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleToggleManualHold(eoMarket.name, isManuallyHeld)}
+                            className={`px-2 py-1 text-[10px] font-black rounded uppercase tracking-wider transition-all cursor-pointer shadow-xs ${
+                              isManuallyHeld ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-red-600 hover:bg-red-700 text-white'
+                            }`}
+                          >
+                            {isManuallyHeld ? 'Clear' : 'Hold'}
+                          </button>
                         </div>
                       ) : (
-                        <div className="flex shrink-0">
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <button
+                            onClick={() => handleToggleManualHold(eoMarket.name, false)}
+                            title="Trader Manual Suspend Kill Switch"
+                            className="px-1.5 py-1 text-[10px] font-black rounded uppercase tracking-wider bg-gray-200 hover:bg-red-600 hover:text-white text-gray-700 transition-all cursor-pointer"
+                          >
+                            Hold
+                          </button>
                           <div className="w-14 sm:w-16 flex flex-col items-center justify-center py-1.5 bg-[#bbd9f9] border-r border-white/40">
                             <span className="text-[14px] font-black leading-none text-[#1c3246]">{eoMarket.backPrice ?? '-'}</span>
                             <span className="text-[9px] font-bold mt-1 text-gray-600">{eoMarket.backVol || '98'}</span>
@@ -1776,7 +1908,8 @@ export default function MatchDetailAdminView({
                 })}
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* ══════════ SECTION 8: TIED MATCH (OTHERS) ══════════ */}
           {(isShowAll || selectedMarketType === "Others") && tiedMatchMarket && (
