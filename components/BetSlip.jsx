@@ -95,11 +95,14 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
     }
 
     setIsSubmitting(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
       const session = JSON.parse(localStorage.getItem('user_session') || '{}');
       const res = await fetch(`${getApiUrl()}/api/user/bet`, {
         method: "POST",
+        signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${session.token}`
@@ -116,25 +119,35 @@ export default function BetSlip({ selection, onClose, type = "back" }) {
         })
       });
 
-      const data = await res.json();
+      clearTimeout(timeoutId);
+
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setErrorMessage(data.error || "Bet not placed to this market");
-        setIsSubmitting(false);
         return;
       }
 
       // Smooth bet execution without popup modal
-      fetchWallet(); // update balance on dashboard
+      if (typeof fetchWallet === 'function') {
+        fetchWallet(); // update balance on dashboard
+      }
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('wallet-updated'));
         window.dispatchEvent(new CustomEvent('bet-placed', { detail: { matchId: selection.matchId } }));
       }
       setStake("");
       setProfitText("- / -");
-      setIsSubmitting(false);
-      onClose(); // Cleanly close betslip immediately without showing popup
+      if (typeof onClose === 'function') {
+        onClose(); // Cleanly close betslip immediately
+      }
     } catch (err) {
-      setErrorMessage("Connection error reaching server.");
+      if (err.name === 'AbortError') {
+        setErrorMessage("Request timed out. Please check if server is running.");
+      } else {
+        setErrorMessage(err.message || "Connection error reaching server.");
+      }
+    } finally {
+      clearTimeout(timeoutId);
       setIsSubmitting(false);
     }
   };
