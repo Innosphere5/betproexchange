@@ -42,6 +42,30 @@ export default function DashboardContent() {
         return tA.includes('pakistan') || tB.includes('pakistan') || tA.includes('india') || tB.includes('india');
       });
     }
+    if (activeCricketFilter === "TEST") {
+      return cricketMatches.filter(m => {
+        const str = `${m.league || ''} ${m.teamA || ''} ${m.teamB || ''}`.toLowerCase();
+        return Boolean(m.isTestMatch || m.backOddsDraw != null || /\b(test|ashes|border gavaskar|wtc|sheffield|ranji|first class|first-class)\b/i.test(str));
+      });
+    }
+    if (activeCricketFilter === "ODI") {
+      return cricketMatches.filter(m => {
+        const str = `${m.league || ''} ${m.teamA || ''} ${m.teamB || ''}`.toLowerCase();
+        return /\b(odi|one day|one-day|cwc|world cup|champions trophy)\b/i.test(str);
+      });
+    }
+    if (activeCricketFilter === "T20") {
+      return cricketMatches.filter(m => {
+        const str = `${m.league || ''} ${m.teamA || ''} ${m.teamB || ''}`.toLowerCase();
+        return !/\b(t10|ten10|t-10)\b/i.test(str) && /\b(t20|t20i|twenty20|ipl|psl|bbl|cpl|hundred|sa20|ilt20|mlc|wpl|blast|smash)\b/i.test(str);
+      });
+    }
+    if (activeCricketFilter === "T10") {
+      return cricketMatches.filter(m => {
+        const str = `${m.league || ''} ${m.teamA || ''} ${m.teamB || ''}`.toLowerCase();
+        return /\b(t10|ten10|t-10|10-over|ecs|ecl|max 60|max60)\b/i.test(str);
+      });
+    }
     if (activeCricketFilter === "INTERNATIONAL") {
       return cricketMatches.filter(m => {
         const tA = (m.teamA || '').toLowerCase();
@@ -182,13 +206,17 @@ export default function DashboardContent() {
                   )}
                 </div>
 
-                {/* 🏏 BPExch Category Tabs: All / Pakistan & India / Live / International */}
+                {/* 🏏 BPExch Category Tabs: All / Test / ODI / T20 / T10 / Live / Pak & Ind */}
                 <div className="flex items-center gap-1.5 px-3 py-2 bg-[#1c3246] border-b border-[#3b546b] overflow-x-auto no-scrollbar">
                   {[
                     { id: "ALL", label: "All Matches" },
-                    { id: "PAK_IND", label: "🇵🇰 Pakistan & 🇮🇳 India" },
+                    { id: "TEST", label: "🏏 Test Matches" },
+                    { id: "ODI", label: "🏏 ODI" },
+                    { id: "T20", label: "🏏 T20" },
+                    { id: "T10", label: "⚡ T10 League" },
                     { id: "LIVE", label: "🔴 In-Play (Live)" },
-                    { id: "INTERNATIONAL", label: "🏏 International (ODI / T20 / Test)" }
+                    { id: "PAK_IND", label: "🇵🇰 Pakistan & 🇮🇳 India" },
+                    { id: "INTERNATIONAL", label: "🌍 International" }
                   ].map((tab) => (
                     <button
                       key={tab.id}
@@ -325,43 +353,36 @@ export default function DashboardContent() {
                   </div>
                 </div>
 
-                {/* Desktop Odds - Hidden on small mobile if needed, but keeping unified for now */}
-                <div className="flex items-center w-36 lg:w-48 shrink-0">
-                  <div className="flex-1 text-center font-black text-[12px] text-[#ff6b00] opacity-80">{row.volume || "Matched"}</div>
-                  <div className="flex gap-1">
-                    {(() => {
-                      const startTime = new Date(row.startTime);
-                      const now = new Date();
-                      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                      const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
-                      const isToday = startTime >= todayStart && startTime < todayEnd;
-                      const isLive = row.status === 'live';
-                      
-                      if (isLive || isToday) {
-                        return (
-                          <>
-                            <div className="w-8 h-8 rounded-sm bg-[#bbd9f9] border border-[#bbd9f9]/20 flex items-center justify-center text-[#1c3246] text-[11px] font-black">
-                              {row.backOddsA || "-"}
-                            </div>
-                            <div className="w-8 h-8 rounded-sm bg-[#f8c9d4] border border-[#f8c9d4]/20 flex items-center justify-center text-[#1c3246] text-[11px] font-black">
-                              {row.layOddsA || "-"}
-                            </div>
-                          </>
-                        );
-                      } else {
-                        return (
-                          <>
-                            <div className="w-8 h-8 rounded-sm bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400 text-[11px] font-black">
-                              -
-                            </div>
-                            <div className="w-8 h-8 rounded-sm bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400 text-[11px] font-black">
-                              -
-                            </div>
-                          </>
-                        );
-                      }
-                    })()}
-                  </div>
+                {/* Desktop Odds - Exactly matching columns ["Matched", "1", "X", "2"] */}
+                <div className="flex items-center w-48 justify-between shrink-0 text-center pr-2 lg:pr-10">
+                  <div className="w-16 text-center font-black text-[12px] text-[#ff6b00] opacity-80">{row.volume || "Matched"}</div>
+                  {(() => {
+                    const startTime = new Date(row.startTime);
+                    const now = new Date();
+                    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+                    const isToday = startTime >= todayStart && startTime < todayEnd;
+                    const isLive = row.status === 'live';
+                    const showOdds = isLive || isToday || row.backOddsA;
+                    const isTest = Boolean(row.isTestMatch || row.backOddsDraw != null || (row.league && /\b(test|sheffield|ranji|first-class)\b/i.test(row.league)));
+
+                    return (
+                      <>
+                        {/* 1: Team A Back */}
+                        <div className={`w-8 h-8 rounded-sm flex items-center justify-center text-[11px] font-black ${showOdds && row.backOddsA ? 'bg-[#bbd9f9] border border-[#bbd9f9]/20 text-[#1c3246]' : 'bg-gray-100 border border-gray-200 text-gray-400'}`}>
+                          {showOdds ? (row.backOddsA || "-") : "-"}
+                        </div>
+                        {/* X: Draw Back (Shown for Test matches, otherwise '-') */}
+                        <div className={`w-8 h-8 rounded-sm flex items-center justify-center text-[11px] font-black ${isTest && showOdds && row.backOddsDraw ? 'bg-[#bbd9f9] border border-[#bbd9f9]/20 text-[#1c3246]' : 'bg-gray-100 border border-gray-200 text-gray-400'}`}>
+                          {isTest && showOdds ? (row.backOddsDraw || "-") : "-"}
+                        </div>
+                        {/* 2: Team B Back */}
+                        <div className={`w-8 h-8 rounded-sm flex items-center justify-center text-[11px] font-black ${showOdds && row.backOddsB ? 'bg-[#bbd9f9] border border-[#bbd9f9]/20 text-[#1c3246]' : 'bg-gray-100 border border-gray-200 text-gray-400'}`}>
+                          {showOdds ? (row.backOddsB || "-") : "-"}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             )}

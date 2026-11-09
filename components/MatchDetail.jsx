@@ -599,6 +599,12 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
 
   const matchName = `${actualMatch.teamA} v ${actualMatch.teamB}`;
 
+  const isTestMatch = Boolean(
+    actualMatch.isTestMatch || 
+    actualMatch.backOddsDraw != null || 
+    (actualMatch.league && /\b(test|test match|sheffield|ranji|first-class|first class|4-day|5-day)\b/i.test(actualMatch.league))
+  );
+
   const runners = [
     { 
       name: actualMatch.teamA, 
@@ -617,6 +623,22 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
       flash: { back: flash.backB, lay: flash.layB }
     }
   ];
+
+  const derivedDrawBack = actualMatch.backOddsDraw || (isTestMatch && actualMatch.backOddsA > 1 && actualMatch.backOddsB > 1
+    ? Number((1 / Math.max(0.01, 1.02 - (1 / actualMatch.backOddsA + 1 / actualMatch.backOddsB))).toFixed(2))
+    : null);
+  const derivedDrawLay = actualMatch.layOddsDraw || (derivedDrawBack ? Number((derivedDrawBack + 0.02).toFixed(2)) : null);
+
+  if (isTestMatch) {
+    runners.push({
+      name: "The Draw",
+      back: showOdds ? (derivedDrawBack || "-") : "-",
+      backVol: showOdds ? (actualMatch.depthBackDraw || "100") : "0",
+      lay: showOdds ? (derivedDrawLay || "-") : "-",
+      layVol: showOdds ? (actualMatch.depthLayDraw || "100") : "0",
+      flash: { back: flash.backDraw, lay: flash.layDraw }
+    });
+  }
 
   // Real cricket logic: if match is live, completed, or toss settled, Toss is closed
   const isUpcomingFutureMatch = actualMatch?.status === 'upcoming' && actualMatch?.startTime && new Date(actualMatch.startTime) > new Date() && !actualMatch?.tossWinner;
@@ -649,6 +671,8 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   const bmLayOddsA = actualMatch.bookmakerLayA || (showOdds && actualMatch.layOddsA ? Number((actualMatch.layOddsA > (actualMatch.backOddsA || 0) ? actualMatch.layOddsA + 0.01 : (actualMatch.backOddsA || 0) + 0.02).toFixed(2)) : null);
   const bmBackOddsB = actualMatch.bookmakerBackB || (showOdds && actualMatch.backOddsB ? Number((actualMatch.backOddsB >= 2 ? actualMatch.backOddsB - 0.02 : actualMatch.backOddsB).toFixed(2)) : null);
   const bmLayOddsB = actualMatch.bookmakerLayB || (showOdds && actualMatch.layOddsB ? Number((actualMatch.layOddsB >= 2 ? actualMatch.layOddsB + 0.02 : actualMatch.layOddsB + 0.02).toFixed(2)) : null);
+  const bmBackOddsDraw = actualMatch.bookmakerBackDraw || (showOdds ? actualMatch.backOddsDraw : null);
+  const bmLayOddsDraw = actualMatch.bookmakerLayDraw || (showOdds && actualMatch.layOddsDraw ? Number((actualMatch.layOddsDraw > (actualMatch.backOddsDraw || 0) ? actualMatch.layOddsDraw + 0.01 : (actualMatch.backOddsDraw || 0) + 0.02).toFixed(2)) : null);
 
   const isBookmakerSuspended = actualMatch.bookmakerMarketStatus === 'SUSPENDED' || (actualMatch.marketStatus && actualMatch.marketStatus !== 'OPEN') || (!bmBackOddsA && !bmBackOddsB);
 
@@ -670,6 +694,17 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
       flash: { back: flash.backB, lay: flash.layB }
     }
   ];
+
+  if (isTestMatch) {
+    bookmakerRunners.push({
+      name: "The Draw",
+      back: bmBackOddsDraw || "-",
+      backVol: actualMatch.bookmakerDepthBackDraw || "100",
+      lay: bmLayOddsDraw || "-",
+      layVol: actualMatch.bookmakerDepthLayDraw || "100",
+      flash: { back: flash.backDraw, lay: flash.layDraw }
+    });
+  }
 
   return (
     <div className="flex flex-col bg-[#eaedf1] h-full pb-6 lg:pb-0 font-sans">
