@@ -99,12 +99,8 @@ export default function AviatorXPage() {
       const res = await fetch(`${getApiUrl()}/api/aviatorx/state`);
       if (res.ok) {
         const data = await res.json();
-        if (data && data.phase && data.phase !== 'INIT') {
-          setPhase(data.phase);
-          if (data.multiplier) setMultiplier(data.multiplier);
-          if (data.timer !== undefined) setTimer(data.timer);
-          if (data.roundId) setRoundId(data.roundId);
-          if (data.history) setHistory(data.history);
+        if (data && data.phase && data.phase !== 'INIT' && data.phase !== 'LOADING') {
+          setRound(prev => ({ ...prev, ...data }));
         }
       }
     } catch (err) {
