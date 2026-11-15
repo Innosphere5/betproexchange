@@ -94,9 +94,28 @@ export default function AviatorXPage() {
     }
   };
 
+  const fetchGameState = async () => {
+    try {
+      const res = await fetch(`${getApiUrl()}/api/aviatorx/state`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.phase && data.phase !== 'INIT') {
+          setPhase(data.phase);
+          if (data.multiplier) setMultiplier(data.multiplier);
+          if (data.timer !== undefined) setTimer(data.timer);
+          if (data.roundId) setRoundId(data.roundId);
+          if (data.history) setHistory(data.history);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch aviatorx live state:", err);
+    }
+  };
+
   useEffect(() => {
     fetchHistory();
     fetchActiveBets();
+    fetchGameState();
   }, []);
 
   // WebSockets Synchronization

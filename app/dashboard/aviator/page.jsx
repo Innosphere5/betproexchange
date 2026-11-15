@@ -61,6 +61,20 @@ export default function AviatorPage() {
     }
   };
 
+  const fetchGameState = async () => {
+    try {
+      const res = await fetch(`${getApiUrl()}/api/aviator/state`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.phase && data.phase !== 'INIT') {
+          setGameState(data);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load live state:", e);
+    }
+  };
+
   const handleStartGame = () => {
     setIsGameStarted(true);
     if (socket?.connected) {
@@ -69,6 +83,7 @@ export default function AviatorPage() {
     }
     fetchActiveBets();
     fetchHistory();
+    fetchGameState();
   };
 
   const handleLeaveGame = () => {
@@ -80,6 +95,7 @@ export default function AviatorPage() {
 
   useEffect(() => {
     fetchHistory();
+    fetchGameState();
   }, []);
 
   // WebSockets Synchronization Listener - active only when user has tapped to play!
