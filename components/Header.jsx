@@ -77,7 +77,10 @@ export default function Header({ setIsSidebarOpen, onDashboardClick, selectedMat
     } catch (e) {}
 
     fetchExposure();
-    const interval = setInterval(fetchExposure, 5000);
+    // ⚡ PERF: increased from 5s → 30s. Exposure only changes when a bet is placed/settled.
+    // The 'bet-placed' and 'wallet-updated' window events trigger an immediate refresh anyway,
+    // so the interval is only a background safety-net and can be much longer.
+    const interval = setInterval(fetchExposure, 30000);
     const handleUpdate = () => fetchExposure();
     window.addEventListener('bet-placed', handleUpdate);
     window.addEventListener('wallet-updated', handleUpdate);

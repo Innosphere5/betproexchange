@@ -10,6 +10,14 @@ export default function AviatorBetPanel() {
   const { walletBalance, fetchWallet } = useDashboard();
   const [errorMsg, setErrorMsg] = useState("");
 
+  // Auto-clear error messages after 5 seconds
+  useEffect(() => {
+    if (errorMsg) {
+      const timer = setTimeout(() => setErrorMsg(""), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMsg]);
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 w-full">
       <SingleBetSlot
@@ -59,7 +67,9 @@ function SingleBetSlot({
 }) {
   const [stakeInput, setStakeInput] = useState("100");
   const [autoCashoutInput, setAutoCashoutInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [isPlacing, setIsPlacing] = useState(false);
+  const [isCashingOut, setIsCashingOut] = useState(false);
+  const [queuedBet, setQueuedBet] = useState(false);
 
   const getAuthToken = () => {
     if (typeof window !== 'undefined') {
@@ -75,14 +85,24 @@ function SingleBetSlot({
     return null;
   };
 
-  // Auto reset input if bet status goes from settled to NONE
+  // Auto reset loading when bet status or phase changes
   useEffect(() => {
-    if (betState.status === 'NONE') {
-      setLoading(false);
+    setIsPlacing(false);
+    if (phase !== 'FLYING') {
+      setIsCashingOut(false);
     }
-  }, [betState.status]);
+  }, [betState.status, phase]);
+
+  // Auto-place queued bet when phase enters BETTING
+  useEffect(() => {
+    if (phase === 'BETTING' && queuedBet) {
+      setQueuedBet(false);
+      handlePlaceBet();
+    }
+  }, [phase]);
 
   const handlePlaceBet = async () => {
+    if (isPlacing) return;
     setErrorMsg("");
     const stake = parseFloat(stakeInput);
     if (isNaN(stake) || stake < 10) {
@@ -100,8 +120,11 @@ function SingleBetSlot({
       return;
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     try {
-      setLoading(true);
+      setIsPlacing(true);
       const res = await fetch(`${getApiUrl()}/api/aviator/bet`, {
         method: "POST",
         headers: {
@@ -112,7 +135,8 @@ function SingleBetSlot({
           betSlot: slot,
           stake,
           autoCashoutMultiplier: autoCashoutInput ? parseFloat(autoCashoutInput) : null
-        })
+        }),
+        signal: controller.signal
       });
 
       const data = await res.json();
@@ -122,39 +146,62 @@ function SingleBetSlot({
 
       setUserBetPlaced(slot, stake, autoCashoutInput);
       fetchWallet();
-      setLoading(false);
     } catch (err) {
-      setErrorMsg(err.message);
-      setLoading(false);
+      if (err.name === 'AbortError') {
+        setErrorMsg("Request timed out. Please try again.");
+      } else {
+        setErrorMsg(err.message || "Failed to place bet");
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      setIsPlacing(false);
     }
   };
 
   const handleCashout = async () => {
+    if (isCashingOut) return;
     setErrorMsg("");
     const token = getAuthToken();
     if (!token) return;
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     try {
-      setLoading(true);
+      setIsCashingOut(true);
       const res = await fetch(`${getApiUrl()}/api/aviator/cashout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
-        body: JSON.stringify({ betSlot: slot })
+        body: JSON.stringify({ betSlot: slot }),
+        signal: controller.signal
       });
 
       const data = await res.json();
       if (!res.ok) {
+        await fetchWallet();
+        if (data.error && (data.error.includes("already") || data.error.includes("not found"))) {
+          return;
+        }
         throw new Error(data.error || "Cashout failed");
       }
 
       setUserCashoutSuccess(slot, data.multiplier, data.payout);
-      fetchWallet();
+      await fetchWallet();
     } catch (err) {
-      setErrorMsg(err.message);
-      setLoading(false);
+      if (!err.message?.includes("Active bet not found") && !err.message?.includes("already")) {
+        if (err.name === 'AbortError') {
+          setErrorMsg("Cashout timed out. Please verify your balance.");
+        } else {
+          setErrorMsg(err.message);
+        }
+      }
+      await fetchWallet();
+    } finally {
+      clearTimeout(timeoutId);
+      setIsCashingOut(false);
     }
   };
 
@@ -193,10 +240,12 @@ function SingleBetSlot({
         return (
           <button
             onClick={handleCashout}
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-600 hover:to-yellow-500 text-black py-4 px-6 rounded-xl font-black uppercase tracking-wider text-sm flex flex-col items-center justify-center transition-all duration-300 shadow-[0_0_20px_rgba(245,158,11,0.4)] animate-pulse"
+            disabled={isCashingOut}
+            className="w-full bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-600 hover:to-yellow-500 text-black py-4 px-6 rounded-xl font-black uppercase tracking-wider text-sm flex flex-col items-center justify-center transition-all duration-300 shadow-[0_0_20px_rgba(245,158,11,0.4)] animate-pulse cursor-pointer"
           >
-            <span className="text-[11px] font-bold text-black/70">CASHOUT SLOT {slot}</span>
+            <span className="text-[11px] font-bold text-black/70">
+              {isCashingOut ? "CASHING OUT..." : `CASHOUT SLOT ${slot}`}
+            </span>
             <span className="text-xl font-black">{potentialProfit.toFixed(2)} USD</span>
           </button>
         );
@@ -236,21 +285,58 @@ function SingleBetSlot({
       );
     }
 
-    // Default: Place Bet
-    const isBettingDisabled = phase !== 'BETTING' || loading;
+    // Default: Place Bet or Queue Bet
+    if (phase !== 'BETTING' && phase !== 'IDLE') {
+      if (queuedBet) {
+        return (
+          <button
+            onClick={() => setQueuedBet(false)}
+            className="w-full py-4 px-6 rounded-xl font-black uppercase tracking-wider text-base transition-all duration-300 flex flex-col items-center justify-center shadow-lg bg-red-600 hover:bg-red-700 text-white cursor-pointer"
+          >
+            <span>CANCEL QUEUE</span>
+            <span className="text-[10px] font-semibold text-red-200 opacity-90 mt-0.5">
+              Queued for Next Flight (${stakeInput} USD)
+            </span>
+          </button>
+        );
+      } else {
+        return (
+          <button
+            onClick={() => setQueuedBet(true)}
+            className="w-full py-4 px-6 rounded-xl font-black uppercase tracking-wider text-base transition-all duration-300 flex flex-col items-center justify-center shadow-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+          >
+            <span>BET (NEXT ROUND)</span>
+            <span className="text-[10px] font-semibold text-blue-200 opacity-90 mt-0.5">
+              Queue Bet (${stakeInput} USD)
+            </span>
+          </button>
+        );
+      }
+    }
+
+    // Active BETTING or IDLE phase
     return (
       <button
         onClick={handlePlaceBet}
-        disabled={isBettingDisabled}
+        disabled={isPlacing}
         className={`w-full py-4 px-6 rounded-xl font-black uppercase tracking-wider text-base transition-all duration-300 flex flex-col items-center justify-center shadow-lg
-          ${isBettingDisabled 
+          ${isPlacing 
             ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700/50' 
-            : 'bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white hover:scale-[1.02] shadow-[0_0_15px_rgba(16,185,129,0.25)]'}`}
+            : 'bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white hover:scale-[1.02] shadow-[0_0_15px_rgba(16,185,129,0.25)] cursor-pointer'}`}
       >
-        <span>BET</span>
-        <span className="text-[10px] font-semibold text-emerald-100 opacity-80 mt-0.5">
-          {phase === 'BETTING' ? 'Place on Next Round' : 'Waiting for betting phase'}
-        </span>
+        {isPlacing ? (
+          <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        ) : (
+          <>
+            <span>BET</span>
+            <span className="text-[10px] font-semibold text-emerald-100 opacity-90 mt-0.5">
+              {phase === 'BETTING' ? `Place Bet ($${stakeInput} USD)` : `Start Flight ($${stakeInput} USD)`}
+            </span>
+          </>
+        )}
       </button>
     );
   };

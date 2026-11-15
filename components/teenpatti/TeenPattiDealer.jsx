@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import TeenPattiCard from "./TeenPattiCard";
 import { Sparkles, Trophy } from "lucide-react";
+import { soundFX } from "../../lib/casinoSoundFX";
 
 export default function TeenPattiDealer({ round, history }) {
   const { status, timer, cards, handNames } = round;
@@ -15,7 +16,7 @@ export default function TeenPattiDealer({ round, history }) {
   const [winnerHighlight, setWinnerHighlight] = useState(null);
 
   useEffect(() => {
-    if (status !== "RESULT_DECLARED") {
+    if (status === "DEALING" || status === "BETTING_OPEN") {
       setRevealedA([false, false, false]);
       setRevealedB([false, false, false]);
       setShowRankA(false);
@@ -24,38 +25,40 @@ export default function TeenPattiDealer({ round, history }) {
       return;
     }
 
-    // Sync immediate reveal if reconnected or page refreshed mid-reveal
-    if (timer <= 6) {
+    if (status === "BETTING_CLOSED") {
+      const timeouts = [];
+      // Progressive reveal timeline during the 4-second suspense window
+      timeouts.push(setTimeout(() => { setRevealedA([true, false, false]); soundFX.playCardFlip(); }, 300));
+      timeouts.push(setTimeout(() => { setRevealedB([true, false, false]); soundFX.playCardFlip(); }, 800));
+      timeouts.push(setTimeout(() => { setRevealedA([true, true, false]); soundFX.playCardFlip(); }, 1400));
+      timeouts.push(setTimeout(() => { setRevealedB([true, true, false]); soundFX.playCardFlip(); }, 1900));
+      timeouts.push(setTimeout(() => { setRevealedA([true, true, true]); soundFX.playCardFlip(); }, 2500));
+      timeouts.push(setTimeout(() => { setRevealedB([true, true, true]); soundFX.playCardFlip(); }, 3000));
+      timeouts.push(setTimeout(() => { setShowRankA(true); setShowRankB(true); soundFX.playChipClick(); }, 3400));
+
+      return () => {
+        timeouts.forEach(t => clearTimeout(t));
+      };
+    }
+
+    if (status === "RESULT_DECLARED") {
       setRevealedA([true, true, true]);
       setRevealedB([true, true, true]);
       setShowRankA(true);
       setShowRankB(true);
       setWinnerHighlight(round.result);
-      return;
+      soundFX.playWinChime();
     }
+  }, [status, round.result, round.roundId]);
 
-    // Timeline progressive reveal sequence
-    const timeouts = [];
-
-    // Player A progressive reveal
-    timeouts.push(setTimeout(() => setRevealedA(r => [true, r[1], r[2]]), 300));
-    timeouts.push(setTimeout(() => setRevealedA(r => [r[0], true, r[2]]), 600));
-    timeouts.push(setTimeout(() => setRevealedA(r => [r[0], r[1], true]), 900));
-    timeouts.push(setTimeout(() => setShowRankA(true), 1300));
-
-    // Player B progressive reveal
-    timeouts.push(setTimeout(() => setRevealedB(r => [true, r[1], r[2]]), 1800));
-    timeouts.push(setTimeout(() => setRevealedB(r => [r[0], true, r[2]]), 2100));
-    timeouts.push(setTimeout(() => setRevealedB(r => [r[0], r[1], true]), 2400));
-    timeouts.push(setTimeout(() => setShowRankB(true), 2800));
-
-    // Winner Highlight
-    timeouts.push(setTimeout(() => setWinnerHighlight(round.result), 3300));
-
-    return () => {
-      timeouts.forEach(t => clearTimeout(t));
-    };
-  }, [status, round.result, round.roundId, timer]);
+  // Card dealing sounds
+  useEffect(() => {
+    if (status === "DEALING") {
+      const delays = [100, 250, 400, 550, 700, 850];
+      const timers = delays.map(d => setTimeout(() => soundFX.playCardFlip(), d));
+      return () => timers.forEach(t => clearTimeout(t));
+    }
+  }, [status, round?.roundId]);
 
   // Show card slots when game is running (any status except LOADING)
   const isGameRunning = status && status !== "LOADING";

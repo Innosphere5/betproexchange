@@ -107,8 +107,42 @@ export default function DashboardLayout({ children }) {
   useEffect(() => {
     fetchWallet();
 
-    const socket = io(getApiUrl(), { transports: ["websocket", "polling"] });
+    // ─── Socket.IO connection configuration ──────────────────────────────────
+    // Uses polling with automatic WebSocket upgrade when available (fastest on localhost & supported hosting).
+    const socket = io(getApiUrl(), {
+      transports: ['polling', 'websocket'],
+      reconnection: true,              // auto-reconnect on drop
+      reconnectionAttempts: Infinity,  // keep trying forever
+      reconnectionDelay: 1000,         // start retrying after 1 s
+      reconnectionDelayMax: 5000,      // cap retry interval at 5 s
+      randomizationFactor: 0.3,        // jitter to prevent thundering herd
+      timeout: 15000,                  // 15 s connection timeout
+      forceNew: false                  // reuse existing connection when possible
+    });
     setSocketInstance(socket);
+
+    // ─── Diagnostic event listeners ───────────────────────────────────────
+    // These do not block the UI — they only log to the browser console so
+    // production issues can be debugged without touching user-facing logic.
+    socket.on('connect', () => {
+      console.log('[Socket] ✅ Connected. Transport:', socket.io.engine.transport.name);
+    });
+
+    socket.on('connect_error', (err) => {
+      console.warn('[Socket] ⚠️ connect_error:', err.message);
+    });
+
+    socket.io.on('reconnect', (attempt) => {
+      console.log('[Socket] 🔁 Reconnected after', attempt, 'attempt(s)');
+    });
+
+    socket.io.on('reconnect_attempt', (attempt) => {
+      console.log('[Socket] ↻ Reconnect attempt #', attempt);
+    });
+
+    socket.io.on('reconnect_error', (err) => {
+      console.warn('[Socket] ✗ Reconnect error:', err.message);
+    });
 
     socket.on('bet_notification', (data) => {
         setNotification(data);
@@ -122,7 +156,9 @@ export default function DashboardLayout({ children }) {
 
     socket.on('wallet_updated', (data) => {
         const session = JSON.parse(localStorage.getItem('user_session') || '{}');
-        if (data.userId === session.username) {
+        const sessionUsername = session.username?.toLowerCase();
+        const eventUsername = data.userId?.toLowerCase();
+        if (sessionUsername && eventUsername && sessionUsername === eventUsername) {
             setWalletBalance(data.balance);
             setCreditBalance(data.credit || 0);
         }
@@ -425,11 +461,20 @@ export default function DashboardLayout({ children }) {
   // Restore match if URL already has ?match= on initial load or refresh
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const url = new URL(window.location.href);
-    const matchParam = url.searchParams.get("match");
-    if (matchParam) {
-      setSelectedMatchId(matchParam);
-      setCurrentView("match");
+    if (pathname === "/dashboard" || pathname === "/") {
+      const url = new URL(window.location.href);
+      const matchParam = url.searchParams.get("match");
+      if (matchParam) {
+        setSelectedMatchId(matchParam);
+        setCurrentView("match");
+      } else {
+        setSelectedMatchId(null);
+        setCurrentView("home");
+      }
+    } else {
+      // Sub-pages like /dashboard/aviator, /dashboard/casino, /dashboard/teenpatti
+      setSelectedMatchId(null);
+      setCurrentView("home");
     }
   }, [pathname]);
 

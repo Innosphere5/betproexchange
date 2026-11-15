@@ -10,7 +10,13 @@ import ProvablyFairModal from "../../../components/aviatorx/ProvablyFairModal";
 
 export default function AviatorXPage() {
   const { socket, walletBalance, fetchWallet } = useDashboard();
-  const [isConnected, setIsConnected] = useState(socket ? socket.connected : false);
+
+  // ─── Connection state ─────────────────────────────────────────────────────
+  // Start optimistically as "connected" so the overlay never flashes on mount.
+  // The overlay is only shown after an actual `disconnect` event is received,
+  // which means the connection was established and then dropped — not merely
+  // "not yet connected during the first render cycle".
+  const [isConnected, setIsConnected] = useState(true);
   
   const [round, setRound] = useState({
     roundId: null,
@@ -30,8 +36,25 @@ export default function AviatorXPage() {
   
   const [selectedRound, setSelectedRound] = useState(null);
   const [isVerifierOpen, setIsVerifierOpen] = useState(false);
-  const [joined, setJoined] = useState(false);
+  const [joined, setJoined] = useState(true);
   const [activeTab, setActiveTab] = useState("game"); // "game", "results", "rules"
+
+  const handleStartGame = () => {
+    setJoined(true);
+    if (socket?.connected) {
+      socket.emit('join_aviatorx');
+      socket.emit('aviatorx_ready');
+    }
+    fetchActiveBets();
+    fetchHistory();
+  };
+
+  const handleLeaveGame = () => {
+    if (socket?.connected) {
+      socket.emit('leave_aviatorx');
+    }
+    setJoined(false);
+  };
 
   // Load state and history on initial mount
   const fetchActiveBets = async () => {
@@ -44,7 +67,15 @@ export default function AviatorXPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setActiveBets(data);
+        if (Array.isArray(data)) {
+          setActiveBets(prev => {
+            // If data is empty but we have local PENDING bets, preserve the local bets
+            if (data.length === 0 && prev.some(b => b.status === 'PENDING')) {
+              return prev;
+            }
+            return data.map(b => ({ ...b, betSlot: Number(b.betSlot) }));
+          });
+        }
       }
     } catch (err) {
       console.error("Failed to fetch active bets:", err);
@@ -64,23 +95,25 @@ export default function AviatorXPage() {
   };
 
   useEffect(() => {
-    fetchActiveBets();
     fetchHistory();
-    setJoined(true);
+    fetchActiveBets();
   }, []);
 
   // WebSockets Synchronization
   useEffect(() => {
     if (!socket || !joined) return;
 
-    setIsConnected(socket.connected);
-
-    // Join room
-    socket.emit('join_aviatorx');
+    if (socket.connected) {
+      socket.emit('join_aviatorx');
+      socket.emit('aviatorx_ready');
+      fetchActiveBets();
+      fetchHistory();
+    }
 
     const handleConnect = () => {
       setIsConnected(true);
       socket.emit('join_aviatorx');
+      socket.emit('aviatorx_ready');
       fetchActiveBets();
       fetchHistory();
     };
@@ -91,8 +124,9 @@ export default function AviatorXPage() {
 
     const handleState = (state) => {
       setRound(prev => {
-        // Reset active bets on new betting round
-        if (prev.roundId !== state.roundId) {
+        // Only reset bets if transitioning from one valid round to a different new round
+        const roundChanged = Boolean(prev.roundId && state.roundId && prev.roundId !== state.roundId);
+        if (roundChanged) {
           setActiveBets([]);
           setLiveBets([]);
         }
@@ -108,6 +142,29 @@ export default function AviatorXPage() {
     };
 
     const handleBetPlaced = (data) => {
+      // If it is current user's bet placed on any slot, update local activeBets immediately
+      const session = JSON.parse(localStorage.getItem('user_session') || '{}');
+      const sessionUsername = session.username?.toLowerCase();
+      const eventUsername = data.userId?.toLowerCase();
+      if (sessionUsername && eventUsername && sessionUsername === eventUsername) {
+        const slotNum = Number(data.betSlot);
+        setActiveBets(prev => {
+          const filtered = prev.filter(b => Number(b.betSlot) !== slotNum);
+          return [
+            ...filtered,
+            {
+              betSlot: slotNum,
+              stake: parseFloat(data.stake),
+              autoCashoutMultiplier: data.autoCashoutMultiplier || null,
+              status: 'PENDING',
+              payout: 0,
+              cashoutMultiplier: null
+            }
+          ];
+        });
+        fetchWallet();
+      }
+
       // Add fake/real social players to feed
       setLiveBets(prev => [
         {
@@ -123,9 +180,18 @@ export default function AviatorXPage() {
     const handleCashoutSuccess = (data) => {
       // If it is current user's cashout, refresh wallet and active bets
       const session = JSON.parse(localStorage.getItem('user_session') || '{}');
-      if (data.userId === session.username) {
+      const sessionUsername = session.username?.toLowerCase();
+      const eventUsername = data.userId?.toLowerCase();
+      if (sessionUsername && eventUsername && sessionUsername === eventUsername) {
+        const slotNum = Number(data.betSlot);
+        // Immediately update bet slot status to WON in local state
+        setActiveBets(prev =>
+          prev.map(b => (Number(b.betSlot) === slotNum
+            ? { ...b, status: 'WON', cashoutMultiplier: data.multiplier, payout: data.payout }
+            : b
+          ))
+        );
         fetchWallet();
-        fetchActiveBets();
       }
 
       // Update live social feed
@@ -171,46 +237,105 @@ export default function AviatorXPage() {
     const session = JSON.parse(localStorage.getItem('user_session') || '{}');
     if (!session.token) throw new Error("Please log in first");
 
-    const res = await fetch(`${getApiUrl()}/api/aviatorx/bet`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${session.token}`
-      },
-      body: JSON.stringify({ betSlot: slot, stake, autoCashoutMultiplier })
-    });
-    
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || "Failed to place bet");
-    }
+    const numSlot = Number(slot);
+    const numStake = parseFloat(stake);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    fetchWallet();
-    fetchActiveBets();
-    return data;
+    try {
+      const res = await fetch(`${getApiUrl()}/api/aviatorx/bet`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.token}`
+        },
+        body: JSON.stringify({ betSlot: numSlot, stake: numStake, autoCashoutMultiplier }),
+        signal: controller.signal
+      });
+      
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to place bet");
+      }
+
+      // Optimistically update active bets in local state immediately!
+      const newPlacedBet = {
+        ...(data.bet || {}),
+        betSlot: numSlot,
+        stake: numStake,
+        autoCashoutMultiplier: autoCashoutMultiplier ? parseFloat(autoCashoutMultiplier) : null,
+        status: 'PENDING',
+        payout: 0,
+        cashoutMultiplier: null
+      };
+
+      setActiveBets(prev => [
+        ...prev.filter(b => Number(b.betSlot) !== numSlot),
+        newPlacedBet
+      ]);
+
+      fetchWallet();
+      return data;
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        throw new Error("Request timed out. Please try again.");
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
+    }
   };
 
   const handleCashout = async (slot) => {
     const session = JSON.parse(localStorage.getItem('user_session') || '{}');
     if (!session.token) throw new Error("Please log in first");
 
-    const res = await fetch(`${getApiUrl()}/api/aviatorx/cashout`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${session.token}`
-      },
-      body: JSON.stringify({ betSlot: slot })
-    });
-    
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || "Failed to cash out");
-    }
+    const numSlot = Number(slot);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    fetchWallet();
-    fetchActiveBets();
-    return data;
+    try {
+      const res = await fetch(`${getApiUrl()}/api/aviatorx/cashout`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.token}`
+        },
+        body: JSON.stringify({ betSlot: numSlot }),
+        signal: controller.signal
+      });
+      
+      const data = await res.json();
+      if (!res.ok) {
+        // Sync wallet and active bets so any settled or won bets are displayed correctly
+        await fetchWallet();
+        if (data.error && (data.error.includes("already") || data.error.includes("not found"))) {
+          setActiveBets(prev =>
+            prev.map(b => (Number(b.betSlot) === numSlot ? { ...b, status: 'WON' } : b))
+          );
+          return { success: true, alreadyWon: true };
+        }
+        throw new Error(data.error || "Failed to cash out");
+      }
+
+      // Immediately mark local slot as WON
+      setActiveBets(prev =>
+        prev.map(b => (Number(b.betSlot) === numSlot
+          ? { ...b, status: 'WON', cashoutMultiplier: data.multiplier, payout: data.payout }
+          : b
+        ))
+      );
+      await fetchWallet();
+      return data;
+    } catch (err) {
+      await fetchWallet();
+      if (err.name === 'AbortError') {
+        throw new Error("Request timed out. Please try again.");
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
+    }
   };
 
   const handleVerifyRound = (roundData) => {
@@ -218,12 +343,43 @@ export default function AviatorXPage() {
     setIsVerifierOpen(true);
   };
 
-  // Find active bets for slot 1 and 2
-  const bet1 = activeBets.find(b => b.betSlot === 1);
-  const bet2 = activeBets.find(b => b.betSlot === 2);
+  // Find active bets for slot 1 and 2 (safely matching numbers or string representation)
+  const bet1 = activeBets.find(b => Number(b.betSlot) === 1);
+  const bet2 = activeBets.find(b => Number(b.betSlot) === 2);
 
   return (
-    <div className="min-h-screen bg-[#0c1520] text-white flex flex-col p-4 space-y-4">
+    <div className="min-h-screen bg-[#0c1520] text-white flex flex-col p-4 space-y-4 relative">
+      {/* Ready to Play / Tap to Play Interactive Modal Overlay */}
+      {!joined && (
+        <div className="fixed inset-0 z-50 bg-[#070b12]/90 backdrop-blur-lg flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-[#101726] border-2 border-cyan-500/40 rounded-3xl p-6 sm:p-8 text-center space-y-6 shadow-[0_0_60px_rgba(6,182,212,0.25)]">
+            <div className="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-tr from-cyan-500 via-rose-500 to-purple-600 flex items-center justify-center text-4xl shadow-[0_0_35px_rgba(6,182,212,0.6)] animate-pulse">
+              ✈️
+            </div>
+            <div className="space-y-2">
+              <span className="inline-block px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px] font-black uppercase tracking-widest border border-cyan-500/30">
+                Ready to Play
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-wider text-white">Aviator X</h2>
+              <p className="text-xs text-gray-400 font-medium max-w-sm mx-auto leading-relaxed">
+                Tap to connect to the provably fair engine, place bets, and cash out during high-speed flight!
+              </p>
+            </div>
+            <button
+              onClick={handleStartGame}
+              className="group relative w-full py-4 bg-gradient-to-r from-rose-500 via-rose-600 to-purple-600 hover:from-rose-400 hover:to-purple-500 text-white font-black text-sm sm:text-base uppercase tracking-[0.2em] rounded-2xl shadow-[0_10px_30px_rgba(225,29,72,0.5)] active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-3"
+            >
+              <span className="text-lg">▶</span>
+              <span>Tap to Play</span>
+            </button>
+            <div className="flex gap-2 items-center justify-center text-[10px] text-gray-400 uppercase tracking-widest font-bold">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Live Room Ready
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 🚀 Top Bar: Balance & Seed Hash Info */}
       <div className="flex items-center justify-between bg-[#101b26] border border-white/5 px-4 py-2.5 rounded-2xl shadow-lg shrink-0">
         <div className="flex items-center gap-2.5">
@@ -250,6 +406,15 @@ export default function AviatorXPage() {
         )}
 
         <div className="flex items-center gap-3">
+          {joined && (
+            <button
+              onClick={handleLeaveGame}
+              className="px-3 py-1.5 bg-rose-500/10 border border-rose-500/30 hover:bg-rose-500/20 text-rose-400 text-xs font-bold rounded-xl transition-all cursor-pointer uppercase tracking-wider"
+              title="Pause and exit game"
+            >
+              Leave Game
+            </button>
+          )}
           <div className="flex flex-col items-end">
             <span className="text-[8px] text-gray-500 font-bold uppercase tracking-widest">Balance</span>
             <span className="text-sm font-black text-green-400">
@@ -309,7 +474,7 @@ export default function AviatorXPage() {
           {activeTab === 'game' && (
             <>
               {/* Canvas Rendering Area */}
-              <div className="relative flex-grow min-h-[220px] md:min-h-[350px] bg-[#0c1520]">
+              <div className="relative flex-grow min-h-[220px] md:min-h-[350px] bg-[#0c1520] rounded-2xl overflow-hidden">
                 <AviatorCanvas 
                   phase={round.phase}
                   elapsedMs={round.elapsedMs}
@@ -401,14 +566,14 @@ export default function AviatorXPage() {
                   <p className="text-xs font-bold text-gray-400">
                     Place one or two bets before the plane takes off. The multiplier climbs from 1.00x upwards. 
                     Cash out at any time while the plane is flying to win your stake multiplied by the current value. 
-                    If the plane crashes ("flies away") before you cash out, your bet is lost.
+                    If the plane crashes (&quot;flies away&quot;) before you cash out, your bet is lost.
                   </p>
                 </div>
                 <div className="space-y-4">
                   <h4 className="text-xs font-black text-rose-400 uppercase tracking-wider">2. Auto-Bet & Auto-Cashout</h4>
                   <p className="text-xs font-bold text-gray-400">
-                    Check the "Auto Bet" box to automatically place bets in consecutive rounds using the set stake. 
-                    Check "Auto Cashout" and input a multiplier limit (e.g. 2.00x) to automatically lock in win payouts the moment the flight curve crosses that target.
+                    Check the &quot;Auto Bet&quot; box to automatically place bets in consecutive rounds using the set stake. 
+                    Check &quot;Auto Cashout&quot; and input a multiplier limit (e.g. 2.00x) to automatically lock in win payouts the moment the flight curve crosses that target.
                   </p>
                 </div>
                 <div className="space-y-4">
@@ -416,7 +581,7 @@ export default function AviatorXPage() {
                   <p className="text-xs font-bold text-gray-400">
                     All crash multipliers are generated deterministically prior to round start using HMAC-SHA256. 
                     The operator commits to a seed hash before betting opens. When the round crashes, the secret seed is revealed. 
-                    You can click any recent result badge or row in the "Results" tab to recalculate the outcome independently and verify fairness.
+                    You can click any recent result badge or row in the &quot;Results&quot; tab to recalculate the outcome independently and verify fairness.
                   </p>
                 </div>
                 <div className="space-y-4">

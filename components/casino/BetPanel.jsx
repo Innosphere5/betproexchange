@@ -13,47 +13,47 @@ export default function BetPanel({
    cancelSelection,
    isMobilePopup = false,
    selectedChip = "100",
-   setSelectedChip
+   setSelectedChip,
+   use1Click = true,
+   setUse1Click
 }) {
-  const [use1Click, setUse1Click] = useState(false);
+   // Casino chip denominations
+   const chips = [
+      { val: 10, label: "$10", bg: "from-blue-600 to-blue-800 border-blue-400" },
+      { val: 50, label: "$50", bg: "from-purple-600 to-purple-800 border-purple-400" },
+      { val: 100, label: "$100", bg: "from-emerald-600 to-emerald-800 border-emerald-400" },
+      { val: 500, label: "$500", bg: "from-slate-800 to-slate-950 border-slate-400" },
+      { val: 1000, label: "$1k", bg: "from-amber-500 to-amber-700 border-amber-300" },
+      { val: 5000, label: "$5k", bg: "from-rose-600 to-rose-900 border-rose-400" },
+   ];
 
-  // Casino chip denominations
-  const chips = [
-     { val: 10, label: "$10", bg: "from-blue-600 to-blue-800 border-blue-400" },
-     { val: 50, label: "$50", bg: "from-purple-600 to-purple-800 border-purple-400" },
-     { val: 100, label: "$100", bg: "from-emerald-600 to-emerald-800 border-emerald-400" },
-     { val: 500, label: "$500", bg: "from-slate-800 to-slate-950 border-slate-400" },
-     { val: 1000, label: "$1k", bg: "from-amber-500 to-amber-700 border-amber-300" },
-     { val: 5000, label: "$5k", bg: "from-rose-600 to-rose-900 border-rose-400" },
-  ];
+   const handleChipSelect = (chipVal) => {
+      soundFX.playChipClick();
+      if (setSelectedChip) setSelectedChip(chipVal.toString());
+      setAmount(chipVal.toString());
+   };
 
-  const handleChipSelect = (chipVal) => {
-     soundFX.playChipClick();
-     setSelectedChip(chipVal.toString());
-     setAmount(chipVal.toString());
-  };
+   const handleAddAmount = (addVal) => {
+      soundFX.playChipClick();
+      const current = parseFloat(amount) || 0;
+      setAmount((current + addVal).toString());
+   };
 
-  const handleAddAmount = (addVal) => {
-     soundFX.playChipClick();
-     const current = parseFloat(amount) || 0;
-     setAmount((current + addVal).toString());
-  };
+   const handleDoubleAmount = () => {
+      soundFX.playChipClick();
+      const current = parseFloat(amount) || 0;
+      setAmount((current * 2).toString());
+   };
 
-  const handleDoubleAmount = () => {
-     soundFX.playChipClick();
-     const current = parseFloat(amount) || 0;
-     setAmount((current * 2).toString());
-  };
+   const handleClear = () => {
+      soundFX.playChipClick();
+      setAmount("");
+   };
 
-  const handleClear = () => {
-     soundFX.playChipClick();
-     setAmount("");
-  };
-
-  const oddsMultiplier = selectedChoice === 'A' ? 3.50 : selectedChoice === 'B' ? 2.50 : 1.0;
-  const numericAmount = parseFloat(amount) || 0;
-  const potentialPayout = (numericAmount * oddsMultiplier).toFixed(2);
-  const potentialProfit = (numericAmount * (oddsMultiplier - 1)).toFixed(2);
+   const oddsMultiplier = 1.98;
+   const numericAmount = parseFloat(amount) || 0;
+   const potentialPayout = (numericAmount * oddsMultiplier).toFixed(2);
+   const potentialProfit = (numericAmount * (oddsMultiplier - 1)).toFixed(2);
 
   return (
     <div className="flex flex-col h-full bg-[#080d15] border-l border-slate-800 select-none">

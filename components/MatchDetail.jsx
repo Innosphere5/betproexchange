@@ -14,6 +14,8 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   const [bottomTab, setBottomTab] = useState("scorecard"); // "tv" or "scorecard"
   const [remainingTime, setRemainingTime] = useState("");
   const [keepDisplayOn, setKeepDisplayOn] = useState(false);
+  // Score staleness tracker — seconds since last score update (displayed in live strip)
+  const [scoreAgeSec, setScoreAgeSec] = useState(0);
 
   // Feature 1 & 2 State: Live Matched Bets & Dynamic Exposure
   const [betsData, setBetsData] = useState({
@@ -571,6 +573,21 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
     actualMatch?.tossLayB
   ]);
 
+  // ── Score staleness ticker ─────────────────────────────────────────────────
+  // Updates every second so users can see exactly how old the displayed score is.
+  // Turns amber at 30s, red at 60s — signals upstream OddsPapi source delay.
+  useEffect(() => {
+    const computeAge = () => {
+      const lu = actualMatch?.score?.lastUpdated;
+      if (!lu) { setScoreAgeSec(0); return; }
+      const diff = Math.floor((Date.now() - new Date(lu).getTime()) / 1000);
+      setScoreAgeSec(Math.max(0, diff));
+    };
+    computeAge();
+    const id = setInterval(computeAge, 1000);
+    return () => clearInterval(id);
+  }, [actualMatch?.score?.lastUpdated]);
+
   const handleDeclareTossWinner = async (winner) => {
     if (!window.confirm(`Declare "${winner}" as Toss Winner? This will immediately settle all toss bets.`)) return;
     try {
@@ -797,6 +814,14 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
           const thisOverStr = thisOverList.join(' ');
 
           return (
+            <div>
+              {/* Stale score warning banner — shown when OddsPapi source hasn't updated in >90s */}
+              {scoreAgeSec > 90 && actualMatch?.status === 'live' && (
+                <div className="flex items-center gap-2 px-3 py-1 bg-red-900/80 border-t border-red-500/40 text-red-300 text-[10px] font-bold animate-pulse">
+                  <span>⚠️</span>
+                  <span>SCORE DELAYED — Source last updated {Math.floor(scoreAgeSec / 60)}m {scoreAgeSec % 60}s ago. Live feed may be lagging.</span>
+                </div>
+              )}
             <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-[#0e1f2c] border-t border-white/10 text-white">
               <div className="flex flex-col gap-0.5">
                 <div className="flex items-center gap-3 flex-wrap">
@@ -820,12 +845,27 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                   {Number(rrr) > 0 && (
                     <span className="text-amber-400 font-extrabold">RRR: {rrr}</span>
                   )}
+                  {/* Score staleness indicator — shows when OddsPapi source is delayed */}
+                  {actualMatch?.status === 'live' && (() => {
+                    if (scoreAgeSec <= 10) return null;
+                    const isStale = scoreAgeSec > 60;
+                    const isWarn  = scoreAgeSec > 30;
+                    const label   = scoreAgeSec >= 60
+                      ? `⚠️ Score ${Math.floor(scoreAgeSec / 60)}m${scoreAgeSec % 60}s ago`
+                      : `⏱ ${scoreAgeSec}s ago`;
+                    return (
+                      <span className={`font-bold ${isStale ? 'text-red-400 animate-pulse' : isWarn ? 'text-amber-400' : 'text-gray-400'}`}>
+                        {label}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
               <div className="flex items-center gap-2 text-xs font-black uppercase text-[#00e676]">
                 <span className="tracking-widest">SINGLE</span>
                 <Volume2 size={16} className="text-[#00e676]" />
               </div>
+            </div>
             </div>
           );
         })()}
@@ -1495,7 +1535,29 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                     {/* Official Period Scores Breakdown */}
                     {actualMatch.score?.periods && Object.keys(actualMatch.score.periods).length > 0 && (
                       <div className="border-t border-gray-100 pt-3 mt-3">
-                        <div className="text-[11px] font-black text-gray-500 uppercase tracking-wider mb-2">Period Breakdown (Official OddsAPI Scores)</div>
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          <div className="text-[11px] font-black text-gray-500 uppercase tracking-wider">
+                            {actualMatch.score?.batsmen?.length > 0
+                              ? 'Period Breakdown (Sportmonks Live)'
+                              : 'Period Breakdown (Official OddsAPI Scores)'}
+                          </div>
+                          {/* Show data-source badge */}
+                          {actualMatch.score?.batsmen?.length > 0 ? (
+                            <span className="text-[9px] font-bold bg-green-100 text-green-700 border border-green-300 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                              ✅ Sportmonks — Ball-by-Ball
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-bold bg-yellow-100 text-yellow-700 border border-yellow-300 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                              ⚡ Limited Data — No Ball-by-Ball
+                            </span>
+                          )}
+                          {/* Staleness warning on the scorecard itself */}
+                          {scoreAgeSec > 60 && actualMatch?.status === 'live' && (
+                            <span className="text-[9px] font-bold bg-red-100 text-red-600 border border-red-300 px-1.5 py-0.5 rounded uppercase tracking-wide animate-pulse">
+                              ⚠️ Score {Math.floor(scoreAgeSec / 60)}m{scoreAgeSec % 60}s old
+                            </span>
+                          )}
+                        </div>
                         <div className="overflow-x-auto">
                           <table className="w-full text-left text-xs border border-gray-200 rounded">
                             <thead className="bg-[#1c3246] text-white text-[10px] uppercase font-bold">
@@ -1509,18 +1571,32 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                             <tbody className="divide-y divide-gray-100 font-semibold text-gray-700">
                               {Object.entries(actualMatch.score.periods)
                                 .sort(([a], [b]) => (a === '0' ? 1 : b === '0' ? -1 : a.localeCompare(b)))
-                                .map(([periodKey, pScore]) => (
-                                  <tr key={periodKey} className={periodKey === '0' ? 'bg-blue-50/50 font-bold' : ''}>
-                                    <td className="py-1.5 px-3">
-                                      {periodKey === '0' ? 'Overall Match (Total)' : `Innings ${periodKey} (Period ${periodKey})`}
-                                    </td>
-                                    <td className="py-1.5 px-3 text-[#1c3246] font-black">{pScore?.participant1Score ?? 0}</td>
-                                    <td className="py-1.5 px-3 text-[#1c3246] font-black">{pScore?.participant2Score ?? 0}</td>
-                                    <td className="py-1.5 px-3 text-right text-[10px] text-gray-400">
-                                      {pScore?.updatedAt ? new Date(pScore.updatedAt).toLocaleTimeString() : '--'}
-                                    </td>
-                                  </tr>
-                                ))}
+                                .map(([periodKey, pScore]) => {
+                                  // Show wickets alongside runs — use teamA/B_wickets when available (Sportmonks),
+                                  // otherwise parse from teamA_runs / teamB_runs string (e.g. "84/2")
+                                  const sc = actualMatch.score;
+                                  const teamA_wkts = sc?.teamA_wickets ?? (sc?.teamA_runs?.includes('/') ? sc.teamA_runs.split('/')[1] : '');
+                                  const teamB_wkts = sc?.teamB_wickets ?? (sc?.teamB_runs?.includes('/') ? sc.teamB_runs.split('/')[1] : '');
+                                  // For completed innings (periodKey === "1" or the active innings), append wickets
+                                  const addWktA = (periodKey === '1' || periodKey === '2') && teamA_wkts !== '' && teamA_wkts !== '0' ? `/${teamA_wkts}` : '';
+                                  const addWktB = (periodKey === '1' || periodKey === '2') && teamB_wkts !== '' && teamB_wkts !== '0' ? `/${teamB_wkts}` : '';
+                                  return (
+                                    <tr key={periodKey} className={periodKey === '0' ? 'bg-blue-50/50 font-bold' : ''}>
+                                      <td className="py-1.5 px-3">
+                                        {periodKey === '0' ? 'Overall Match (Total)' : `Innings ${periodKey} (Period ${periodKey})`}
+                                      </td>
+                                      <td className="py-1.5 px-3 text-[#1c3246] font-black">
+                                        {pScore?.participant1Score ?? 0}{addWktA}
+                                      </td>
+                                      <td className="py-1.5 px-3 text-[#1c3246] font-black">
+                                        {pScore?.participant2Score ?? 0}{addWktB}
+                                      </td>
+                                      <td className="py-1.5 px-3 text-right text-[10px] text-gray-400">
+                                        {pScore?.updatedAt ? new Date(pScore.updatedAt).toLocaleTimeString() : '--'}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
                             </tbody>
                           </table>
                         </div>

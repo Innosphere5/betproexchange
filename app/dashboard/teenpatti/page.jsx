@@ -30,14 +30,33 @@ export default function TeenPattiPage() {
 
   const [selectedChoice, setSelectedChoice] = useState(null);
   const [stakeAmount, setStakeAmount] = useState("");
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(true); // optimistic — dot turns red only on actual disconnect
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isJoined, setIsJoined] = useState(true);
 
   const [payoutNotification, setPayoutNotification] = useState(null);
   const [generalWinnerBanner, setGeneralWinnerBanner] = useState(null);
 
-  const joinedRef = useRef(false);
+  const joinedRef = useRef(true);
+
+  const handleStartGame = () => {
+    setIsJoined(true);
+    joinedRef.current = true;
+    if (socket?.connected) {
+      socket.emit("join_teenpatti");
+      socket.emit("teenpatti_ready");
+    }
+    fetchActiveBets();
+  };
+
+  const handleLeaveTable = () => {
+    if (socket?.connected) {
+      socket.emit("leave_teenpatti");
+    }
+    joinedRef.current = false;
+    setIsJoined(false);
+  };
 
   const getAuthToken = useCallback(() => {
     if (typeof window !== "undefined") {
@@ -74,24 +93,27 @@ export default function TeenPattiPage() {
     }
   }, [getAuthToken, syncUserBets]);
 
-  // ─── Socket effect (runs ONCE per socket instance) ────────
+  // ─── Socket effect (runs when socket or isJoined changes) ────────
   useEffect(() => {
-    if (!socket) return;
-
-    // Prevent double join
-    if (!joinedRef.current) {
-      socket.emit("join_teenpatti");
-      joinedRef.current = true;
-    }
-    setIsConnected(socket.connected);
+    if (!socket || !isJoined) return;
 
     const handleConnect = () => {
       setIsConnected(true);
-      if (!joinedRef.current) {
-        socket.emit("join_teenpatti");
-        joinedRef.current = true;
-      }
+      socket.emit("join_teenpatti");
+      socket.emit("teenpatti_ready");
+      joinedRef.current = true;
+      fetchActiveBets();
     };
+
+    socket.on("connect", handleConnect);
+
+    if (socket.connected) {
+      setIsConnected(true);
+      socket.emit("join_teenpatti");
+      socket.emit("teenpatti_ready");
+      joinedRef.current = true;
+      fetchActiveBets();
+    }
 
     const handleDisconnect = () => {
       setIsConnected(false);
@@ -126,8 +148,11 @@ export default function TeenPattiPage() {
       setGeneralWinnerBanner(null);
     };
 
-    const onClose = () => {
-      setGameState({ status: "BETTING_CLOSED" });
+    const onClose = (r) => {
+      setGameState({ 
+        status: "BETTING_CLOSED",
+        ...(r?.cards ? { cards: r.cards } : {})
+      });
     };
 
     const onResult = (r) => {
@@ -185,12 +210,7 @@ export default function TeenPattiPage() {
       socket.off("teenpatti_payout", onPayout);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socket]);
-
-  // Fetch active bets on mount
-  useEffect(() => {
-    fetchActiveBets();
-  }, [fetchActiveBets]);
+  }, [socket, isJoined]);
 
   // ─── Actions ──────────────────────────────────────────────
   const [selectedChip, setSelectedChip] = useState("10");
@@ -279,6 +299,15 @@ export default function TeenPattiPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-4">
+          {isJoined && (
+            <button
+              onClick={handleLeaveTable}
+              className="px-3 py-1.5 bg-rose-500/10 border border-rose-500/30 hover:bg-rose-500/20 text-rose-400 text-xs font-bold rounded-xl transition-all cursor-pointer uppercase tracking-wider"
+              title="Pause and leave table"
+            >
+              Leave Table
+            </button>
+          )}
           <div className="bg-[#0c0f14] border border-slate-800/80 px-2.5 py-1 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl flex flex-col items-end">
             <span className="text-[7px] sm:text-[8px] text-slate-500 font-extrabold uppercase tracking-widest leading-none mb-0.5">Wallet</span>
             <span className="text-[11px] sm:text-sm font-black text-emerald-400 font-mono">
@@ -287,6 +316,35 @@ export default function TeenPattiPage() {
           </div>
         </div>
       </div>
+
+      {/* Tap to Play Interactive Overlay */}
+      {!isJoined && (
+        <div className="fixed inset-0 z-50 bg-[#090d14]/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-[#101726] border border-emerald-500/30 rounded-3xl p-6 sm:p-8 text-center space-y-6 shadow-[0_0_50px_rgba(16,185,129,0.15)]">
+            <div className="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-tr from-emerald-500 via-green-400 to-teal-300 flex items-center justify-center text-4xl shadow-[0_0_35px_rgba(16,185,129,0.5)] animate-pulse">
+              🃏
+            </div>
+            <div className="space-y-2">
+              <span className="inline-block px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest border border-emerald-500/30">
+                Ready to Play
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-black tracking-wider text-white uppercase italic drop-shadow-md">TEEN PATTI LIVE</h2>
+              <p className="text-slate-400 text-xs leading-relaxed font-medium">Multiplayer 3-Card Casino. Real-time card dealing, Player A vs B, Pair Plus, and live payouts.</p>
+            </div>
+            <button 
+              onClick={handleStartGame}
+              className="group relative w-full py-4 bg-gradient-to-r from-emerald-500 via-green-400 to-teal-400 rounded-2xl font-black text-slate-950 uppercase tracking-[0.2em] shadow-[0_10px_30px_-5px_rgba(16,185,129,0.5)] active:scale-95 transition-all duration-200 cursor-pointer overflow-hidden text-sm flex items-center justify-center gap-2"
+            >
+              <span className="text-base">▶</span>
+              <span>Tap to Play</span>
+            </button>
+            <div className="flex gap-2 items-center justify-center text-[10px] text-slate-400 uppercase tracking-widest font-bold">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Live Room Ready
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Error Toast */}
       {errorMsg && (

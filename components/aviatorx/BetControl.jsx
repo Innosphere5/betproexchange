@@ -16,7 +16,25 @@ export default function BetControl({
   const [isAutoCashout, setIsAutoCashout] = useState(false);
   const [autoCashoutValue, setAutoCashoutValue] = useState("2.00");
   const [queuedBet, setQueuedBet] = useState(false); // Bet queued for next round
-  const [loading, setLoading] = useState(false);
+  const [isPlacingBet, setIsPlacingBet] = useState(false);
+  const [isCashingOut, setIsCashingOut] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  // Auto-clear error messages after 5 seconds
+  useEffect(() => {
+    if (errorMsg) {
+      const timer = setTimeout(() => setErrorMsg(""), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMsg]);
+
+  // Auto reset loading states cleanly when bet status or game phase changes
+  useEffect(() => {
+    setIsPlacingBet(false);
+    if (phase !== 'FLYING') {
+      setIsCashingOut(false);
+    }
+  }, [activeBet?.status, phase]);
 
   // Auto-bet placing logic when phase changes to BETTING
   useEffect(() => {
@@ -29,27 +47,32 @@ export default function BetControl({
   }, [phase]);
 
   const handlePlaceBet = async () => {
-    if (loading) return;
-    setLoading(true);
+    if (isPlacingBet) return;
+    setIsPlacingBet(true);
+    setErrorMsg("");
     try {
       const autoCashoutMult = isAutoCashout ? parseFloat(autoCashoutValue) : null;
       await onPlaceBet(slot, stake, autoCashoutMult);
     } catch (err) {
-      alert(err.message || "Failed to place bet");
+      setErrorMsg(err.message || "Failed to place bet");
     } finally {
-      setLoading(false);
+      setIsPlacingBet(false);
     }
   };
 
   const handleCashout = async () => {
-    if (loading) return;
-    setLoading(true);
+    if (isCashingOut || activeBet?.status !== 'PENDING') return;
+    setIsCashingOut(true);
+    setErrorMsg("");
     try {
       await onCashout(slot);
     } catch (err) {
-      alert(err.message || "Failed to cash out");
+      if (!err.message?.includes("Active bet not found") && !err.message?.includes("already")) {
+        console.warn("AviatorX cashout warning:", err.message);
+        setErrorMsg(err.message);
+      }
     } finally {
-      setLoading(false);
+      setIsCashingOut(false);
     }
   };
 
@@ -66,8 +89,9 @@ export default function BetControl({
   };
 
   // Current real-time payout calculation
+  const betStake = (activeBet && typeof activeBet.stake === 'number') ? activeBet.stake : stake;
   const showPayout = activeBet && activeBet.status === 'PENDING'
-    ? (stake * currentMultiplier).toFixed(2)
+    ? (betStake * currentMultiplier).toFixed(2)
     : "0.00";
 
   // Determine button state
@@ -75,6 +99,7 @@ export default function BetControl({
   let buttonClass = "bg-[#28a745] hover:bg-[#218838] text-white";
   let onClickAction = handlePlaceBet;
   let disabled = false;
+  let showSpinner = false;
 
   if (activeBet) {
     if (activeBet.status === 'PENDING') {
@@ -84,12 +109,22 @@ export default function BetControl({
         onClickAction = null;
         disabled = true;
       } else if (phase === 'FLYING') {
-        buttonText = `CASHOUT\n${showPayout} INR`;
-        buttonClass = "bg-[#d97706] hover:bg-[#b45309] text-white font-extrabold shadow-[0_0_20px_rgba(217,119,6,0.5)] animate-pulse";
-        onClickAction = handleCashout;
+        if (isCashingOut) {
+          buttonText = `CASHING OUT...\n${showPayout} INR`;
+          buttonClass = "bg-[#d97706] text-white font-extrabold opacity-80 cursor-wait";
+          onClickAction = null;
+          disabled = true;
+          showSpinner = true;
+        } else {
+          buttonText = `CASHOUT\n${showPayout} INR`;
+          buttonClass = "bg-[#d97706] hover:bg-[#b45309] text-white font-extrabold shadow-[0_0_20px_rgba(217,119,6,0.5)] animate-pulse";
+          onClickAction = handleCashout;
+          disabled = false;
+        }
       }
     } else if (activeBet.status === 'WON') {
-      buttonText = `CASHED OUT\n@ ${activeBet.cashoutMultiplier.toFixed(2)}x`;
+      const multText = typeof activeBet.cashoutMultiplier === 'number' ? `${activeBet.cashoutMultiplier.toFixed(2)}x` : 'WON';
+      buttonText = `CASHED OUT\n@ ${multText}`;
       buttonClass = "bg-[#10b981] text-white font-black cursor-not-allowed";
       onClickAction = null;
       disabled = true;
@@ -101,7 +136,7 @@ export default function BetControl({
     }
   } else {
     // No active bet
-    if (phase === 'FLYING') {
+    if (phase !== 'BETTING' && phase !== 'IDLE') {
       if (queuedBet) {
         buttonText = "CANCEL QUEUE";
         buttonClass = "bg-red-600 hover:bg-red-700 text-white font-bold";
@@ -110,6 +145,19 @@ export default function BetControl({
         buttonText = "BET (NEXT ROUND)";
         buttonClass = "bg-blue-600 hover:bg-blue-700 text-white font-semibold";
         onClickAction = () => setQueuedBet(true);
+      }
+    } else {
+      // BETTING or IDLE phase: place bet immediately for this round
+      if (isPlacingBet) {
+        buttonText = "PLACING...";
+        buttonClass = "bg-[#28a745]/70 text-white font-black cursor-wait";
+        onClickAction = null;
+        disabled = true;
+        showSpinner = true;
+      } else {
+        buttonText = "BET";
+        buttonClass = "bg-[#28a745] hover:bg-[#218838] text-white font-black";
+        onClickAction = handlePlaceBet;
       }
     }
   }
@@ -147,8 +195,7 @@ export default function BetControl({
             <span className="text-[9px] uppercase tracking-wider font-extrabold text-gray-500">Amount</span>
             <div className="flex items-center bg-[#0d1621] border border-white/10 rounded-xl px-2 py-1.5">
               <button
-                onClick={() => multiplyFactor => multiplyFactor}
-                onMouseDown={() => multiplyStake(0.5)}
+                onClick={() => multiplyStake(0.5)}
                 className="w-8 h-8 flex items-center justify-center text-xs font-bold text-gray-400 hover:text-white bg-white/5 rounded-lg active:scale-90 transition-transform"
               >
                 ½
@@ -160,7 +207,7 @@ export default function BetControl({
                 className="flex-1 bg-transparent text-center font-bold text-sm text-white focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
               <button
-                onMouseDown={() => multiplyStake(2)}
+                onClick={() => multiplyStake(2)}
                 className="w-8 h-8 flex items-center justify-center text-xs font-bold text-gray-400 hover:text-white bg-white/5 rounded-lg active:scale-90 transition-transform"
               >
                 2x
@@ -207,20 +254,28 @@ export default function BetControl({
         <div className="flex flex-col justify-end">
           <button
             onClick={onClickAction}
-            disabled={disabled || loading}
-            className={`w-full h-full min-h-[90px] rounded-2xl flex flex-col items-center justify-center text-center text-sm font-black uppercase tracking-wider active:scale-95 transition-all duration-150 shadow-lg cursor-pointer whitespace-pre-line ${buttonClass}`}
+            disabled={disabled}
+            className={`w-full h-full min-h-[90px] rounded-2xl flex flex-col items-center justify-center text-center text-sm font-black uppercase tracking-wider active:scale-95 transition-all duration-150 shadow-lg whitespace-pre-line ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'} ${buttonClass}`}
           >
-            {loading ? (
-              <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
+            {showSpinner ? (
+              <div className="flex flex-col items-center justify-center gap-1.5">
+                <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span className="text-xs font-black">{buttonText}</span>
+              </div>
             ) : (
               buttonText
             )}
           </button>
         </div>
       </div>
+      {errorMsg && (
+        <div className="bg-red-950/60 border border-red-500/40 text-rose-300 px-3 py-1.5 rounded-xl text-[11px] font-bold text-center">
+          ⚠️ {errorMsg}
+        </div>
+      )}
     </div>
   );
 }

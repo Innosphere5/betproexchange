@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { getApiUrl } from "@/lib/apiConfig";
 import { useDashboard } from "../../../components/DashboardLayout";
 import CasinoLayout from "../../../components/casino/CasinoLayout";
@@ -16,11 +16,13 @@ export default function CasinoPage() {
   const [amount, setAmount] = useState("");
   const [history, setHistory] = useState([]);
   const [selectedChoice, setSelectedChoice] = useState(null); // 'A' or 'B'
-  const [isJoined, setIsJoined] = useState(false);
+  const [isJoined, setIsJoined] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [selectedChip, setSelectedChip] = useState("100");
+  const [use1Click, setUse1Click] = useState(true);
+  const [userBet, setUserBet] = useState(null); // { choice: 'A', amount: 100 }
   
-  // Non-intrusive floating toast notification (NO blocking full-screen popups)
+  // Floating toast notification
   const [payoutToast, setPayoutToast] = useState(null); 
 
   useEffect(() => {
@@ -30,24 +32,44 @@ export default function CasinoPage() {
   useEffect(() => {
     if (!socket) return;
 
-    if (isJoined) {
-       socket.emit('join_casino');
+    if (isJoined && socket.connected) {
+      socket.emit('join_casino');
+      socket.emit('casino_ready');
     }
+
+    const handleConnect = () => {
+      if (isJoined) {
+        socket.emit('join_casino');
+        socket.emit('casino_ready');
+      }
+    };
 
     const syncState = (state) => setRound(state);
 
     const onStart = (r) => { 
       setRound(r); 
       setSelectedChoice(null); 
+      setUserBet(null);
       soundFX.playCardFlip();
     };
 
     const onClose = (r) => {
-      setRound(prev => ({ ...prev, status: 'BETTING_CLOSED' }));
+      setRound(prev => ({ 
+        ...prev, 
+        status: 'BETTING_CLOSED', 
+        cards: r?.cards || prev.cards, 
+        timer: r?.timer || prev.timer 
+      }));
     };
 
     const onResult = (r) => {
-       setRound(prev => ({ ...prev, status: 'RESULT_DECLARED', result: r.result, cards: r.cards, handNames: r.handNames }));
+       setRound(prev => ({ 
+         ...prev, 
+         status: 'RESULT_DECLARED', 
+         result: r.result, 
+         cards: r.cards, 
+         handNames: r.handNames 
+       }));
        setHistory(prev => [r.result, ...prev].slice(0, 18));
        soundFX.playCardFlip();
     };
@@ -60,7 +82,6 @@ export default function CasinoPage() {
          soundFX.playLossTick();
        }
 
-       // Non-intrusive floating ticker toast at top corner (No blocking popup card!)
        setPayoutToast({ 
           status: data.result, 
           amount: data.amount, 
@@ -70,6 +91,7 @@ export default function CasinoPage() {
        setTimeout(() => setPayoutToast(null), 4500);
     };
 
+    socket.on('connect', handleConnect);
     socket.on('casino_state', syncState);
     socket.on('casino_round_start', onStart);
     socket.on('casino_betting_closed', onClose);
@@ -80,6 +102,7 @@ export default function CasinoPage() {
       if (isJoined) {
         socket.emit('leave_casino');
       }
+      socket.off('connect', handleConnect);
       socket.off('casino_state', syncState);
       socket.off('casino_round_start', onStart);
       socket.off('casino_betting_closed', onClose);
@@ -91,20 +114,65 @@ export default function CasinoPage() {
   const handleStart = () => {
     soundFX.playChipClick();
     setIsJoined(true);
+    if (socket?.connected) {
+      socket.emit('join_casino');
+      socket.emit('casino_ready');
+    }
   };
 
   const handleEndGame = () => {
     soundFX.playChipClick();
-    if (confirm("Are you sure you want to end the session?")) {
-      socket?.emit('leave_casino');
-      setIsJoined(false);
+    if (socket?.connected) {
+      socket.emit('leave_casino');
     }
+    setIsJoined(false);
   };
+
+  const executeBet = useCallback(async (choice, betVal) => {
+    try {
+      soundFX.playChipClick();
+      const session = JSON.parse(localStorage.getItem('user_session') || '{}');
+      if (!session.token) {
+        alert("Please log in to place a bet");
+        return;
+      }
+
+      const res = await fetch(`${getApiUrl()}/api/casino/bet`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.token}`
+        },
+        body: JSON.stringify({ choice, amount: betVal })
+      });
+      const data = await res.json();
+      
+      if (!res.ok) {
+        alert(data.error || "Failed to place bet");
+      } else {
+        setUserBet({ choice, amount: betVal });
+        fetchWallet();
+        setPayoutToast({
+          status: 'PLACED',
+          amount: betVal,
+          choice
+        });
+        setTimeout(() => setPayoutToast(null), 3000);
+      }
+    } catch (err) {
+      alert("Network error. Could not place bet.");
+    }
+  }, [fetchWallet]);
 
   const handleBetClick = (choice) => {
      soundFX.playChipClick();
      setSelectedChoice(choice);
+     const betVal = parseFloat(selectedChip) || 100;
      setAmount(selectedChip);
+
+     if (use1Click && round.status === 'BETTING_OPEN') {
+       executeBet(choice, betVal);
+     }
   };
 
   const cancelSelection = () => {
@@ -120,29 +188,7 @@ export default function CasinoPage() {
       alert("Enter a valid stake amount");
       return;
     }
-    
-    try {
-      soundFX.playChipClick();
-      const session = JSON.parse(localStorage.getItem('user_session') || '{}');
-      const res = await fetch(`${getApiUrl()}/api/casino/bet`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.token}`
-        },
-        body: JSON.stringify({ choice: selectedChoice, amount: betVal })
-      });
-      const data = await res.json();
-      
-      if (!res.ok) {
-        alert(data.error);
-      } else {
-        fetchWallet();
-        cancelSelection();
-      }
-    } catch (err) {
-      alert("Network error. Could not place bet.");
-    }
+    await executeBet(selectedChoice, betVal);
   };
 
   const isBettingOpen = round.status === 'BETTING_OPEN';
@@ -168,7 +214,7 @@ export default function CasinoPage() {
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#090d14] text-white font-sans select-none">
       
-      {/* 🎰 MOBILE HEADER (TIMER TOP RIGHT + SOUND + LEAVE) */}
+      {/* MOBILE HEADER */}
       <div className="lg:hidden flex items-center justify-between px-3 py-2.5 bg-[#0f172a]/90 backdrop-blur-md border-b border-white/10 z-30">
         <div className="flex items-center gap-2">
           <button 
@@ -189,12 +235,12 @@ export default function CasinoPage() {
           {round.status === 'BETTING_OPEN' ? (
              <div className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/30 rounded-full">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                <span className="text-[9px] font-black text-emerald-400 uppercase tracking-wider">Live</span>
+                <span className="text-[9px] font-black text-emerald-400 uppercase tracking-wider">Live ({round.timer}s)</span>
              </div>
           ) : (
              <div className="flex items-center gap-1 px-2 py-0.5 bg-rose-600/10 border border-rose-600/30 rounded-full">
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-                <span className="text-[9px] font-black text-rose-400 uppercase tracking-wider">Closed</span>
+                <span className="text-[9px] font-black text-rose-400 uppercase tracking-wider">{round.status}</span>
              </div>
           )}
         </div>
@@ -207,33 +253,35 @@ export default function CasinoPage() {
         </div>
       </div>
 
-      {/* 💸 NON-INTRUSIVE FLOATING BALANCE PAYOUT TICKER TOAST (REPLACES POPUP CARDS) */}
+      {/* FLOATING BALANCE PAYOUT TICKER TOAST */}
       {payoutToast && (
         <div className="fixed top-4 right-4 z-[100] animate-in slide-in-from-top-4 fade-in duration-300 pointer-events-none">
           <div className={`px-4 py-3 rounded-2xl border shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl flex items-center gap-3 min-w-[240px] ${
             payoutToast.status === 'WIN' 
               ? 'bg-emerald-950/90 border-emerald-500/50 text-emerald-300' 
+              : payoutToast.status === 'PLACED'
+              ? 'bg-blue-950/90 border-blue-500/50 text-blue-300'
               : 'bg-rose-950/90 border-rose-500/50 text-rose-300'
           }`}>
              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-lg ${
-               payoutToast.status === 'WIN' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+               payoutToast.status === 'WIN' ? 'bg-emerald-500/20 text-emerald-400' : payoutToast.status === 'PLACED' ? 'bg-blue-500/20 text-blue-400' : 'bg-rose-500/20 text-rose-400'
              }`}>
-                {payoutToast.status === 'WIN' ? '🏆' : '💸'}
+                {payoutToast.status === 'WIN' ? '🏆' : payoutToast.status === 'PLACED' ? '🪙' : '💸'}
              </div>
              <div className="flex flex-col">
                 <span className="text-xs font-black uppercase tracking-wider">
-                  {payoutToast.status === 'WIN' ? 'Bet Won!' : 'Bet Concluded'}
+                  {payoutToast.status === 'WIN' ? 'Bet Won!' : payoutToast.status === 'PLACED' ? `Bet Placed on Player ${payoutToast.choice}` : 'Bet Concluded'}
                 </span>
                 <span className="text-sm font-mono font-black">
-                  {payoutToast.status === 'WIN' ? `+$${payoutToast.amount.toFixed(2)}` : `-$${payoutToast.amount.toFixed(2)}`}
+                  {payoutToast.status === 'WIN' ? `+$${payoutToast.amount.toFixed(2)}` : payoutToast.status === 'PLACED' ? `$${payoutToast.amount}` : `-$${payoutToast.amount.toFixed(2)}`}
                 </span>
              </div>
           </div>
         </div>
       )}
 
-      {/* 🚀 MOBILE BET SLIP POPUP (SLIDE FROM TOP) */}
-      {selectedChoice && (
+      {/* MOBILE BET SLIP POPUP (when 1-Click Bet is off) */}
+      {!use1Click && selectedChoice && (
         <div className="lg:hidden fixed inset-0 z-[90] flex flex-col pt-12 px-3 animate-in slide-in-from-top-full duration-300">
            <div className="absolute inset-0 bg-black/70 backdrop-blur-md -z-10" onClick={cancelSelection}></div>
            <div className="max-w-md mx-auto w-full shadow-2xl">
@@ -248,6 +296,8 @@ export default function CasinoPage() {
                  isMobilePopup={true}
                  selectedChip={selectedChip}
                  setSelectedChip={setSelectedChip}
+                 use1Click={use1Click}
+                 setUse1Click={setUse1Click}
               />
            </div>
         </div>
@@ -262,8 +312,11 @@ export default function CasinoPage() {
             </div>
             
             <div className="space-y-2">
+              <span className="inline-block px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-black uppercase tracking-widest border border-amber-500/30">
+                Ready to Play
+              </span>
               <h2 className="text-3xl font-black tracking-wider text-white uppercase italic drop-shadow-md">7 UP DOWN LIVE</h2>
-              <p className="text-slate-400 text-xs leading-relaxed font-medium">Step into the live casino table. Real-time card dealing, 3D chips betting, and continuous live payouts without popup disruptions.</p>
+              <p className="text-slate-400 text-xs leading-relaxed font-medium">Real-time card dealing to Player A & B, fast 8s betting window, progressive 4s reveal suspense, and instant wallet payouts.</p>
             </div>
 
             <button 
@@ -271,8 +324,8 @@ export default function CasinoPage() {
               className="group relative w-full py-4 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 rounded-2xl font-black text-slate-950 uppercase tracking-[0.2em] shadow-[0_10px_30px_-5px_rgba(245,158,11,0.5)] active:scale-95 transition-all duration-200 cursor-pointer overflow-hidden text-sm"
             >
               <span className="relative z-10 flex items-center justify-center gap-2">
-                <span>Join Casino Table</span>
-                <span>♠</span>
+                <span>▶</span>
+                <span>Tap to Play</span>
               </span>
               <div className="absolute inset-0 bg-white/30 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-12"></div>
             </button>
@@ -293,10 +346,21 @@ export default function CasinoPage() {
                 <DealerSection round={round} isMuted={isMuted} setIsMuted={setIsMuted} />
              </div>
              <div className="order-1 lg:order-2 flex-1 overflow-y-auto no-scrollbar pb-[110px] lg:pb-0">
-                <TableSection round={round} />
+                <TableSection 
+                  round={round} 
+                  onBetClick={handleBetClick}
+                  selectedChoice={selectedChoice}
+                  userBetAmount={userBet}
+                  isBettingOpen={isBettingOpen}
+                />
              </div>
              <div className="order-2 lg:order-3 fixed bottom-0 left-0 right-0 z-40 lg:relative lg:bottom-auto border-t border-white/5">
-                <BettingBar handleBetClick={handleBetClick} lock={!isBettingOpen} />
+                <BettingBar 
+                  handleBetClick={handleBetClick} 
+                  lock={!isBettingOpen} 
+                  roundStatus={round.status}
+                  selectedChip={selectedChip}
+                />
              </div>
            </div>
         }
@@ -312,6 +376,8 @@ export default function CasinoPage() {
                 cancelSelection={cancelSelection}
                 selectedChip={selectedChip}
                 setSelectedChip={setSelectedChip}
+                use1Click={use1Click}
+                setUse1Click={setUse1Click}
              />
           </div>
         }

@@ -253,11 +253,12 @@ export default function AviatorCanvas({ phase, elapsedMs, currentMultiplier, cra
         ctx.font = "900 24px Outfit, Inter, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText((timerMs / 1000).toFixed(1) + "s", centerX, centerY - 2);
+        const sec = Math.max(0, timerMs / 1000).toFixed(1);
+        ctx.fillText(`${sec}s`, centerX, centerY - 2);
 
-        ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
-        ctx.font = "bold 10px Outfit, Inter, sans-serif";
-        ctx.fillText("WAITING FOR NEXT ROUND", centerX, centerY + 80);
+        ctx.fillStyle = "#10b981"; // Emerald
+        ctx.font = "bold 11px Outfit, Inter, sans-serif";
+        ctx.fillText("PREPARE FOR TAKEOFF • PLACE YOUR BETS", centerX, centerY + 80);
 
       } else if (currentPhase === 'FLYING' || currentPhase === 'CRASHED') {
         const coords = getPlaneCoords(t);
@@ -320,10 +321,10 @@ export default function AviatorCanvas({ phase, elapsedMs, currentMultiplier, cra
         particlesRef.current = particlesRef.current.filter(p => p.life > 0);
 
         // 4. Draw Airplane (Propeller Plane style)
-        if (currentPhase === 'FLYING') {
+        const renderPlane = (px, py, pAngle) => {
           ctx.save();
-          ctx.translate(coords.x, coords.y);
-          ctx.rotate(angle);
+          ctx.translate(px, py);
+          ctx.rotate(pAngle);
 
           const propAngle = (now / 35) % (Math.PI * 2);
 
@@ -390,6 +391,12 @@ export default function AviatorCanvas({ phase, elapsedMs, currentMultiplier, cra
           ctx.stroke();
 
           ctx.restore();
+        };
+
+        if (currentPhase === 'FLYING') {
+          renderPlane(coords.x, coords.y, angle);
+        } else if (currentPhase !== 'CRASHED') {
+          renderPlane(startX + 28, startY - 14, -0.06);
         }
 
         // 5. Draw big Multiplier inside screen
@@ -417,6 +424,20 @@ export default function AviatorCanvas({ phase, elapsedMs, currentMultiplier, cra
             crashFlashRef.current -= dt * 2.0; // fade flash in 0.5s
           }
         }
+      } else {
+        // IDLE / WAITING phase
+        const centerX = width / 2;
+        const centerY = height / 2 - 20;
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "900 36px Outfit, Inter, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("Aviator X", centerX, centerY - 10);
+
+        ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+        ctx.font = "bold 13px Outfit, Inter, sans-serif";
+        ctx.fillText("TAP TO PLAY TO START", centerX, centerY + 30);
       }
 
       animationFrameRef.current = requestAnimationFrame(draw);
