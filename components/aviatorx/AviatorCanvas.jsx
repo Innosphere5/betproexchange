@@ -481,7 +481,8 @@ export default function AviatorCanvas({
 
           ctx.fillStyle = "#ffffff";
           ctx.font = "bold 28px Outfit, Inter, sans-serif";
-          ctx.fillText(`@ ${stateRef.current.crashPoint.toFixed(2)} x`, width / 2, height / 2 + 10);
+          const finalCrash = (typeof stateRef.current.crashPoint === 'number' ? stateRef.current.crashPoint : mult) || 1.00;
+          ctx.fillText(`@ ${finalCrash.toFixed(2)} x`, width / 2, height / 2 + 10);
 
           // Flash overlay on crash
           if (crashFlashRef.current > 0) {

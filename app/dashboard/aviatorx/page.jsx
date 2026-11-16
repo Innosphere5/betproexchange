@@ -102,6 +102,7 @@ export default function AviatorXPage() {
       if (res.ok) {
         const data = await res.json();
         if (data && data.phase && data.phase !== 'INIT' && data.phase !== 'LOADING') {
+          setIsConnected(true);
           const clockOffset = data.serverTimestamp ? (data.serverTimestamp - clientFetchTime) : 0;
           setRound(prev => {
             const roundChanged = Boolean(prev.roundId && data.roundId && prev.roundId !== data.roundId);

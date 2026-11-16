@@ -3,7 +3,7 @@
 import { useState, useEffect, createContext, useContext } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import io from "socket.io-client";
-import { getApiUrl } from "../lib/apiConfig";
+import { getApiUrl, isServerlessBackend, createMockSocket } from "../lib/apiConfig";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import NotificationPopup from "./NotificationPopup";
@@ -109,7 +109,7 @@ export default function DashboardLayout({ children }) {
 
     // ─── Socket.IO connection configuration ──────────────────────────────────
     const apiUrl = getApiUrl();
-    const isVercelBackend = apiUrl.includes('vercel.app');
+    const isVercelBackend = isServerlessBackend();
 
     // On Vercel serverless backend, WebSockets & Socket.IO polling are not supported
     // (lambdas do not share memory for session IDs, causing 400 Bad Request errors).
@@ -156,13 +156,7 @@ export default function DashboardLayout({ children }) {
       });
     } else {
       // Safe no-op mock socket for Vercel Serverless environment
-      socket = {
-        connected: false,
-        on: () => {},
-        off: () => {},
-        emit: () => {},
-        io: { on: () => {} }
-      };
+      socket = createMockSocket();
     }
     setSocketInstance(socket);
 

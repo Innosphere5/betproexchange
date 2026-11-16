@@ -149,7 +149,10 @@ export default function MatchDetailAdminView({
   // ── Real-Time Socket.IO Updates (Odds, Scores, Fancy, Figure, Even/Odd, Bets) ──
   useEffect(() => {
     if (!matchId) return;
-    const socket = io(getApiUrl(), {
+    const apiUrl = getApiUrl();
+    if (apiUrl.includes('vercel.app')) return;
+
+    const socket = io(apiUrl, {
       transports: ["websocket", "polling"],
       reconnectionAttempts: 5
     });

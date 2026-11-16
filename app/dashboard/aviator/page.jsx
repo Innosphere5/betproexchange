@@ -69,6 +69,7 @@ export default function AviatorPage() {
       if (res.ok) {
         const data = await res.json();
         if (data && data.phase && data.phase !== 'INIT') {
+          setIsConnected(true);
           const clockOffset = data.serverTimestamp ? (data.serverTimestamp - clientFetchTime) : 0;
           setGameState({
             ...data,
@@ -78,6 +79,7 @@ export default function AviatorPage() {
       }
     } catch (e) {
       console.error("Failed to load live state:", e);
+      setIsConnected(false);
     }
   };
 

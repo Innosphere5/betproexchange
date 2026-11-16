@@ -91,7 +91,10 @@ export default function CurrentPositionView({
 
   // Socket.IO real-time event listener for live updates
   useEffect(() => {
-    const socket = io(getApiUrl(), {
+    const apiUrl = getApiUrl();
+    if (apiUrl.includes('vercel.app')) return;
+
+    const socket = io(apiUrl, {
       transports: ["websocket", "polling"],
       reconnectionAttempts: 5
     });
