@@ -214,7 +214,7 @@ export default function TableSection({ round, onBetClick, selectedChoice, userBe
                   const isRevealed = revealedA[i];
                   return (
                     <PlayingCard 
-                      key={`A-${round?.roundId || '0'}-${i}`}
+                      key={`A-${round?.roundId || '0'}-${i}-${isRevealed ? 'rev' : 'hid'}`}
                       target="A"
                       index={i}
                       suit={cardData?.suit || "♠"} 
@@ -283,7 +283,7 @@ export default function TableSection({ round, onBetClick, selectedChoice, userBe
                   const isRevealed = revealedB[i];
                   return (
                     <PlayingCard 
-                      key={`B-${round?.roundId || '0'}-${i}`}
+                      key={`B-${round?.roundId || '0'}-${i}-${isRevealed ? 'rev' : 'hid'}`}
                       target="B"
                       index={i}
                       suit={cardData?.suit || "♦"} 
