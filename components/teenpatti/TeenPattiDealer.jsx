@@ -216,7 +216,7 @@ export default function TeenPattiDealer({ round, history }) {
                     const dealDelay = `${0.1 + idx * 0.3}s`;
                     return (
                       <TeenPattiCard 
-                        key={`A-${idx}`} 
+                        key={`A-${round?.roundId || '0'}-${idx}`} 
                         card={card} 
                         faceUp={revealedA[idx]}
                         style={{ animationDelay: status === "DEALING" ? dealDelay : "0s" }}
@@ -261,7 +261,7 @@ export default function TeenPattiDealer({ round, history }) {
                     const dealDelay = `${0.25 + idx * 0.3}s`;
                     return (
                       <TeenPattiCard 
-                        key={`B-${idx}`} 
+                        key={`B-${round?.roundId || '0'}-${idx}`} 
                         card={card} 
                         faceUp={revealedB[idx]}
                         style={{ animationDelay: status === "DEALING" ? dealDelay : "0s" }}
