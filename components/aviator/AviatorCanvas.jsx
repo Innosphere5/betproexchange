@@ -14,9 +14,16 @@ export default function AviatorCanvas() {
   const gameMultiplier = useAviatorStore((s) => s.multiplier);
   const gameTimer = useAviatorStore((s) => s.timer);
   const gameElapsed = useAviatorStore((s) => s.elapsedMs);
+  const takeoffTime = useAviatorStore((s) => s.takeoffTime);
+  const crashTime = useAviatorStore((s) => s.crashTime);
+  const crashPoint = useAviatorStore((s) => s.crashPoint);
+  const endTime = useAviatorStore((s) => s.endTime);
+  const clockOffset = useAviatorStore((s) => s.clockOffset || 0);
+  const setGameState = useAviatorStore((s) => s.setGameState);
 
   // Keep state in refs so the 60fps requestAnimationFrame loop always reads fresh data without re-mounting
   const stateRef = useRef({ phase: 'INIT', multiplier: 1.00, timer: 0, elapsedMs: 0 });
+  const timingRef = useRef({ takeoffTime: null, crashTime: null, crashPoint: null, endTime: null, clockOffset: 0 });
   const isMutedRef = useRef(isMuted);
 
   useEffect(() => {
@@ -27,6 +34,16 @@ export default function AviatorCanvas() {
       elapsedMs: gameElapsed
     };
   }, [gamePhase, gameMultiplier, gameTimer, gameElapsed]);
+
+  useEffect(() => {
+    timingRef.current = {
+      takeoffTime,
+      crashTime,
+      crashPoint,
+      endTime,
+      clockOffset
+    };
+  }, [takeoffTime, crashTime, crashPoint, endTime, clockOffset]);
 
   useEffect(() => {
     isMutedRef.current = isMuted;
@@ -264,7 +281,42 @@ export default function AviatorCanvas() {
     // Main 60 FPS Canvas 2D Render Loop
     const render = () => {
       tickCount++;
-      const { phase, multiplier, timer, elapsedMs } = stateRef.current;
+      const { takeoffTime, crashTime, crashPoint, endTime, clockOffset } = timingRef.current;
+
+      let phase = stateRef.current.phase;
+      let multiplier = stateRef.current.multiplier;
+      let timer = stateRef.current.timer;
+      let elapsedMs = stateRef.current.elapsedMs;
+
+      // Deterministic Client Animation Engine using absolute Wall-Clock synchronization
+      if (takeoffTime && crashTime) {
+        const now = Date.now() + (clockOffset || 0);
+        if (now < takeoffTime) {
+          phase = 'BETTING';
+          timer = Math.max(0, takeoffTime - now);
+          multiplier = 1.00;
+          elapsedMs = 0;
+        } else if (now < crashTime) {
+          phase = 'FLYING';
+          elapsedMs = now - takeoffTime;
+          // Exact multiplier curve matching backend (1.07^(seconds))
+          multiplier = Math.pow(1.07, elapsedMs / 1000);
+          timer = 0;
+        } else {
+          phase = 'CRASHED';
+          multiplier = crashPoint || stateRef.current.multiplier;
+          timer = 0;
+          elapsedMs = Math.max(0, crashTime - takeoffTime);
+        }
+
+        stateRef.current = { phase, multiplier, timer, elapsedMs };
+
+        // Throttle store update every 10 frames (~160ms) or on phase change so BetPanel updates
+        if (phase !== lastPhase || tickCount % 10 === 0) {
+          setGameState({ phase, multiplier, timer, elapsedMs });
+        }
+      }
+
       const w = logicalWidth;
       const h = logicalHeight;
       const dpr = window.devicePixelRatio || 1;

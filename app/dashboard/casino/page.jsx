@@ -111,6 +111,55 @@ export default function CasinoPage() {
     };
   }, [socket, isJoined, fetchWallet]);
 
+  const fetchGameState = useCallback(async () => {
+    try {
+      const res = await fetch(`${getApiUrl()}/api/casino/state`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.roundId) {
+          setRound(prev => {
+            const roundChanged = Boolean(prev.roundId && data.roundId && prev.roundId !== data.roundId);
+            if (roundChanged) {
+              setSelectedChoice(null);
+              setUserBet(null);
+            }
+            return { ...prev, ...data };
+          });
+          if (data.history && Array.isArray(data.history)) {
+            setHistory(data.history);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch casino live state:", e);
+    }
+  }, []);
+
+  const fetchHistory = useCallback(async () => {
+    try {
+      const res = await fetch(`${getApiUrl()}/api/casino/history`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setHistory(data);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch casino history:", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchGameState();
+    fetchHistory();
+
+    const interval = setInterval(() => {
+      fetchGameState();
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [fetchGameState, fetchHistory]);
+
   const handleStart = () => {
     soundFX.playChipClick();
     setIsJoined(true);

@@ -2,21 +2,40 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export default function AviatorCanvas({ phase, elapsedMs, currentMultiplier, crashPoint, timer }) {
+export default function AviatorCanvas({ 
+  phase, 
+  elapsedMs, 
+  currentMultiplier, 
+  crashPoint, 
+  timer,
+  takeoffTime,
+  crashTime,
+  endTime,
+  clockOffset,
+  onFrameUpdate
+}) {
   const canvasRef = useRef(null);
   const animationFrameRef = useRef(null);
   const particlesRef = useRef([]);
   const lastTimeRef = useRef(Date.now());
   const crashFlashRef = useRef(0); // For flash effect on crash
+  const tickRef = useRef(0);
+  const lastPhaseRef = useRef(phase);
 
   // Track state in refs for use in the requestAnimationFrame loop without stale closures
   const stateRef = useRef({ phase, elapsedMs, currentMultiplier, crashPoint, timer });
+  const timingRef = useRef({ takeoffTime, crashTime, crashPoint, endTime, clockOffset });
+
   useEffect(() => {
     stateRef.current = { phase, elapsedMs, currentMultiplier, crashPoint, timer };
     if (phase === 'CRASHED') {
       crashFlashRef.current = 1.0; // Trigger crash flash
     }
   }, [phase, elapsedMs, currentMultiplier, crashPoint, timer]);
+
+  useEffect(() => {
+    timingRef.current = { takeoffTime, crashTime, crashPoint, endTime, clockOffset };
+  }, [takeoffTime, crashTime, crashPoint, endTime, clockOffset]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -59,8 +78,55 @@ export default function AviatorCanvas({ phase, elapsedMs, currentMultiplier, cra
       const now = Date.now();
       const dt = (now - lastTimeRef.current) / 1000;
       lastTimeRef.current = now;
+      tickRef.current++;
 
-      const { phase: currentPhase, elapsedMs: currentElapsed, currentMultiplier: mult } = stateRef.current;
+      const { takeoffTime, crashTime, crashPoint: targetCrash, endTime, clockOffset } = timingRef.current;
+
+      let currentPhase = stateRef.current.phase;
+      let currentElapsed = stateRef.current.elapsedMs;
+      let mult = stateRef.current.currentMultiplier;
+      let currentTimer = stateRef.current.timer;
+
+      if (takeoffTime && crashTime) {
+        const liveNow = now + (clockOffset || 0);
+        if (liveNow < takeoffTime) {
+          currentPhase = 'BETTING';
+          currentTimer = Math.max(0, takeoffTime - liveNow);
+          mult = 1.00;
+          currentElapsed = 0;
+        } else if (liveNow < crashTime) {
+          currentPhase = 'FLYING';
+          currentElapsed = liveNow - takeoffTime;
+          mult = Math.pow(1.07, currentElapsed / 1000);
+          currentTimer = 0;
+        } else {
+          currentPhase = 'CRASHED';
+          mult = targetCrash || mult;
+          currentTimer = 0;
+          currentElapsed = Math.max(0, crashTime - takeoffTime);
+        }
+
+        stateRef.current = {
+          phase: currentPhase,
+          elapsedMs: currentElapsed,
+          currentMultiplier: mult,
+          crashPoint: targetCrash,
+          timer: currentTimer
+        };
+
+        if (currentPhase !== lastPhaseRef.current || tickRef.current % 10 === 0) {
+          if (onFrameUpdate) {
+            onFrameUpdate({
+              phase: currentPhase,
+              elapsedMs: currentElapsed,
+              multiplier: mult,
+              timer: currentTimer
+            });
+          }
+        }
+        lastPhaseRef.current = currentPhase;
+      }
+
       const width = canvas.width / window.devicePixelRatio;
       const height = canvas.height / window.devicePixelRatio;
 

@@ -101,6 +101,19 @@ function SingleBetSlot({
     }
   }, [phase]);
 
+  // Client-side auto cashout trigger for resilient execution
+  useEffect(() => {
+    if (
+      phase === 'FLYING' &&
+      betState.status === 'PENDING' &&
+      betState.autoCashoutMultiplier &&
+      currentMultiplier >= parseFloat(betState.autoCashoutMultiplier) &&
+      !isCashingOut
+    ) {
+      handleCashout();
+    }
+  }, [phase, currentMultiplier, betState.status, betState.autoCashoutMultiplier, isCashingOut]);
+
   const handlePlaceBet = async () => {
     if (isPlacing) return;
     setErrorMsg("");

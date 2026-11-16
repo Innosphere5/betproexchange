@@ -96,11 +96,31 @@ export default function AviatorXPage() {
 
   const fetchGameState = async () => {
     try {
+      const clientFetchTime = Date.now();
       const res = await fetch(`${getApiUrl()}/api/aviatorx/state`);
       if (res.ok) {
         const data = await res.json();
         if (data && data.phase && data.phase !== 'INIT' && data.phase !== 'LOADING') {
-          setRound(prev => ({ ...prev, ...data }));
+          const clockOffset = data.serverTimestamp ? (data.serverTimestamp - clientFetchTime) : 0;
+          setRound(prev => {
+            const roundChanged = Boolean(prev.roundId && data.roundId && prev.roundId !== data.roundId);
+            if (roundChanged) {
+              setActiveBets([]);
+              setLiveBets([]);
+            }
+            return { ...prev, ...data, clockOffset };
+          });
+
+          if (data.bots && Array.isArray(data.bots)) {
+            setLiveBets(data.bots.map(b => ({
+              username: b.userId.includes('***') ? b.userId : (b.userId.substring(0, 4) + '***'),
+              stake: b.stake,
+              autoCashoutMultiplier: b.autoCashoutMultiplier,
+              cashed: Boolean(b.cashed),
+              multiplier: b.multiplier || null,
+              payout: b.payout || 0
+            })));
+          }
         }
       }
     } catch (err) {
@@ -112,6 +132,13 @@ export default function AviatorXPage() {
     fetchHistory();
     fetchActiveBets();
     fetchGameState();
+
+    const pollInterval = setInterval(() => {
+      fetchGameState();
+      fetchActiveBets();
+    }, 2500);
+
+    return () => clearInterval(pollInterval);
   }, []);
 
   // WebSockets Synchronization
@@ -496,6 +523,11 @@ export default function AviatorXPage() {
                   currentMultiplier={round.multiplier}
                   crashPoint={round.crashPoint}
                   timer={round.timer}
+                  takeoffTime={round.takeoffTime}
+                  crashTime={round.crashTime}
+                  endTime={round.endTime}
+                  clockOffset={round.clockOffset}
+                  onFrameUpdate={(frame) => setRound(prev => ({ ...prev, ...frame }))}
                 />
               </div>
 

@@ -108,61 +108,63 @@ export default function DashboardLayout({ children }) {
     fetchWallet();
 
     // ─── Socket.IO connection configuration ──────────────────────────────────
-    // Uses polling with automatic WebSocket upgrade when available (fastest on localhost & supported hosting).
-    const socket = io(getApiUrl(), {
-      transports: ['polling', 'websocket'],
-      reconnection: true,              // auto-reconnect on drop
-      reconnectionAttempts: Infinity,  // keep trying forever
-      reconnectionDelay: 1000,         // start retrying after 1 s
-      reconnectionDelayMax: 5000,      // cap retry interval at 5 s
-      randomizationFactor: 0.3,        // jitter to prevent thundering herd
-      timeout: 15000,                  // 15 s connection timeout
-      forceNew: false                  // reuse existing connection when possible
-    });
-    setSocketInstance(socket);
+    const apiUrl = getApiUrl();
+    const isVercelBackend = apiUrl.includes('vercel.app');
 
-    // ─── Diagnostic event listeners ───────────────────────────────────────
-    // These do not block the UI — they only log to the browser console so
-    // production issues can be debugged without touching user-facing logic.
-    socket.on('connect', () => {
-      console.log('[Socket] ✅ Connected. Transport:', socket.io.engine.transport.name);
-    });
+    // On Vercel serverless backend, WebSockets & Socket.IO polling are not supported
+    // (lambdas do not share memory for session IDs, causing 400 Bad Request errors).
+    // In that environment, we run on deterministic REST sync & client animation.
+    let socket;
+    if (!isVercelBackend) {
+      socket = io(apiUrl, {
+        transports: ['polling', 'websocket'],
+        reconnection: true,              // auto-reconnect on drop
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,         // start retrying after 1 s
+        reconnectionDelayMax: 5000,      // cap retry interval at 5 s
+        randomizationFactor: 0.3,        // jitter to prevent thundering herd
+        timeout: 10000,                  // 10 s connection timeout
+        forceNew: false                  // reuse existing connection when possible
+      });
 
-    socket.on('connect_error', (err) => {
-      console.warn('[Socket] ⚠️ connect_error:', err.message);
-    });
+      socket.on('connect', () => {
+        console.log('[Socket] ✅ Connected. Transport:', socket.io.engine.transport.name);
+      });
 
-    socket.io.on('reconnect', (attempt) => {
-      console.log('[Socket] 🔁 Reconnected after', attempt, 'attempt(s)');
-    });
+      socket.on('connect_error', (err) => {
+        console.warn('[Socket] ⚠️ connect_error:', err.message);
+      });
 
-    socket.io.on('reconnect_attempt', (attempt) => {
-      console.log('[Socket] ↻ Reconnect attempt #', attempt);
-    });
-
-    socket.io.on('reconnect_error', (err) => {
-      console.warn('[Socket] ✗ Reconnect error:', err.message);
-    });
-
-    socket.on('bet_notification', (data) => {
+      socket.on('bet_notification', (data) => {
         setNotification(data);
         fetchWallet(); // Automatically update balance if payout happened
-    });
+      });
 
-    socket.on('bet_settled', (data) => {
+      socket.on('bet_settled', (data) => {
         setNotification(data);
         fetchWallet();
-    });
+      });
 
-    socket.on('wallet_updated', (data) => {
+      socket.on('wallet_updated', (data) => {
         const session = JSON.parse(localStorage.getItem('user_session') || '{}');
         const sessionUsername = session.username?.toLowerCase();
         const eventUsername = data.userId?.toLowerCase();
         if (sessionUsername && eventUsername && sessionUsername === eventUsername) {
-            setWalletBalance(data.balance);
-            setCreditBalance(data.credit || 0);
+          setWalletBalance(data.balance);
+          setCreditBalance(data.credit || 0);
         }
-    });
+      });
+    } else {
+      // Safe no-op mock socket for Vercel Serverless environment
+      socket = {
+        connected: false,
+        on: () => {},
+        off: () => {},
+        emit: () => {},
+        io: { on: () => {} }
+      };
+    }
+    setSocketInstance(socket);
 
     socket.on('matches_updated', (data) => {
         setCricketMatches(data);
@@ -431,11 +433,15 @@ export default function DashboardLayout({ children }) {
     fetchLiveScores();
     const matchesRefetchInterval = setInterval(fetchMatches, 30000);
     const liveScoresInterval = setInterval(fetchLiveScores, 3000);
+    const walletPollInterval = isVercelBackend ? setInterval(fetchWallet, 4000) : null;
 
     return () => {
       clearInterval(matchesRefetchInterval);
       clearInterval(liveScoresInterval);
-      socket.disconnect();
+      if (walletPollInterval) clearInterval(walletPollInterval);
+      if (socket && typeof socket.disconnect === 'function') {
+        socket.disconnect();
+      }
     };
   }, []);
 

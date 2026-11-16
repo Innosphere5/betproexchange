@@ -93,6 +93,32 @@ export default function TeenPattiPage() {
     }
   }, [getAuthToken, syncUserBets]);
 
+  const fetchGameState = useCallback(async () => {
+    try {
+      const res = await fetch(`${getApiUrl()}/api/teenpatti/state`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.roundId) {
+          setGameState(data);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load teenpatti live state:", e);
+    }
+  }, [setGameState]);
+
+  useEffect(() => {
+    fetchGameState();
+    fetchActiveBets();
+
+    const interval = setInterval(() => {
+      fetchGameState();
+      fetchActiveBets();
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [fetchGameState, fetchActiveBets]);
+
   // ─── Socket effect (runs when socket or isJoined changes) ────────
   useEffect(() => {
     if (!socket || !isJoined) return;
