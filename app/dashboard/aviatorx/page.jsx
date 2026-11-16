@@ -95,6 +95,7 @@ export default function AviatorXPage() {
   };
 
   const fetchGameState = async () => {
+    if (socket && socket.connected) return;
     try {
       const clientFetchTime = Date.now();
       const res = await fetch(`${getApiUrl()}/api/aviatorx/state`);
@@ -134,12 +135,14 @@ export default function AviatorXPage() {
     fetchGameState();
 
     const pollInterval = setInterval(() => {
-      fetchGameState();
-      fetchActiveBets();
+      if (!socket || !socket.connected) {
+        fetchGameState();
+        fetchActiveBets();
+      }
     }, 2500);
 
     return () => clearInterval(pollInterval);
-  }, []);
+  }, [socket]);
 
   // WebSockets Synchronization
   useEffect(() => {

@@ -94,6 +94,7 @@ export default function TeenPattiPage() {
   }, [getAuthToken, syncUserBets]);
 
   const fetchGameState = useCallback(async () => {
+    if (socket && socket.connected) return;
     try {
       const res = await fetch(`${getApiUrl()}/api/teenpatti/state`);
       if (res.ok) {
@@ -105,19 +106,21 @@ export default function TeenPattiPage() {
     } catch (e) {
       console.error("Failed to load teenpatti live state:", e);
     }
-  }, [setGameState]);
+  }, [setGameState, socket]);
 
   useEffect(() => {
     fetchGameState();
     fetchActiveBets();
 
     const interval = setInterval(() => {
-      fetchGameState();
-      fetchActiveBets();
+      if (!socket || !socket.connected) {
+        fetchGameState();
+        fetchActiveBets();
+      }
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [fetchGameState, fetchActiveBets]);
+  }, [fetchGameState, fetchActiveBets, socket]);
 
   // ─── Socket effect (runs when socket or isJoined changes) ────────
   useEffect(() => {

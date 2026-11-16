@@ -62,6 +62,7 @@ export default function AviatorPage() {
   };
 
   const fetchGameState = async () => {
+    if (socket && socket.connected) return;
     try {
       const clientFetchTime = Date.now();
       const res = await fetch(`${getApiUrl()}/api/aviator/state`);
@@ -103,14 +104,16 @@ export default function AviatorPage() {
     fetchGameState();
     fetchActiveBets();
 
-    // Periodic state and active bets sync for resilient serverless & multi-client play
+    // Periodic state and active bets sync fallback for serverless & disconnected environments
     const pollInterval = setInterval(() => {
-      fetchGameState();
-      fetchActiveBets();
+      if (!socket || !socket.connected) {
+        fetchGameState();
+        fetchActiveBets();
+      }
     }, 2500);
 
     return () => clearInterval(pollInterval);
-  }, []);
+  }, [socket]);
 
   // WebSockets Synchronization Listener - active only when user has tapped to play!
   useEffect(() => {

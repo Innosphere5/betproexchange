@@ -112,6 +112,7 @@ export default function CasinoPage() {
   }, [socket, isJoined, fetchWallet]);
 
   const fetchGameState = useCallback(async () => {
+    if (socket && socket.connected) return;
     try {
       const res = await fetch(`${getApiUrl()}/api/casino/state`);
       if (res.ok) {
@@ -154,11 +155,13 @@ export default function CasinoPage() {
     fetchHistory();
 
     const interval = setInterval(() => {
-      fetchGameState();
+      if (!socket || !socket.connected) {
+        fetchGameState();
+      }
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [fetchGameState, fetchHistory]);
+  }, [fetchGameState, fetchHistory, socket]);
 
   const handleStart = () => {
     soundFX.playChipClick();
