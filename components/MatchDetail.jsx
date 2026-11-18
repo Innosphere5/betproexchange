@@ -691,7 +691,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   const bmBackOddsDraw = actualMatch.bookmakerBackDraw || (showOdds ? actualMatch.backOddsDraw : null);
   const bmLayOddsDraw = actualMatch.bookmakerLayDraw || (showOdds && actualMatch.layOddsDraw ? Number((actualMatch.layOddsDraw > (actualMatch.backOddsDraw || 0) ? actualMatch.layOddsDraw + 0.01 : (actualMatch.backOddsDraw || 0) + 0.02).toFixed(2)) : null);
 
-  const isBookmakerSuspended = actualMatch.bookmakerMarketStatus === 'SUSPENDED' || (actualMatch.marketStatus && actualMatch.marketStatus !== 'OPEN') || (!bmBackOddsA && !bmBackOddsB);
+  const isBookmakerSuspended = (actualMatch.bookmakerMarketStatus === 'SUSPENDED' && (!bmBackOddsA && !bmBackOddsB)) || (!bmBackOddsA && !bmBackOddsB);
 
   const bookmakerRunners = [
     {
@@ -918,7 +918,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
 
             {/* Runners List with Feature 1: Profit/Loss in Green/Red under each Team */}
             <div className="relative flex flex-col">
-              {actualMatch.marketStatus && actualMatch.marketStatus !== 'OPEN' && !isCompleted && (
+              {actualMatch.marketStatus === 'SUSPENDED' && !runners.some(r => r.back !== '-' && Number(r.back) > 0) && !isCompleted && (
                 <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
                   <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
                     MARKET SUSPENDED
@@ -952,7 +952,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                     ) : (
                       <div className="flex w-32 shrink-0">
                         <button
-                          disabled={(actualMatch.marketStatus && actualMatch.marketStatus !== 'OPEN') || runner.back === '-'}
+                          disabled={runner.back === '-' || (actualMatch.marketStatus === 'SUSPENDED' && !Number(runner.back))}
                           onClick={() => onSelectOutcome(runner.name, runner.back, 'back', actualMatch.status === 'live', 'match_odds')}
                           className={`flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all border-r border-white/40 disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden ${runner.flash?.back ? 'bg-[#5d99d6]' : 'bg-[#bbd9f9] hover:bg-[#a5d3f8]'}`}
                         >
@@ -960,7 +960,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                           <span className={`text-[9px] font-bold mt-1 z-10 transition-colors ${runner.flash?.back ? 'text-white/80' : 'text-gray-500'}`}>{runner.backVol}</span>
                         </button>
                         <button
-                          disabled={(actualMatch.marketStatus && actualMatch.marketStatus !== 'OPEN') || runner.lay === '-'}
+                          disabled={runner.lay === '-' || (actualMatch.marketStatus === 'SUSPENDED' && !Number(runner.lay))}
                           onClick={() => onSelectOutcome(runner.name, runner.lay, 'lay', actualMatch.status === 'live', 'match_odds')}
                           className={`flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden ${runner.flash?.lay ? 'bg-[#d65d7a]' : 'bg-[#f8c9d4] hover:bg-[#f9b6c6]'}`}
                         >
@@ -1024,7 +1024,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
 
             {/* Runners List */}
             <div className="relative flex flex-col">
-              {isBookmakerSuspended && !isCompleted && (
+              {isBookmakerSuspended && !bookmakerRunners.some(r => r.back !== '-' && Number(r.back) > 0) && !isCompleted && (
                 <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
                   <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
                     MARKET SUSPENDED
@@ -1033,6 +1033,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
               )}
               {bookmakerRunners.map((runner, bidx) => {
                 const isWinner = isRunnerWinner(runner.name);
+                const isRunnerSuspended = runner.back === '-' && runner.lay === '-';
                 return (
                   <div 
                     key={bidx} 
@@ -1054,10 +1055,14 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                         <div className="flex-1 flex flex-col items-center justify-center py-2 bg-[#fbe2e8]">
                         </div>
                       </div>
+                    ) : isRunnerSuspended ? (
+                      <div className="flex w-32 shrink-0 items-center justify-center bg-gray-100 border border-gray-200">
+                        <span className="text-[#dc2626] font-black text-[11px] tracking-wider uppercase">SUSPENDED</span>
+                      </div>
                     ) : (
                       <div className="flex w-32 shrink-0">
                         <button
-                          disabled={isBookmakerSuspended || runner.back === '-'}
+                          disabled={runner.back === '-'}
                           onClick={() => onSelectOutcome(runner.name, runner.back, 'back', actualMatch.status === 'live', 'bookmaker')}
                           className={`flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all border-r border-white/40 disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden ${runner.flash?.back ? 'bg-[#5d99d6]' : 'bg-[#bbd9f9] hover:bg-[#a5d3f8]'}`}
                         >
@@ -1065,7 +1070,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                           <span className={`text-[9px] font-bold mt-1 z-10 transition-colors ${runner.flash?.back ? 'text-white/80' : 'text-gray-500'}`}>{runner.backVol}</span>
                         </button>
                         <button
-                          disabled={isBookmakerSuspended || runner.lay === '-'}
+                          disabled={runner.lay === '-'}
                           onClick={() => onSelectOutcome(runner.name, runner.lay, 'lay', actualMatch.status === 'live', 'bookmaker')}
                           className={`flex-1 flex flex-col items-center justify-center py-2 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden ${runner.flash?.lay ? 'bg-[#d65d7a]' : 'bg-[#f8c9d4] hover:bg-[#f9b6c6]'}`}
                         >
