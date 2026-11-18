@@ -110,34 +110,8 @@ export default function DashboardContent() {
     <div className="flex flex-col pb-20 lg:pb-10 font-sans">
 
       {/* 🚀 PREMIUM BETTING BANNERS (HORIZONTAL SQUARE LAYOUT - 5 GAMES, CRICKET 5th) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-3 p-2 md:p-4 bg-[#eaedf1]">
-        {/* 1. Aviator Hero */}
-        <div 
-          onClick={() => router.push("/dashboard/aviator")}
-          className="relative aspect-square rounded-lg md:rounded-xl overflow-hidden shadow-lg group cursor-pointer border-2 border-transparent hover:border-rose-500 transition-all font-sans"
-        >
-          <img src="/images/aviator_banner.png" className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" alt="Aviator" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
-          <div className="absolute bottom-1.5 left-1.5 md:bottom-3 md:left-3">
-            <div className="bg-rose-500 text-white text-[7px] md:text-[9px] font-black px-1.5 md:px-2 py-0.5 rounded mb-1 inline-block uppercase tracking-widest font-sans">Hot</div>
-            <h2 className="text-white text-xs sm:text-sm md:text-xl font-black italic tracking-tighter leading-none uppercase">AVIATOR</h2>
-          </div>
-        </div>
-
-        {/* 2. AviatorX Hero */}
-        <div 
-          onClick={() => router.push("/dashboard/aviatorx")}
-          className="relative aspect-square rounded-lg md:rounded-xl overflow-hidden shadow-lg group cursor-pointer border-2 border-transparent hover:border-orange-500 transition-all font-sans"
-        >
-          <img src="/images/aviatorx_banner.png" className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" alt="AviatorX" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
-          <div className="absolute bottom-1.5 left-1.5 md:bottom-3 md:left-3">
-            <div className="bg-orange-500 text-white text-[7px] md:text-[9px] font-black px-1.5 md:px-2 py-0.5 rounded mb-1 inline-block uppercase tracking-widest font-sans">Multi 100x</div>
-            <h2 className="text-white text-xs sm:text-sm md:text-xl font-black italic tracking-tighter leading-none uppercase">AVIATOR X</h2>
-          </div>
-        </div>
-
-        {/* 3. Casino Hero */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-3 p-2 md:p-4 bg-[#eaedf1]">
+        {/* 1. Casino Hero */}
         <div 
           onClick={() => router.push("/dashboard/casino")}
           className="relative aspect-square rounded-lg md:rounded-xl overflow-hidden shadow-lg group cursor-pointer border-2 border-transparent hover:border-yellow-500 transition-all font-sans"

@@ -18,8 +18,6 @@ export default function UserProfitLimitsTable({ onEditUser }) {
   const [editMaxProfit, setEditMaxProfit] = useState("10000000");
   const [editCricket, setEditCricket] = useState("5000000");
   const [editCasino, setEditCasino] = useState("500000");
-  const [editAviator, setEditAviator] = useState("500000");
-  const [editAviatorX, setEditAviatorX] = useState("500000");
   const [editTeenPatti, setEditTeenPatti] = useState("500000");
   const [editDailyCap, setEditDailyCap] = useState("20000000");
   const [editIsEnabled, setEditIsEnabled] = useState(true);
@@ -53,8 +51,6 @@ export default function UserProfitLimitsTable({ onEditUser }) {
     setEditMaxProfit(String(pl.maxProfit || 10000000));
     setEditCricket(String(pl.cricket || 5000000));
     setEditCasino(String(pl.casino || 500000));
-    setEditAviator(String(pl.aviator || 500000));
-    setEditAviatorX(String(pl.aviatorX || 500000));
     setEditTeenPatti(String(pl.teenpatti || 500000));
     setEditDailyCap(String(pl.dailyProfitCap || 20000000));
     setEditIsEnabled(pl.isEnabled !== false);
@@ -77,8 +73,6 @@ export default function UserProfitLimitsTable({ onEditUser }) {
           maxProfit: parseFloat(editMaxProfit) || 10000000,
           cricket: parseFloat(editCricket) || 5000000,
           casino: parseFloat(editCasino) || 500000,
-          aviator: parseFloat(editAviator) || 500000,
-          aviatorX: parseFloat(editAviatorX) || 500000,
           teenpatti: parseFloat(editTeenPatti) || 500000,
           dailyProfitCap: parseFloat(editDailyCap) || 20000000
         },
@@ -217,8 +211,6 @@ export default function UserProfitLimitsTable({ onEditUser }) {
                 <th className="p-3 border-r border-gray-200 text-right text-blue-700">Overall Max Profit</th>
                 <th className="p-3 border-r border-gray-200 text-right">Cricket</th>
                 <th className="p-3 border-r border-gray-200 text-right">Casino</th>
-                <th className="p-3 border-r border-gray-200 text-right">Aviator</th>
-                <th className="p-3 border-r border-gray-200 text-right">Aviator X</th>
                 <th className="p-3 border-r border-gray-200 text-right">Teen Patti</th>
                 <th className="p-3 border-r border-gray-200 text-center">Status</th>
                 <th className="p-3 text-center">Actions</th>
@@ -267,12 +259,6 @@ export default function UserProfitLimitsTable({ onEditUser }) {
                       </td>
                       <td className="p-3 border-r border-gray-200 text-right font-medium text-gray-800">
                         ₹{(pl.casino || 500000).toLocaleString()}
-                      </td>
-                      <td className="p-3 border-r border-gray-200 text-right font-medium text-gray-800">
-                        ₹{(pl.aviator || 500000).toLocaleString()}
-                      </td>
-                      <td className="p-3 border-r border-gray-200 text-right font-medium text-gray-800">
-                        ₹{(pl.aviatorX || 500000).toLocaleString()}
                       </td>
                       <td className="p-3 border-r border-gray-200 text-right font-medium text-gray-800">
                         ₹{(pl.teenpatti || 500000).toLocaleString()}
@@ -362,24 +348,6 @@ export default function UserProfitLimitsTable({ onEditUser }) {
                     type="number"
                     value={editCasino}
                     onChange={(e) => setEditCasino(e.target.value)}
-                    className="w-full border border-gray-300 rounded px-2.5 py-1 text-xs font-medium text-gray-800"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Aviator Limit</label>
-                  <input
-                    type="number"
-                    value={editAviator}
-                    onChange={(e) => setEditAviator(e.target.value)}
-                    className="w-full border border-gray-300 rounded px-2.5 py-1 text-xs font-medium text-gray-800"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Aviator X Limit</label>
-                  <input
-                    type="number"
-                    value={editAviatorX}
-                    onChange={(e) => setEditAviatorX(e.target.value)}
                     className="w-full border border-gray-300 rounded px-2.5 py-1 text-xs font-medium text-gray-800"
                   />
                 </div>

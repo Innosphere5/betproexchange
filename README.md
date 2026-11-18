@@ -36,7 +36,6 @@ A high-performance, real-time sports betting exchange web application engineered
   * Admin quick result and toss winner declaration panels for instant cross-tier settlement.
 
 * **Casino & Arcade Suite**:
-  * Interactive Aviator crash game with PixiJS canvas rendering and audio engine.
   * Live Teen Patti, Dragon Tiger, and Roulette modules.
 
 ---
@@ -52,7 +51,7 @@ betproexchange/
 │   ├── dashboard/                    # Primary user exchange dashboard
 │   │   ├── bets/                     # User bet history & statement
 │   │   ├── casino/                   # Live casino lounge
-│   │   └── aviator/                  # Real-time Aviator crash game
+│   │   └── teenpatti/                # Teen Patti card game
 │   ├── admin/                        # Admin operations & user management
 │   ├── superadmin/                   # Platform root governance
 │   └── master/                       # Agent hierarchy portal
@@ -69,8 +68,7 @@ betproexchange/
 │   ├── apiConfig.js                  # Dynamic API base URL resolver (Local / Prod)
 │   ├── auth.js                       # JWT session storage & role validation
 │   ├── betCalc.js                    # Core exchange math, books, and P/L netting
-│   ├── casinoSoundFX.js              # Synthesized Web Audio API sound generator
-│   └── useAviatorStore.js            # Zustand store for Aviator game loop
+│   └── casinoSoundFX.js              # Synthesized Web Audio API sound generator
 ├── public/                           # Static Assets (Logos, banners, icons)
 ├── package.json                      # Dependencies and scripts
 └── next.config.mjs                   # Next.js compilation settings
@@ -88,7 +86,6 @@ betproexchange/
 | **Real-time Comms** | [Socket.io-Client 4.8.3](https://socket.io/) (Bi-directional WebSocket) |
 | **Icons** | [Lucide React](https://lucide.dev/) |
 | **State Management** | React Context + [Zustand 5](https://github.com/pmndrs/zustand) |
-| **Canvas / Graphics** | [Pixi.js v8](https://pixijs.com/) (Aviator animation engine) |
 
 ---
 

@@ -472,7 +472,7 @@ export default function DashboardLayout({ children }) {
         setCurrentView("home");
       }
     } else {
-      // Sub-pages like /dashboard/aviator, /dashboard/casino, /dashboard/teenpatti
+      // Sub-pages like /dashboard/casino, /dashboard/teenpatti
       setSelectedMatchId(null);
       setCurrentView("home");
     }

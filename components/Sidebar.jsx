@@ -55,8 +55,6 @@ const CardsIcon = () => (
 );
 
 const navItems = [
-  { label: "Aviator", icon: <PlaneIcon />, link: "/dashboard/aviator" },
-  { label: "AviatorX", icon: <PlaneIcon />, link: "/dashboard/aviatorx" },
   { label: "Casino", icon: <CasinoIcon />, link: "/dashboard/casino" },
   { label: "Teen Patti", icon: <CardsIcon />, link: "/dashboard/teenpatti" },
   {

@@ -26,7 +26,7 @@ export default function EditClientModal({ isOpen, onClose, user, onUserUpdated, 
   const [commission, setCommission] = useState("2.00");
   const [userDomain] = useState("1 (betproexch.com)");
 
-  // Right column state - Max Bet Sizes (matching Image 1 + Aviator, Aviator X, Teen Patti)
+  // Right column state - Max Bet Sizes (matching Image 1 + Teen Patti)
   const [maxBetSizes, setMaxBetSizes] = useState({
     soccer: "1000000.00",
     tennis: "250000.00",
@@ -36,8 +36,6 @@ export default function EditClientModal({ isOpen, onClose, user, onUserUpdated, 
     casino: "50000.00",
     greyhound: "50000.00",
     bookmaker: "2000000.00",
-    aviator: "50000.00",
-    aviatorX: "50000.00",
     teenpatti: "50000.00"
   });
 
@@ -47,8 +45,6 @@ export default function EditClientModal({ isOpen, onClose, user, onUserUpdated, 
     maxProfit: "10000000.00",
     cricket: "5000000.00",
     casino: "500000.00",
-    aviator: "500000.00",
-    aviatorX: "500000.00",
     teenpatti: "500000.00",
     soccer: "2000000.00",
     tennis: "1000000.00",
@@ -455,8 +451,6 @@ export default function EditClientModal({ isOpen, onClose, user, onUserUpdated, 
                   { key: "casino", label: "Casino", defaultCap: 50000 },
                   { key: "greyhound", label: "Greyhound", defaultCap: 50000 },
                   { key: "bookmaker", label: "BookMaker", defaultCap: 2000000 },
-                  { key: "aviator", label: "Aviator", defaultCap: 50000 },
-                  { key: "aviatorX", label: "Aviator X", defaultCap: 50000 },
                   { key: "teenpatti", label: "Teen Patti", defaultCap: 50000 }
                 ].map(({ key, label, defaultCap }) => {
                   const cap = parentMaxBetCaps[key] || defaultCap;
@@ -583,8 +577,6 @@ export default function EditClientModal({ isOpen, onClose, user, onUserUpdated, 
                   {[
                     { key: "cricket", label: "Cricket Profit Limit", defaultCap: 5000000 },
                     { key: "casino", label: "Casino Profit Limit", defaultCap: 500000 },
-                    { key: "aviator", label: "Aviator Profit Limit", defaultCap: 500000 },
-                    { key: "aviatorX", label: "Aviator X Profit Limit", defaultCap: 500000 },
                     { key: "teenpatti", label: "Teen Patti Profit Limit", defaultCap: 500000 },
                     { key: "soccer", label: "Soccer Profit Limit", defaultCap: 2000000 },
                     { key: "tennis", label: "Tennis Profit Limit", defaultCap: 1000000 }

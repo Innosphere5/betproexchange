@@ -1,6 +1,6 @@
 "use client";
 
-import { X, LayoutDashboard, Users, Filter, FileText, Lock, Star, Globe, Gamepad2, ChevronLeft, ChevronDown, Trophy, LogOut, BookOpen } from "lucide-react";
+import { X, LayoutDashboard, Users, Filter, FileText, Lock, Star, Globe, ChevronLeft, ChevronDown, Trophy, LogOut, BookOpen } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -36,8 +36,7 @@ const navItems = [
   { label: "Account Ledger", href: "/admin/account-ledger", icon: <BookOpen size={18} className="opacity-80" /> },
   { label: "Current Position", href: "/admin/current-position", icon: <Filter size={18} className="opacity-80" /> },
   { label: "Reports", href: "/admin/reports", icon: <FileText size={18} className="opacity-80" /> },
-  { label: "Bet Lock", href: "/admin/betlock", icon: <Lock size={18} className="opacity-80" /> },
-  { label: "Aviator Details", href: "/admin/aviator", icon: <Gamepad2 size={18} className="opacity-80" /> }
+  { label: "Bet Lock", href: "/admin/betlock", icon: <Lock size={18} className="opacity-80" /> }
 ];
 
 export default function AdminSidebar({ isOpen, setIsOpen }) {
