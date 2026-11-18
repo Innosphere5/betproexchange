@@ -1538,13 +1538,13 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                         <div className="flex items-center gap-2 mb-2 flex-wrap">
                           <div className="text-[11px] font-black text-gray-500 uppercase tracking-wider">
                             {actualMatch.score?.batsmen?.length > 0
-                              ? 'Period Breakdown (Sportmonks Live)'
+                              ? 'Period Breakdown (Roanuz Live)'
                               : 'Period Breakdown (Official OddsAPI Scores)'}
                           </div>
                           {/* Show data-source badge */}
                           {actualMatch.score?.batsmen?.length > 0 ? (
                             <span className="text-[9px] font-bold bg-green-100 text-green-700 border border-green-300 px-1.5 py-0.5 rounded uppercase tracking-wide">
-                              ✅ Sportmonks — Ball-by-Ball
+                              ✅ Roanuz — Ball-by-Ball
                             </span>
                           ) : (
                             <span className="text-[9px] font-bold bg-yellow-100 text-yellow-700 border border-yellow-300 px-1.5 py-0.5 rounded uppercase tracking-wide">
