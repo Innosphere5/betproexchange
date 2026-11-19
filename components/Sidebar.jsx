@@ -55,8 +55,8 @@ const CardsIcon = () => (
 );
 
 const navItems = [
-  { label: "Casino", icon: <CasinoIcon />, link: "/dashboard/casino" },
-  { label: "Teen Patti", icon: <CardsIcon />, link: "/dashboard/teenpatti" },
+  { label: "Casino", icon: <CasinoIcon />, link: "/dashboard/casino", isUnderDev: true },
+  { label: "Teen Patti", icon: <CardsIcon />, link: "/dashboard/teenpatti", isUnderDev: true },
   {
     label: "Cricket",
     icon: <CricketIcon />,
@@ -122,6 +122,9 @@ export default function Sidebar({ isOpen, setIsOpen, onSelectMatch }) {
               <>
                 <div className="text-white opacity-100">{item.icon}</div>
                 <span className="text-[13px] font-bold tracking-normal flex-1">{item.label}</span>
+                {item.isUnderDev && (
+                  <span className="bg-amber-500 text-black text-[9px] font-black px-1.5 py-0.5 rounded tracking-wider uppercase">DEV</span>
+                )}
                 {item.submenu && (
                   isSelected ? <ChevronDown size={14} className="opacity-60" /> : <ChevronRight size={14} className="opacity-60" />
                 )}
