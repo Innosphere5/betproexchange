@@ -642,7 +642,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   ];
 
   const derivedDrawBack = actualMatch.backOddsDraw || (isTestMatch && actualMatch.backOddsA > 1 && actualMatch.backOddsB > 1
-    ? Number((1 / Math.max(0.01, 1.02 - (1 / actualMatch.backOddsA + 1 / actualMatch.backOddsB))).toFixed(2))
+    ? Number((1 / Math.max(0.20, 1.02 - (1 / actualMatch.backOddsA + 1 / actualMatch.backOddsB))).toFixed(2))
     : null);
   const derivedDrawLay = actualMatch.layOddsDraw || (derivedDrawBack ? Number((derivedDrawBack + 0.02).toFixed(2)) : null);
 
@@ -691,7 +691,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   const bmBackOddsDraw = actualMatch.bookmakerBackDraw || (showOdds ? actualMatch.backOddsDraw : null);
   const bmLayOddsDraw = actualMatch.bookmakerLayDraw || (showOdds && actualMatch.layOddsDraw ? Number((actualMatch.layOddsDraw > (actualMatch.backOddsDraw || 0) ? actualMatch.layOddsDraw + 0.01 : (actualMatch.backOddsDraw || 0) + 0.02).toFixed(2)) : null);
 
-  const isBookmakerSuspended = (actualMatch.bookmakerMarketStatus === 'SUSPENDED' && (!bmBackOddsA && !bmBackOddsB)) || (!bmBackOddsA && !bmBackOddsB);
+  const isBookmakerSuspended = actualMatch.bookmakerMarketStatus === 'SUSPENDED' || (!bmBackOddsA && !bmBackOddsB);
 
   const bookmakerRunners = [
     {
@@ -909,10 +909,15 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
             </div>
 
             {/* Completed Match Subheader matching bpexch.org */}
-            {isCompleted && (
+            {isCompleted ? (
               <div className="bg-[#f0f2f5] text-[#333333] text-[12px] font-bold px-3 py-1.5 flex items-center justify-between border-b border-gray-200">
                 <span>{formattedDate} {formattedTime}</span>
                 <span>Elapsed: {elapsedFormatted}</span>
+              </div>
+            ) : (actualMatch.score?.statusText || actualMatch.statusText) && (
+              <div className="bg-[#fdf2f2] text-[#dc2626] text-[12px] font-black px-3 py-1.5 flex items-center justify-between border-b border-red-100">
+                <span className="tracking-wide uppercase">{actualMatch.score?.statusText || actualMatch.statusText}</span>
+                <span className="text-gray-500 font-semibold">{relativeSchedule || formattedDate}</span>
               </div>
             )}
 
@@ -1015,16 +1020,21 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
             </div>
 
             {/* Completed Match Subheader matching bpexch.org */}
-            {isCompleted && (
+            {isCompleted ? (
               <div className="bg-[#f0f2f5] text-[#333333] text-[12px] font-bold px-3 py-1.5 flex items-center justify-between border-b border-gray-200">
                 <span>{formattedDate} {formattedTime}</span>
                 <span>Elapsed: {elapsedFormatted}</span>
+              </div>
+            ) : (actualMatch.score?.statusText || actualMatch.statusText) && (
+              <div className="bg-[#fdf2f2] text-[#dc2626] text-[12px] font-black px-3 py-1.5 flex items-center justify-between border-b border-red-100">
+                <span className="tracking-wide uppercase">{actualMatch.score?.statusText || actualMatch.statusText}</span>
+                <span className="text-gray-500 font-semibold">{relativeSchedule || formattedDate}</span>
               </div>
             )}
 
             {/* Runners List */}
             <div className="relative flex flex-col">
-              {isBookmakerSuspended && !bookmakerRunners.some(r => r.back !== '-' && Number(r.back) > 0) && !isCompleted && (
+              {isBookmakerSuspended && !isCompleted && (
                 <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
                   <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
                     MARKET SUSPENDED
@@ -1033,7 +1043,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
               )}
               {bookmakerRunners.map((runner, bidx) => {
                 const isWinner = isRunnerWinner(runner.name);
-                const isRunnerSuspended = runner.back === '-' && runner.lay === '-';
+                const isRunnerSuspended = isBookmakerSuspended || (runner.back === '-' && runner.lay === '-');
                 return (
                   <div 
                     key={bidx} 

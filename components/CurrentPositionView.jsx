@@ -15,7 +15,7 @@ import {
   Layers
 } from "lucide-react";
 import io from "socket.io-client";
-import { getApiUrl } from "@/lib/apiConfig";
+import { getApiUrl, isServerlessBackend } from "@/lib/apiConfig";
 
 export default function CurrentPositionView({
   role = "admin",
@@ -91,8 +91,8 @@ export default function CurrentPositionView({
 
   // Socket.IO real-time event listener for live updates
   useEffect(() => {
+    if (isServerlessBackend()) return;
     const apiUrl = getApiUrl();
-    if (apiUrl.includes('vercel.app')) return;
 
     const socket = io(apiUrl, {
       transports: ["websocket", "polling"],

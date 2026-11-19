@@ -22,7 +22,7 @@ import {
   Clock
 } from "lucide-react";
 import io from "socket.io-client";
-import { getApiUrl } from "@/lib/apiConfig";
+import { getApiUrl, isServerlessBackend } from "@/lib/apiConfig";
 
 export default function MatchDetailAdminView({
   role = "admin",
@@ -149,8 +149,8 @@ export default function MatchDetailAdminView({
   // ── Real-Time Socket.IO Updates (Odds, Scores, Fancy, Figure, Even/Odd, Bets) ──
   useEffect(() => {
     if (!matchId) return;
+    if (isServerlessBackend()) return;
     const apiUrl = getApiUrl();
-    if (apiUrl.includes('vercel.app')) return;
 
     const socket = io(apiUrl, {
       transports: ["websocket", "polling"],
