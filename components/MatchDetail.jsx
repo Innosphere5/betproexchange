@@ -280,6 +280,11 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   useEffect(() => {
     if (!socket || !matchId) return;
 
+    // ⚡ Scalable Room Subscription (Channel Partitioning)
+    if (typeof socket.emit === 'function') {
+      socket.emit('join_match', matchId);
+    }
+
     const isSameMatch = (incomingId, currentId) => {
       if (!incomingId || !currentId) return false;
       const a = String(incomingId).trim();
@@ -412,6 +417,9 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
     socket.on('toss_odds_update', handleTossUpdate);
 
     return () => {
+      if (typeof socket.emit === 'function') {
+        socket.emit('leave_match', matchId);
+      }
       socket.off('fancy_market_update', handleFancyUpdate);
       socket.off('figure_market_update', handleFigureUpdate);
       socket.off('even_odd_market_update', handleEvenOddUpdate);
