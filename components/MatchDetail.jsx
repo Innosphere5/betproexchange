@@ -699,7 +699,13 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   const bmBackOddsDraw = actualMatch.bookmakerBackDraw || (showOdds ? actualMatch.backOddsDraw : null);
   const bmLayOddsDraw = actualMatch.bookmakerLayDraw || (showOdds && actualMatch.layOddsDraw ? Number((actualMatch.layOddsDraw > (actualMatch.backOddsDraw || 0) ? actualMatch.layOddsDraw + 0.01 : (actualMatch.backOddsDraw || 0) + 0.02).toFixed(2)) : null);
 
-  const isBookmakerSuspended = actualMatch.bookmakerMarketStatus === 'SUSPENDED' || (!bmBackOddsA && !bmBackOddsB);
+  const isStumps = Boolean(
+    actualMatch.score?.statusText?.toLowerCase()?.includes('stump') ||
+    actualMatch.statusText?.toLowerCase()?.includes('stump') ||
+    (isTestMatch && (actualMatch.score?.statusText?.toLowerCase()?.includes('day') || actualMatch.statusText?.toLowerCase()?.includes('day')))
+  );
+
+  const isBookmakerSuspended = actualMatch.bookmakerMarketStatus === 'SUSPENDED' || isStumps || (!bmBackOddsA && !bmBackOddsB);
 
   const bookmakerRunners = [
     {
@@ -985,6 +991,13 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                   </div>
                 );
               })}
+              {isStumps && (
+                <div className="px-3 py-2 text-xs font-bold text-red-600 bg-white border-t border-gray-200 uppercase tracking-wide">
+                  {actualMatch.score?.statusText && actualMatch.score.statusText.toLowerCase().includes('stump')
+                    ? actualMatch.score.statusText
+                    : 'Day 2 Stumps Betting Closed'}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1042,13 +1055,6 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
 
             {/* Runners List */}
             <div className="relative flex flex-col">
-              {isBookmakerSuspended && !isCompleted && (
-                <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
-                  <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
-                    MARKET SUSPENDED
-                  </div>
-                </div>
-              )}
               {bookmakerRunners.map((runner, bidx) => {
                 const isWinner = isRunnerWinner(runner.name);
                 const isRunnerSuspended = isBookmakerSuspended || (runner.back === '-' && runner.lay === '-');
