@@ -263,13 +263,25 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
           setFetchedMatch(prev => ({
             ...(prev || {}),
             ...data,
+            backOddsA: prev?.backOddsA ?? data.backOddsA,
+            layOddsA: prev?.layOddsA ?? data.layOddsA,
+            backOddsB: prev?.backOddsB ?? data.backOddsB,
+            layOddsB: prev?.layOddsB ?? data.layOddsB,
+            backOddsDraw: prev?.backOddsDraw ?? data.backOddsDraw,
+            layOddsDraw: prev?.layOddsDraw ?? data.layOddsDraw,
+            bookmakerBackA: prev?.bookmakerBackA ?? data.bookmakerBackA,
+            bookmakerLayA: prev?.bookmakerLayA ?? data.bookmakerLayA,
+            bookmakerBackB: prev?.bookmakerBackB ?? data.bookmakerBackB,
+            bookmakerLayB: prev?.bookmakerLayB ?? data.bookmakerLayB,
+            bookmakerBackDraw: prev?.bookmakerBackDraw ?? data.bookmakerBackDraw,
+            bookmakerLayDraw: prev?.bookmakerLayDraw ?? data.bookmakerLayDraw,
             score: { ...(prev?.score || {}), ...(data.score || {}) }
           }));
         }
       } catch (err) {}
     };
     loadMatch();
-    const interval = setInterval(loadMatch, 2000);
+    const interval = setInterval(loadMatch, 5000);
     return () => {
       isMounted = false;
       clearInterval(interval);
@@ -407,6 +419,63 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
       }
     };
 
+    const handleMarketOddsUpdate = (data) => {
+      const incomingId = data.matchId ?? data.matchIdNum;
+      if (isSameMatch(incomingId, matchId)) {
+        if (data.marketStatus && !data.runners) {
+          setFetchedMatch(prev => ({
+            ...(prev || {}),
+            marketStatus: data.marketStatus,
+            bookmakerMarketStatus: data.bookmakerMarketStatus || data.marketStatus
+          }));
+          return;
+        }
+        const runners = data.runners || [];
+        const runnerA = runners[0];
+        const runnerB = runners[1];
+        const runnerDraw = runners[2];
+        const bmRunners = data.bookmakerRunners || [];
+        const bmRunnerA = bmRunners[0];
+        const bmRunnerB = bmRunners[1];
+        const bmRunnerDraw = bmRunners[2];
+
+        setFetchedMatch(prev => ({
+          ...(prev || {}),
+          marketStatus: data.marketStatus || 'OPEN',
+          backOddsA: runnerA?.back !== undefined ? runnerA.back : prev?.backOddsA,
+          layOddsA: runnerA?.lay !== undefined ? runnerA.lay : prev?.layOddsA,
+          backOddsB: runnerB?.back !== undefined ? runnerB.back : prev?.backOddsB,
+          layOddsB: runnerB?.lay !== undefined ? runnerB.lay : prev?.layOddsB,
+          backOddsDraw: runnerDraw?.back !== undefined ? runnerDraw.back : prev?.backOddsDraw,
+          layOddsDraw: runnerDraw?.lay !== undefined ? runnerDraw.lay : prev?.layOddsDraw,
+          depthBackA: runnerA?.depthBack || prev?.depthBackA,
+          depthLayA: runnerA?.depthLay || prev?.depthLayA,
+          depthBackB: runnerB?.depthBack || prev?.depthBackB,
+          depthLayB: runnerB?.depthLay || prev?.depthLayB,
+          depthBackDraw: runnerDraw?.depthBack || prev?.depthBackDraw,
+          depthLayDraw: runnerDraw?.depthLay || prev?.depthLayDraw,
+          bookmakerBackA: bmRunnerA?.back !== undefined ? bmRunnerA.back : prev?.bookmakerBackA,
+          bookmakerLayA: bmRunnerA?.lay !== undefined ? bmRunnerA.lay : prev?.bookmakerLayA,
+          bookmakerBackB: bmRunnerB?.back !== undefined ? bmRunnerB.back : prev?.bookmakerBackB,
+          bookmakerLayB: bmRunnerB?.lay !== undefined ? bmRunnerB.lay : prev?.bookmakerLayB,
+          bookmakerBackDraw: bmRunnerDraw?.back !== undefined ? bmRunnerDraw.back : prev?.bookmakerBackDraw,
+          bookmakerLayDraw: bmRunnerDraw?.lay !== undefined ? bmRunnerDraw.lay : prev?.bookmakerLayDraw,
+          bookmakerDepthBackA: bmRunnerA?.depthBack || prev?.bookmakerDepthBackA || '100',
+          bookmakerDepthLayA: bmRunnerA?.depthLay || prev?.bookmakerDepthLayA || '100',
+          bookmakerDepthBackB: bmRunnerB?.depthBack || prev?.bookmakerDepthBackB || '100',
+          bookmakerDepthLayB: bmRunnerB?.depthLay || prev?.bookmakerDepthLayB || '100',
+          bookmakerMarketStatus: data.bookmakerMarketStatus || prev?.bookmakerMarketStatus || 'OPEN',
+          tossBackA: data.tossBackA !== undefined ? data.tossBackA : prev?.tossBackA,
+          tossLayA: data.tossLayA !== undefined ? data.tossLayA : prev?.tossLayA,
+          tossBackB: data.tossBackB !== undefined ? data.tossBackB : prev?.tossBackB,
+          tossLayB: data.tossLayB !== undefined ? data.tossLayB : prev?.tossLayB,
+          tossMarketStatus: data.tossMarketStatus !== undefined ? data.tossMarketStatus : prev?.tossMarketStatus,
+          lastUpdated: data.updatedAt || new Date()
+        }));
+      }
+    };
+
+    socket.on('market_odds_update', handleMarketOddsUpdate);
     socket.on('fancy_market_update', handleFancyUpdate);
     socket.on('figure_market_update', handleFigureUpdate);
     socket.on('even_odd_market_update', handleEvenOddUpdate);
@@ -420,6 +489,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
       if (typeof socket.emit === 'function') {
         socket.emit('leave_match', matchId);
       }
+      socket.off('market_odds_update', handleMarketOddsUpdate);
       socket.off('fancy_market_update', handleFancyUpdate);
       socket.off('figure_market_update', handleFigureUpdate);
       socket.off('even_odd_market_update', handleEvenOddUpdate);
@@ -431,7 +501,11 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
     };
   }, [socket, matchId]);
 
-  const rawMatch = cricketMatches?.find(m => String(m.matchId) === String(matchId));
+  const rawMatch = cricketMatches?.find(m => {
+    const a = String(m.matchId || '').trim();
+    const b = String(matchId || '').trim();
+    return a === b || a.replace(/^id/, '') === b.replace(/^id/, '');
+  });
   const actualMatch = {
     ...(rawMatch || {}),
     ...(fetchedMatch || {}),

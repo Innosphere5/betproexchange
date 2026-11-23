@@ -82,10 +82,30 @@ export default function Sidebar({ isOpen, setIsOpen, onSelectMatch }) {
 
   const dynamicNavItems = navItems.map(item => {
     if (item.label === "Cricket") {
-      const matchEntries = cricketMatches?.map(m => ({
-        id: m.matchId,
-        label: m.status === 'live' ? `🔴 LIVE: ${m.teamA} v ${m.teamB}` : `${m.teamA} v ${m.teamB}`
-      })) || [];
+      const activeMatches = (cricketMatches || []).filter(m => {
+        return m.status !== 'completed' && !m.winner && !m.isCompleted;
+      });
+
+      const seenTeams = new Map();
+      const matchEntries = activeMatches.map(m => {
+        const teamsKey = `${m.teamA} v ${m.teamB}`;
+        const count = (seenTeams.get(teamsKey) || 0) + 1;
+        seenTeams.set(teamsKey, count);
+
+        let label = teamsKey;
+        if (m.status === 'live') {
+          label = `🔴 LIVE: ${teamsKey}`;
+        } else if (m.startTime) {
+          const d = new Date(m.startTime);
+          const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          label = `${teamsKey} (${dateStr})`;
+        }
+
+        return {
+          id: m.matchId,
+          label
+        };
+      });
       
       return {
         ...item,

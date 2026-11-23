@@ -208,10 +208,10 @@ export default function DashboardLayout({ children }) {
 
     socket.on('market_odds_update', (data) => {
         setCricketMatches(prev => prev.map(m => {
-            // ✅ Normalize matchId to string for safe comparison
-            // Server emits matchId as String, but data.matchId or data.matchIdNum may vary
-            const incomingId = String(data.matchId ?? data.matchIdNum ?? '');
-            if (String(m.matchId) === incomingId) {
+            const incomingId = String(data.matchId ?? data.matchIdNum ?? '').trim();
+            const currentId = String(m.matchId || '').trim();
+            const isMatch = currentId === incomingId || currentId.replace(/^id/, '') === incomingId.replace(/^id/, '');
+            if (isMatch) {
                 if (data.marketStatus && !data.runners) {
                     return { 
                         ...m, 
@@ -222,9 +222,11 @@ export default function DashboardLayout({ children }) {
                 const runners = data.runners || [];
                 const runnerA = runners[0];
                 const runnerB = runners[1];
+                const runnerDraw = runners[2];
                 const bmRunners = data.bookmakerRunners || [];
                 const bmRunnerA = bmRunners[0];
                 const bmRunnerB = bmRunners[1];
+                const bmRunnerDraw = bmRunners[2];
 
                 return {
                     ...m,
@@ -233,14 +235,20 @@ export default function DashboardLayout({ children }) {
                     layOddsA: runnerA?.lay || m.layOddsA,
                     backOddsB: runnerB?.back || m.backOddsB,
                     layOddsB: runnerB?.lay || m.layOddsB,
+                    backOddsDraw: runnerDraw?.back || m.backOddsDraw,
+                    layOddsDraw: runnerDraw?.lay || m.layOddsDraw,
                     depthBackA: runnerA?.depthBack || m.depthBackA,
                     depthLayA: runnerA?.depthLay || m.depthLayA,
                     depthBackB: runnerB?.depthBack || m.depthBackB,
                     depthLayB: runnerB?.depthLay || m.depthLayB,
+                    depthBackDraw: runnerDraw?.depthBack || m.depthBackDraw,
+                    depthLayDraw: runnerDraw?.depthLay || m.depthLayDraw,
                     bookmakerBackA: bmRunnerA?.back ?? m.bookmakerBackA,
                     bookmakerLayA: bmRunnerA?.lay ?? m.bookmakerLayA,
                     bookmakerBackB: bmRunnerB?.back ?? m.bookmakerBackB,
                     bookmakerLayB: bmRunnerB?.lay ?? m.bookmakerLayB,
+                    bookmakerBackDraw: bmRunnerDraw?.back ?? m.bookmakerBackDraw,
+                    bookmakerLayDraw: bmRunnerDraw?.lay ?? m.bookmakerLayDraw,
                     bookmakerDepthBackA: bmRunnerA?.depthBack ?? m.bookmakerDepthBackA ?? '100',
                     bookmakerDepthLayA: bmRunnerA?.depthLay ?? m.bookmakerDepthLayA ?? '100',
                     bookmakerDepthBackB: bmRunnerB?.depthBack ?? m.bookmakerDepthBackB ?? '100',
@@ -255,8 +263,10 @@ export default function DashboardLayout({ children }) {
 
     socket.on('bookmaker_odds_update', (data) => {
         setCricketMatches(prev => prev.map(m => {
-            const incomingId = String(data.matchId ?? '');
-            if (String(m.matchId) === incomingId) {
+            const incomingId = String(data.matchId ?? '').trim();
+            const currentId = String(m.matchId || '').trim();
+            const isMatch = currentId === incomingId || currentId.replace(/^id/, '') === incomingId.replace(/^id/, '');
+            if (isMatch) {
                 return {
                     ...m,
                     bookmakerBackA: data.bookmakerBackA ?? m.bookmakerBackA,
