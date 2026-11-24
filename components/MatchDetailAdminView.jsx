@@ -59,6 +59,11 @@ export default function MatchDetailAdminView({
   const [isUserBookOpen, setIsUserBookOpen] = useState(false);
   const [selectedRunnerIdx, setSelectedRunnerIdx] = useState(null);
 
+  // Auto-remove settled toss market from UI
+  const [tossAutoRemoved, setTossAutoRemoved] = useState(false);
+  const [tossLiveNotification, setTossLiveNotification] = useState(null); // { winner, secondsLeft }
+  const initialTossSettledRef = useRef(null);
+
   // Ref to track alternate match IDs for socket matching without causing reconnections
   const matchIdAltRef = useRef({ sportmonksFixtureId: null, oddsApiEventId: null });
 
@@ -243,10 +248,17 @@ export default function MatchDetailAdminView({
 
     // 4. Toss Odds Update
     const handleTossUpdate = (data) => {
-      const incomingId = String(data.matchId ?? "");
-      const currentId = String(matchId ?? "");
+      const incomingId = String(data.matchId ?? "").trim().toLowerCase();
+      const currentId = String(matchId ?? "").trim().toLowerCase();
       const isSameMatch = incomingId === currentId || incomingId.replace(/^id/, '') === currentId.replace(/^id/, '');
       if (isSameMatch) {
+        const declaredWinner = data.tossWinner;
+        const isSettledNow = Boolean(data.tossSettled || declaredWinner);
+
+        if (isSettledNow && !initialTossSettledRef.current && !tossAutoRemoved) {
+          setTossLiveNotification({ winner: declaredWinner || 'Winner', secondsLeft: 4 });
+        }
+
         setMatchData((prev) => ({
           ...(prev || {}),
           tossBackA: data.tossBackA !== undefined ? data.tossBackA : prev?.tossBackA,
@@ -258,9 +270,10 @@ export default function MatchDetailAdminView({
           tossDepthBackB: data.tossDepthBackB !== undefined ? data.tossDepthBackB : prev?.tossDepthBackB,
           tossDepthLayB: data.tossDepthLayB !== undefined ? data.tossDepthLayB : prev?.tossDepthLayB,
           tossMarketStatus: data.tossMarketStatus !== undefined ? data.tossMarketStatus : prev?.tossMarketStatus,
-          tossWinner: data.tossWinner !== undefined ? data.tossWinner : prev?.tossWinner
+          tossWinner: data.tossWinner !== undefined ? data.tossWinner : prev?.tossWinner,
+          tossSettled: data.tossSettled !== undefined ? data.tossSettled : prev?.tossSettled
         }));
-        if (data.tossWinner || data.tossMarketStatus === 'CLOSED') {
+        if (data.tossWinner || data.tossSettled || data.tossMarketStatus === 'CLOSED') {
           fetchMatchData();
         }
       }
@@ -369,6 +382,7 @@ export default function MatchDetailAdminView({
     socket.on("odds_updated", handleOddsUpdated);
     socket.on("bookmaker_odds_update", handleBookmakerUpdate);
     socket.on("toss_odds_update", handleTossUpdate);
+    socket.on("toss_settled", handleTossUpdate);
     socket.on("fancy_market_update", handleFancyUpdate);
     socket.on("figure_market_update", handleFigureUpdate);
     socket.on("even_odd_market_update", handleEvenOddUpdate);
@@ -385,6 +399,7 @@ export default function MatchDetailAdminView({
       socket.off("odds_updated", handleOddsUpdated);
       socket.off("bookmaker_odds_update", handleBookmakerUpdate);
       socket.off("toss_odds_update", handleTossUpdate);
+      socket.off("toss_settled", handleTossUpdate);
       socket.off("fancy_market_update", handleFancyUpdate);
       socket.off("figure_market_update", handleFigureUpdate);
       socket.off("even_odd_market_update", handleEvenOddUpdate);
@@ -453,17 +468,6 @@ export default function MatchDetailAdminView({
     return String(num);
   };
 
-  // ── Available Tabs ────────────────────────────────────────────────────────
-  const availableTabs = [
-    "ALL",
-    "Match Odds",
-    "Bookmaker",
-    "Toss",
-    "Score Card",
-    "Figure",
-    "Fancy",
-    "Even-Odd"
-  ];
 
   // ── Cricket Score Computation ─────────────────────────────────────────────
   const scoreData = useMemo(() => {
@@ -749,7 +753,7 @@ export default function MatchDetailAdminView({
       });
       const resData = await res.json();
       if (res.ok && resData.success) {
-        alert(`Toss winner declared: ${tossWinner}`);
+        setTossLiveNotification({ winner: tossWinner, secondsLeft: 4 });
         fetchAllData(false);
       } else {
         alert(resData.error || "Failed to declare toss winner");
@@ -901,6 +905,63 @@ export default function MatchDetailAdminView({
   const isMatchLive = isLive || matchData?.status === 'live' || (matchData?.startTime && new Date() >= new Date(matchData.startTime));
   const isTossClosed = !isUpcomingFutureMatch && (isCompleted || isMatchLive || matchData?.tossMarketStatus === 'CLOSED' || Boolean(matchData?.tossWinner));
   const isTossSuspended = matchData?.tossMarketStatus === "SUSPENDED";
+
+  // Toss Settled Check: true if winner declared, tossSettled flag true, or match in-play and toss closed
+  const isTossSettled = Boolean(
+    matchData?.tossSettled || 
+    matchData?.tossWinner || 
+    (matchData?.tossMarketStatus === 'CLOSED' && (matchData?.status === 'live' || isCompleted || isMatchLive))
+  );
+
+  useEffect(() => {
+    if (initialTossSettledRef.current === null && matchData) {
+      initialTossSettledRef.current = isTossSettled;
+    }
+  }, [matchData, isTossSettled]);
+
+  // Live countdown to remove toss market from UI when declared in real-time
+  useEffect(() => {
+    if (!tossLiveNotification) return;
+    if (tossLiveNotification.secondsLeft <= 0) {
+      setTossAutoRemoved(true);
+      setTossLiveNotification(null);
+      if (selectedMarketType === 'Toss') setSelectedMarketType('ALL');
+      return;
+    }
+    const timer = setInterval(() => {
+      setTossLiveNotification(prev => {
+        if (!prev) return null;
+        if (prev.secondsLeft <= 1) {
+          setTossAutoRemoved(true);
+          if (selectedMarketType === 'Toss') setSelectedMarketType('ALL');
+          return null;
+        }
+        return { ...prev, secondsLeft: prev.secondsLeft - 1 };
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [tossLiveNotification, selectedMarketType]);
+
+  const isTossVisible = (!isTossSettled && !tossAutoRemoved) || Boolean(tossLiveNotification);
+
+  // ── Available Tabs ────────────────────────────────────────────────────────
+  const availableTabs = [
+    "ALL",
+    "Match Odds",
+    "Bookmaker",
+    ...(isTossVisible ? ["Toss"] : []),
+    "Score Card",
+    "Figure",
+    "Fancy",
+    "Even-Odd",
+    "Others"
+  ];
+
+  useEffect(() => {
+    if (!availableTabs.includes(selectedMarketType)) {
+      setSelectedMarketType("ALL");
+    }
+  }, [availableTabs, selectedMarketType]);
 
   // Toss Runners
   const tossRunners = [
@@ -1339,9 +1400,38 @@ export default function MatchDetailAdminView({
             </div>
           )}
 
-          {/* ══════════ SECTION 3: TOSS MARKET ══════════ */}
-          {(isShowAll || selectedMarketType === "Toss") && (
-            <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
+          {/* ══════════ SECTION 3: TOSS MARKET (Auto-removed when toss is settled) ══════════ */}
+          {isTossVisible && (isShowAll || selectedMarketType === "Toss") && (
+            <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden mb-2 animate-in fade-in duration-300">
+              {/* Live Toss Settlement Banner with Auto-Removal Countdown */}
+              {tossLiveNotification && (
+                <div className="bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-800 text-white p-3.5 flex items-center justify-between border-b border-emerald-400/30">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                      <Trophy size={18} className="text-yellow-300 animate-bounce" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
+                        <span>Toss Result Declared:</span>
+                        <span className="text-yellow-300 font-black">{tossLiveNotification.winner}</span>
+                      </div>
+                      <div className="text-[11px] text-emerald-100 font-medium">
+                        Toss settled! Automatically removing market in {tossLiveNotification.secondsLeft}s...
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setTossAutoRemoved(true);
+                      setTossLiveNotification(null);
+                      if (selectedMarketType === 'Toss') setSelectedMarketType('ALL');
+                    }}
+                    className="bg-white/20 hover:bg-white/30 text-white text-[10px] font-black uppercase px-2.5 py-1 rounded transition-colors cursor-pointer shrink-0"
+                  >
+                    Remove Now
+                  </button>
+                </div>
+              )}
               <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
                 <div className="flex items-center gap-2">
                   <div className={`w-5 h-5 ${isTossClosed ? 'bg-purple-600' : 'bg-[#00c766] animate-pulse'} rounded-full flex items-center justify-center shrink-0 shadow-sm`}>

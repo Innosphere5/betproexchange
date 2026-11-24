@@ -334,14 +334,17 @@ export default function DashboardLayout({ children }) {
         }));
     });
 
-    socket.on('toss_odds_update', (data) => {
+    const handleDashboardTossUpdate = (data) => {
         setCricketMatches(prev => prev.map(m => {
-            const incomingId = String(data.matchId ?? '');
-            if (String(m.matchId) === incomingId) {
+            const incomingId = String(data.matchId ?? '').trim().toLowerCase();
+            const currId = String(m.matchId ?? '').trim().toLowerCase();
+            const isMatch = currId === incomingId || currId.replace(/^id/, '') === incomingId.replace(/^id/, '');
+            if (isMatch) {
                 return {
                     ...m,
                     tossMarketStatus: data.tossMarketStatus !== undefined ? data.tossMarketStatus : m.tossMarketStatus,
                     tossWinner: data.tossWinner !== undefined ? data.tossWinner : m.tossWinner,
+                    tossSettled: data.tossSettled !== undefined ? data.tossSettled : m.tossSettled,
                     tossBackA: data.tossBackA !== undefined ? data.tossBackA : m.tossBackA,
                     tossLayA: data.tossLayA !== undefined ? data.tossLayA : m.tossLayA,
                     tossBackB: data.tossBackB !== undefined ? data.tossBackB : m.tossBackB,
@@ -355,7 +358,10 @@ export default function DashboardLayout({ children }) {
             }
             return m;
         }));
-    });
+    };
+
+    socket.on('toss_odds_update', handleDashboardTossUpdate);
+    socket.on('toss_settled', handleDashboardTossUpdate);
 
     // ─── Fancy 2 Market Live Updates ──────────────────────────────────────────
     socket.on('fancy_market_update', (data) => {

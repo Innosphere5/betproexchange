@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Info, Tv, Clock, Trophy, Users, ShieldCheck, ChevronDown, CheckCircle2, Lock, X, Volume2, ArrowLeft } from "lucide-react";
 import { useDashboard } from "./DashboardLayout";
 import { getApiUrl } from "../lib/apiConfig";
@@ -14,8 +14,14 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   const [bottomTab, setBottomTab] = useState("scorecard"); // "tv" or "scorecard"
   const [remainingTime, setRemainingTime] = useState("");
   const [keepDisplayOn, setKeepDisplayOn] = useState(false);
+
   // Score staleness tracker — seconds since last score update (displayed in live strip)
   const [scoreAgeSec, setScoreAgeSec] = useState(0);
+
+  // Auto-remove settled toss market from UI
+  const [tossAutoRemoved, setTossAutoRemoved] = useState(false);
+  const [tossLiveNotification, setTossLiveNotification] = useState(null); // { winner, secondsLeft }
+  const initialTossSettledRef = useRef(null);
 
   // Feature 1 & 2 State: Live Matched Bets & Dynamic Exposure
   const [betsData, setBetsData] = useState({
@@ -34,7 +40,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
       try {
         const session = JSON.parse(raw);
         setUserRole(session.role);
-      } catch (e) {}
+      } catch (e) { }
     }
   }, []);
 
@@ -77,7 +83,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   useEffect(() => {
     const fetchAdminExposure = async () => {
       if (!isAdmin || !matchId) return;
-      
+
       const raw = localStorage.getItem("user_session");
       if (!raw) return;
       const token = JSON.parse(raw).token;
@@ -278,7 +284,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
             score: { ...(prev?.score || {}), ...(data.score || {}) }
           }));
         }
-      } catch (err) {}
+      } catch (err) { }
     };
     loadMatch();
     const interval = setInterval(loadMatch, 5000);
@@ -295,12 +301,13 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
     // ⚡ Scalable Room Subscription (Channel Partitioning)
     if (typeof socket.emit === 'function') {
       socket.emit('join_match', matchId);
+      socket.emit('join_match', String(matchId).toLowerCase());
     }
 
     const isSameMatch = (incomingId, currentId) => {
       if (!incomingId || !currentId) return false;
-      const a = String(incomingId).trim();
-      const b = String(currentId).trim();
+      const a = String(incomingId).trim().toLowerCase();
+      const b = String(currentId).trim().toLowerCase();
       return a === b || a.replace(/^id/, '') === b.replace(/^id/, '');
     };
 
@@ -400,10 +407,19 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
 
     const handleTossUpdate = (data) => {
       if (isSameMatch(data.matchId, matchId)) {
+        const declaredWinner = data.tossWinner;
+        const isSettledNow = Boolean(data.tossSettled || declaredWinner);
+
+        // If toss was not settled when user first opened the page, but is declared right now live:
+        if (isSettledNow && !initialTossSettledRef.current && !tossAutoRemoved) {
+          setTossLiveNotification({ winner: declaredWinner || 'Winner', secondsLeft: 4 });
+        }
+
         setFetchedMatch(prev => ({
           ...(prev || {}),
           tossMarketStatus: data.tossMarketStatus !== undefined ? data.tossMarketStatus : prev?.tossMarketStatus,
           tossWinner: data.tossWinner !== undefined ? data.tossWinner : prev?.tossWinner,
+          tossSettled: data.tossSettled !== undefined ? data.tossSettled : prev?.tossSettled,
           tossBackA: data.tossBackA !== undefined ? data.tossBackA : prev?.tossBackA,
           tossLayA: data.tossLayA !== undefined ? data.tossLayA : prev?.tossLayA,
           tossBackB: data.tossBackB !== undefined ? data.tossBackB : prev?.tossBackB,
@@ -413,7 +429,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
           tossDepthBackB: data.tossDepthBackB !== undefined ? data.tossDepthBackB : prev?.tossDepthBackB,
           tossDepthLayB: data.tossDepthLayB !== undefined ? data.tossDepthLayB : prev?.tossDepthLayB,
         }));
-        if (data.tossWinner || data.tossMarketStatus === 'CLOSED') {
+        if (data.tossWinner || data.tossSettled || data.tossMarketStatus === 'CLOSED') {
           fetchBetsAndExposure();
         }
       }
@@ -484,10 +500,12 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
     socket.on('match_updated', handleMatchUpdate);
     socket.on('match_settled', handleMatchSettled);
     socket.on('toss_odds_update', handleTossUpdate);
+    socket.on('toss_settled', handleTossUpdate);
 
     return () => {
       if (typeof socket.emit === 'function') {
         socket.emit('leave_match', matchId);
+        socket.emit('leave_match', String(matchId).toLowerCase());
       }
       socket.off('market_odds_update', handleMarketOddsUpdate);
       socket.off('fancy_market_update', handleFancyUpdate);
@@ -498,12 +516,13 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
       socket.off('match_updated', handleMatchUpdate);
       socket.off('match_settled', handleMatchSettled);
       socket.off('toss_odds_update', handleTossUpdate);
+      socket.off('toss_settled', handleTossUpdate);
     };
   }, [socket, matchId]);
 
   const rawMatch = cricketMatches?.find(m => {
-    const a = String(m.matchId || '').trim();
-    const b = String(matchId || '').trim();
+    const a = String(m.matchId || '').trim().toLowerCase();
+    const b = String(matchId || '').trim().toLowerCase();
     return a === b || a.replace(/^id/, '') === b.replace(/^id/, '');
   });
   const actualMatch = {
@@ -548,10 +567,51 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
 
   const showOdds = !isCompleted && (isLive || isToday || (actualMatch && actualMatch.backOddsA));
 
+  const isMatchLive = actualMatch ? (actualMatch.status === 'live' || (actualMatch.startTime && new Date() >= new Date(actualMatch.startTime))) : false;
+
+  // Toss Settled Check: true if winner declared, tossSettled flag true, or match in-play and toss closed
+  const isTossSettled = Boolean(
+    actualMatch?.tossSettled ||
+    actualMatch?.tossWinner ||
+    (actualMatch?.tossMarketStatus === 'CLOSED' && (actualMatch?.status === 'live' || actualMatch?.isCompleted || isMatchLive))
+  );
+
+  useEffect(() => {
+    if (initialTossSettledRef.current === null && actualMatch) {
+      initialTossSettledRef.current = isTossSettled;
+    }
+  }, [actualMatch, isTossSettled]);
+
+  // Live countdown to remove toss market from UI when declared in real-time
+  useEffect(() => {
+    if (!tossLiveNotification) return;
+    if (tossLiveNotification.secondsLeft <= 0) {
+      setTossAutoRemoved(true);
+      setTossLiveNotification(null);
+      if (activeTab === 'Toss') setActiveTab('ALL');
+      return;
+    }
+    const timer = setInterval(() => {
+      setTossLiveNotification(prev => {
+        if (!prev) return null;
+        if (prev.secondsLeft <= 1) {
+          setTossAutoRemoved(true);
+          if (activeTab === 'Toss') setActiveTab('ALL');
+          return null;
+        }
+        return { ...prev, secondsLeft: prev.secondsLeft - 1 };
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [tossLiveNotification, activeTab]);
+
+  // Toss market is only visible if NOT settled and NOT auto-removed (or active live settlement notification)
+  const isTossVisible = (!isTossSettled && !tossAutoRemoved) || Boolean(tossLiveNotification);
+
   const availableTabs = [
     'ALL',
     'Bookmaker',
-    'Toss',
+    ...(isTossVisible ? ['Toss'] : []),
     'Score Card',
     'Figure',
     'Fancy-2',
@@ -633,7 +693,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
       const newFlash = {};
       Object.keys(currentOdds).forEach(key => {
         if (prevOdds[key] !== undefined && prevOdds[key] !== currentOdds[key]) {
-           newFlash[key] = true;
+          newFlash[key] = true;
         }
       });
 
@@ -685,7 +745,8 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
       });
       const resData = await res.json();
       if (res.ok && resData.success) {
-        alert(`Toss winner declared: ${winner}`);
+        setTossLiveNotification({ winner, secondsLeft: 4 });
+        fetchBetsAndExposure();
       } else {
         alert(resData.error || "Failed to declare toss winner");
       }
@@ -699,25 +760,25 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   const matchName = `${actualMatch.teamA} v ${actualMatch.teamB}`;
 
   const isTestMatch = Boolean(
-    actualMatch.isTestMatch || 
-    actualMatch.backOddsDraw != null || 
+    actualMatch.isTestMatch ||
+    actualMatch.backOddsDraw != null ||
     (actualMatch.league && /\b(test|test match|sheffield|ranji|first-class|first class|4-day|5-day)\b/i.test(actualMatch.league))
   );
 
   const runners = [
-    { 
-      name: actualMatch.teamA, 
-      back: showOdds ? (actualMatch.backOddsA || "-") : "-", 
-      backVol: showOdds ? (actualMatch.depthBackA || "0") : "0", 
-      lay: showOdds ? (actualMatch.layOddsA || "-") : "-", 
+    {
+      name: actualMatch.teamA,
+      back: showOdds ? (actualMatch.backOddsA || "-") : "-",
+      backVol: showOdds ? (actualMatch.depthBackA || "0") : "0",
+      lay: showOdds ? (actualMatch.layOddsA || "-") : "-",
       layVol: showOdds ? (actualMatch.depthLayA || "0") : "0",
       flash: { back: flash.backA, lay: flash.layA }
     },
-    { 
-      name: actualMatch.teamB, 
-      back: showOdds ? (actualMatch.backOddsB || "-") : "-", 
-      backVol: showOdds ? (actualMatch.depthBackB || "0") : "0", 
-      lay: showOdds ? (actualMatch.layOddsB || "-") : "-", 
+    {
+      name: actualMatch.teamB,
+      back: showOdds ? (actualMatch.backOddsB || "-") : "-",
+      backVol: showOdds ? (actualMatch.depthBackB || "0") : "0",
+      lay: showOdds ? (actualMatch.layOddsB || "-") : "-",
       layVol: showOdds ? (actualMatch.depthLayB || "0") : "0",
       flash: { back: flash.backB, lay: flash.layB }
     }
@@ -741,7 +802,6 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
 
   // Real cricket logic: if match is live, completed, or toss settled, Toss is closed
   const isUpcomingFutureMatch = actualMatch?.status === 'upcoming' && actualMatch?.startTime && new Date(actualMatch.startTime) > new Date() && !actualMatch?.tossWinner;
-  const isMatchLive = actualMatch.status === 'live' || (actualMatch.startTime && new Date() >= new Date(actualMatch.startTime));
   const isTossClosed = !isUpcomingFutureMatch && (isCompleted || isMatchLive || actualMatch.tossMarketStatus === 'CLOSED' || Boolean(actualMatch.tossWinner));
 
   const tossRunners = [
@@ -844,10 +904,10 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
               Remaining : <span className="font-mono">{remainingTime || "00:00:00"}</span>
             </div>
             <label className="flex items-center gap-2 text-[11px] text-gray-300 font-bold cursor-pointer select-none mt-0.5">
-              <input 
-                type="checkbox" 
-                checked={keepDisplayOn} 
-                onChange={(e) => setKeepDisplayOn(e.target.checked)} 
+              <input
+                type="checkbox"
+                checked={keepDisplayOn}
+                onChange={(e) => setKeepDisplayOn(e.target.checked)}
                 className="w-3.5 h-3.5 accent-[#00c766] rounded-sm"
               />
               <span>Keep Display On</span>
@@ -867,11 +927,10 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-5 py-1.5 rounded-[4px] text-[12px] font-black uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer shadow-sm ${
-                activeTab === tab
-                  ? 'bg-black text-white shadow-md'
-                  : 'bg-[#00a86b] hover:bg-[#00935d] text-white'
-              }`}
+              className={`px-5 py-1.5 rounded-[4px] text-[12px] font-black uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer shadow-sm ${activeTab === tab
+                ? 'bg-black text-white shadow-md'
+                : 'bg-[#00a86b] hover:bg-[#00935d] text-white'
+                }`}
             >
               {tab}
             </button>
@@ -910,50 +969,50 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                   <span>SCORE DELAYED — Source last updated {Math.floor(scoreAgeSec / 60)}m {scoreAgeSec % 60}s ago. Live feed may be lagging.</span>
                 </div>
               )}
-            <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-[#0e1f2c] border-t border-white/10 text-white">
-              <div className="flex flex-col gap-0.5">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className="font-black text-sm text-white tracking-wide">
-                    {teamCode} {runs}/{wickets} ({overs})
-                  </span>
-                  <span className="text-[11px] font-bold text-gray-300">
-                    CRR: <span className="text-[#00e676] font-extrabold">{crr}</span>
-                  </span>
-                  {Number(target) > 0 && (
-                    <span className="text-[11px] font-bold text-gray-300">
-                      Target: <span className="text-sky-400 font-extrabold">{target}</span>
+              <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-[#0e1f2c] border-t border-white/10 text-white">
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="font-black text-sm text-white tracking-wide">
+                      {teamCode} {runs}/{wickets} ({overs})
                     </span>
-                  )}
-                </div>
-                <div className="text-[10px] font-semibold text-gray-300 flex items-center gap-3 flex-wrap">
-                  <span>This Over : <span className="font-mono text-white font-bold">{thisOverStr}</span></span>
-                  {Number(remBalls) > 0 && Number(remRuns) > 0 && (
-                    <span className="text-emerald-300 font-bold">{remRuns} of {remBalls} balls</span>
-                  )}
-                  {Number(rrr) > 0 && (
-                    <span className="text-amber-400 font-extrabold">RRR: {rrr}</span>
-                  )}
-                  {/* Score staleness indicator — shows when OddsPapi source is delayed */}
-                  {actualMatch?.status === 'live' && (() => {
-                    if (scoreAgeSec <= 10) return null;
-                    const isStale = scoreAgeSec > 60;
-                    const isWarn  = scoreAgeSec > 30;
-                    const label   = scoreAgeSec >= 60
-                      ? `⚠️ Score ${Math.floor(scoreAgeSec / 60)}m${scoreAgeSec % 60}s ago`
-                      : `⏱ ${scoreAgeSec}s ago`;
-                    return (
-                      <span className={`font-bold ${isStale ? 'text-red-400 animate-pulse' : isWarn ? 'text-amber-400' : 'text-gray-400'}`}>
-                        {label}
+                    <span className="text-[11px] font-bold text-gray-300">
+                      CRR: <span className="text-[#00e676] font-extrabold">{crr}</span>
+                    </span>
+                    {Number(target) > 0 && (
+                      <span className="text-[11px] font-bold text-gray-300">
+                        Target: <span className="text-sky-400 font-extrabold">{target}</span>
                       </span>
-                    );
-                  })()}
+                    )}
+                  </div>
+                  <div className="text-[10px] font-semibold text-gray-300 flex items-center gap-3 flex-wrap">
+                    <span>This Over : <span className="font-mono text-white font-bold">{thisOverStr}</span></span>
+                    {Number(remBalls) > 0 && Number(remRuns) > 0 && (
+                      <span className="text-emerald-300 font-bold">{remRuns} of {remBalls} balls</span>
+                    )}
+                    {Number(rrr) > 0 && (
+                      <span className="text-amber-400 font-extrabold">RRR: {rrr}</span>
+                    )}
+                    {/* Score staleness indicator — shows when OddsPapi source is delayed */}
+                    {actualMatch?.status === 'live' && (() => {
+                      if (scoreAgeSec <= 10) return null;
+                      const isStale = scoreAgeSec > 60;
+                      const isWarn = scoreAgeSec > 30;
+                      const label = scoreAgeSec >= 60
+                        ? `⚠️ Score ${Math.floor(scoreAgeSec / 60)}m${scoreAgeSec % 60}s ago`
+                        : `⏱ ${scoreAgeSec}s ago`;
+                      return (
+                        <span className={`font-bold ${isStale ? 'text-red-400 animate-pulse' : isWarn ? 'text-amber-400' : 'text-gray-400'}`}>
+                          {label}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-xs font-black uppercase text-[#00e676]">
+                  <span className="tracking-widest">SINGLE</span>
+                  <Volume2 size={16} className="text-[#00e676]" />
                 </div>
               </div>
-              <div className="flex items-center gap-2 text-xs font-black uppercase text-[#00e676]">
-                <span className="tracking-widest">SINGLE</span>
-                <Volume2 size={16} className="text-[#00e676]" />
-              </div>
-            </div>
             </div>
           );
         })()}
@@ -1021,11 +1080,10 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
               {runners.map((runner, ridx) => {
                 const isWinner = isRunnerWinner(runner.name);
                 return (
-                  <div 
-                    key={ridx} 
-                    className={`flex items-stretch border-b border-gray-100 last:border-0 transition-colors ${
-                      isWinner ? 'bg-[#bef264]' : 'bg-white hover:bg-gray-50'
-                    }`}
+                  <div
+                    key={ridx}
+                    className={`flex items-stretch border-b border-gray-100 last:border-0 transition-colors ${isWinner ? 'bg-[#bef264]' : 'bg-white hover:bg-gray-50'
+                      }`}
                   >
                     <div className={`flex-1 flex flex-col justify-center px-3 py-2.5 ${isWinner ? 'bg-[#bef264]' : ''}`}>
                       <div className="font-bold text-[#1c3246] text-[13px] leading-tight flex items-center gap-1.5">
@@ -1133,11 +1191,10 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                 const isWinner = isRunnerWinner(runner.name);
                 const isRunnerSuspended = isBookmakerSuspended || (runner.back === '-' && runner.lay === '-');
                 return (
-                  <div 
-                    key={bidx} 
-                    className={`flex items-stretch border-b border-gray-100 last:border-0 transition-colors ${
-                      isWinner ? 'bg-[#bef264]' : 'bg-white hover:bg-gray-50'
-                    }`}
+                  <div
+                    key={bidx}
+                    className={`flex items-stretch border-b border-gray-100 last:border-0 transition-colors ${isWinner ? 'bg-[#bef264]' : 'bg-white hover:bg-gray-50'
+                      }`}
                   >
                     <div className={`flex-1 flex flex-col justify-center px-3 py-2.5 ${isWinner ? 'bg-[#bef264]' : ''}`}>
                       <div className="font-bold text-[#1c3246] text-[13px] leading-tight flex items-center gap-1.5">
@@ -1185,9 +1242,38 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
         </div>
       )}
 
-      {/* 3. TOSS MARKET SECTION */}
-      {(activeTab === 'ALL' || activeTab === 'Toss') && (
-        <div className="order-2 flex flex-col px-2 mb-2">
+      {/* 3. TOSS MARKET SECTION - Automatically removed when toss result is declared/settled */}
+      {isTossVisible && (activeTab === 'ALL' || activeTab === 'Toss') && (
+        <div className="order-2 flex flex-col px-2 mb-2 animate-in fade-in duration-300">
+          {/* Live Toss Settlement Banner with Auto-Removal Countdown */}
+          {tossLiveNotification && (
+            <div className="bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-800 text-white p-3.5 rounded-sm shadow-md mb-2 flex items-center justify-between animate-in zoom-in-95 duration-200 border border-emerald-400/30">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                  <Trophy size={18} className="text-yellow-300 animate-bounce" />
+                </div>
+                <div>
+                  <div className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
+                    <span>Toss Result Declared:</span>
+                    <span className="text-yellow-300 font-black">{tossLiveNotification.winner}</span>
+                  </div>
+                  <div className="text-[11px] text-emerald-100 font-medium">
+                    Toss settled! Automatically removing market in {tossLiveNotification.secondsLeft}s...
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setTossAutoRemoved(true);
+                  setTossLiveNotification(null);
+                  if (activeTab === 'Toss') setActiveTab('ALL');
+                }}
+                className="bg-white/20 hover:bg-white/30 text-white text-[10px] font-black uppercase px-2.5 py-1 rounded transition-colors cursor-pointer shrink-0"
+              >
+                Remove Now
+              </button>
+            </div>
+          )}
           <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
             <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
               <div className="flex items-center gap-2.5">
@@ -1283,11 +1369,10 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                   )
                 );
                 return (
-                  <div 
-                    key={ridx} 
-                    className={`flex items-stretch border-b border-gray-100 last:border-0 transition-colors ${
-                      isTossWinner ? 'bg-[#bef264]' : 'bg-white hover:bg-gray-50'
-                    }`}
+                  <div
+                    key={ridx}
+                    className={`flex items-stretch border-b border-gray-100 last:border-0 transition-colors ${isTossWinner ? 'bg-[#bef264]' : 'bg-white hover:bg-gray-50'
+                      }`}
                   >
                     <div className={`flex-1 flex flex-col justify-center px-3 py-2.5 ${isTossWinner ? 'bg-[#bef264]' : ''}`}>
                       <div className="font-bold text-[#1c3246] text-[13px] leading-tight flex items-center gap-1.5">
@@ -1360,21 +1445,19 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
             <div className="grid grid-cols-2 rounded-sm overflow-hidden shadow-sm">
               <button
                 onClick={() => setBottomTab('tv')}
-                className={`py-2.5 text-center text-[13px] font-black uppercase tracking-wider transition-colors cursor-pointer ${
-                  bottomTab === 'tv'
-                    ? 'bg-[#009866] text-white'
-                    : 'bg-[#007f55] text-white/80 hover:text-white'
-                }`}
+                className={`py-2.5 text-center text-[13px] font-black uppercase tracking-wider transition-colors cursor-pointer ${bottomTab === 'tv'
+                  ? 'bg-[#009866] text-white'
+                  : 'bg-[#007f55] text-white/80 hover:text-white'
+                  }`}
               >
                 Tv
               </button>
               <button
                 onClick={() => setBottomTab('scorecard')}
-                className={`py-2.5 text-center text-[13px] font-black uppercase tracking-wider transition-colors cursor-pointer ${
-                  bottomTab === 'scorecard'
-                    ? 'bg-[#009866] text-white'
-                    : 'bg-[#007f55] text-white/80 hover:text-white'
-                }`}
+                className={`py-2.5 text-center text-[13px] font-black uppercase tracking-wider transition-colors cursor-pointer ${bottomTab === 'scorecard'
+                  ? 'bg-[#009866] text-white'
+                  : 'bg-[#007f55] text-white/80 hover:text-white'
+                  }`}
               >
                 Score Card
               </button>
@@ -1392,13 +1475,13 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                 <div className="bg-[#0f172a] rounded-xl overflow-hidden shadow-2xl border-2 border-yellow-500/30">
                   <div className="px-5 py-8 bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] text-white text-center relative overflow-hidden">
                     <div className="flex flex-col items-center mb-4">
-                       <div className="bg-yellow-500 text-black text-[10px] font-black px-4 py-1 rounded-full mb-3 shadow-[0_0_15px_rgba(234,179,8,0.4)]">
-                         MATCH COMPLETED
-                       </div>
-                       <h2 className="text-2xl font-black text-white tracking-tighter uppercase mb-1">
-                         {actualMatch.winner === 'TIE' ? "MATCH TIED" : (actualMatch.winner === 'VOID' ? "MATCH VOIDED" : `${actualMatch.winner} WON`)}
-                       </h2>
-                       <div className="w-12 h-1 bg-yellow-500 rounded-full"></div>
+                      <div className="bg-yellow-500 text-black text-[10px] font-black px-4 py-1 rounded-full mb-3 shadow-[0_0_15px_rgba(234,179,8,0.4)]">
+                        MATCH COMPLETED
+                      </div>
+                      <h2 className="text-2xl font-black text-white tracking-tighter uppercase mb-1">
+                        {actualMatch.winner === 'TIE' ? "MATCH TIED" : (actualMatch.winner === 'VOID' ? "MATCH VOIDED" : `${actualMatch.winner} WON`)}
+                      </h2>
+                      <div className="w-12 h-1 bg-yellow-500 rounded-full"></div>
                     </div>
 
                     <div className="flex items-center justify-center gap-10 mb-6">
@@ -1406,7 +1489,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                         <div className={`text-3xl font-black mb-1 ${actualMatch.winner === actualMatch.teamA ? 'text-white' : 'text-gray-600'}`}>{actualMatch.score?.teamA_runs || "0/0"}</div>
                         <div className="text-[11px] text-gray-400 font-black uppercase tracking-[0.2em]">{actualMatch.teamA}</div>
                       </div>
-                      
+
                       <div className="flex flex-col items-center">
                         <div className="text-gray-700 font-black text-lg italic opacity-30">VS</div>
                       </div>
@@ -1432,18 +1515,18 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                     {/* Header */}
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2 flex-wrap">
-                         <h2 className="text-xl font-black text-[#243f55] uppercase tracking-tight">
+                        <h2 className="text-xl font-black text-[#243f55] uppercase tracking-tight">
                           {actualMatch.teamA} v {actualMatch.teamB} - Match Odds
-                         </h2>
-                         <span className="text-pink-500 font-black text-sm uppercase italic">InPlay</span>
-                         {actualMatch.score?.statusText && (
-                           <span className="bg-[#243f55] text-white text-[10px] font-black uppercase px-2 py-0.5 rounded shadow-sm">
-                             {actualMatch.score.statusText}
-                           </span>
-                         )}
-                         <div className="w-5 h-5 bg-[#243f55] rounded-sm flex items-center justify-center">
-                           <Info size={12} color="white" strokeWidth={3} />
-                         </div>
+                        </h2>
+                        <span className="text-pink-500 font-black text-sm uppercase italic">InPlay</span>
+                        {actualMatch.score?.statusText && (
+                          <span className="bg-[#243f55] text-white text-[10px] font-black uppercase px-2 py-0.5 rounded shadow-sm">
+                            {actualMatch.score.statusText}
+                          </span>
+                        )}
+                        <div className="w-5 h-5 bg-[#243f55] rounded-sm flex items-center justify-center">
+                          <Info size={12} color="white" strokeWidth={3} />
+                        </div>
                       </div>
                     </div>
 
@@ -1476,104 +1559,103 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
 
                         return (
                           <div className="flex items-baseline gap-3 flex-wrap">
-                              <div className="flex flex-col">
-                                  <div className="flex items-center gap-1.5 mb-1">
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate max-w-[120px]">{actualMatch.teamA}</span>
-                                    {actualMatch.score?.battingTeam === 'teamA' && (
-                                      <span className="px-1.5 py-0.2 rounded text-[8px] bg-[#00c766] text-white font-extrabold uppercase animate-pulse">Batting</span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-baseline gap-2">
-                                      <span className="text-3xl md:text-4xl font-black text-[#1c3246] tracking-tighter">
-                                      {teamAScore.runs}
-                                      <span className="text-xl md:text-2xl text-gray-300 mx-0.5">/</span>
-                                      {teamAScore.wickets}
-                                      </span>
-                                  </div>
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate max-w-[120px]">{actualMatch.teamA}</span>
+                                {actualMatch.score?.battingTeam === 'teamA' && (
+                                  <span className="px-1.5 py-0.2 rounded text-[8px] bg-[#00c766] text-white font-extrabold uppercase animate-pulse">Batting</span>
+                                )}
                               </div>
-
-                              <div className="h-10 w-[1px] bg-gray-200 mx-1 self-center"></div>
-
-                              <div className="flex flex-col">
-                                  <div className="flex items-center gap-1.5 mb-1">
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate max-w-[120px]">{actualMatch.teamB}</span>
-                                    {actualMatch.score?.battingTeam === 'teamB' && (
-                                      <span className="px-1.5 py-0.2 rounded text-[8px] bg-[#00c766] text-white font-extrabold uppercase animate-pulse">Batting</span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-baseline gap-2">
-                                      <span className="text-3xl md:text-4xl font-black text-[#1c3246] tracking-tighter">
-                                      {teamBScore.runs}
-                                      <span className="text-xl md:text-2xl text-gray-300 mx-0.5">/</span>
-                                      {teamBScore.wickets}
-                                      </span>
-                                  </div>
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-3xl md:text-4xl font-black text-[#1c3246] tracking-tighter">
+                                  {teamAScore.runs}
+                                  <span className="text-xl md:text-2xl text-gray-300 mx-0.5">/</span>
+                                  {teamAScore.wickets}
+                                </span>
                               </div>
-                              
-                              <div className="h-10 w-[1px] bg-gray-200 mx-1 self-center"></div>
+                            </div>
 
-                              <div className="flex flex-col">
-                                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Overs</span>
-                                  <span className="text-2xl md:text-3xl font-black text-[#243f55]">
-                                     {actualMatch.score?.overs || "0.0"}
-                                  </span>
+                            <div className="h-10 w-[1px] bg-gray-200 mx-1 self-center"></div>
+
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate max-w-[120px]">{actualMatch.teamB}</span>
+                                {actualMatch.score?.battingTeam === 'teamB' && (
+                                  <span className="px-1.5 py-0.2 rounded text-[8px] bg-[#00c766] text-white font-extrabold uppercase animate-pulse">Batting</span>
+                                )}
                               </div>
-                           </div>
-                      );
-                    })()}
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-3xl md:text-4xl font-black text-[#1c3246] tracking-tighter">
+                                  {teamBScore.runs}
+                                  <span className="text-xl md:text-2xl text-gray-300 mx-0.5">/</span>
+                                  {teamBScore.wickets}
+                                </span>
+                              </div>
+                            </div>
 
-                       {/* Granular Stats Grid */}
-                       <div className="grid grid-cols-3 gap-2 flex-1 max-w-xs">
-                          <div className="bg-white p-2 rounded border border-gray-200 flex flex-col items-center justify-center shadow-sm">
-                             <span className="text-[9px] font-black text-gray-400 uppercase">CRR</span>
-                             <span className="text-[14px] font-black text-green-600">{actualMatch.score?.runRate || "0.00"}</span>
+                            <div className="h-10 w-[1px] bg-gray-200 mx-1 self-center"></div>
+
+                            <div className="flex flex-col">
+                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Overs</span>
+                              <span className="text-2xl md:text-3xl font-black text-[#243f55]">
+                                {actualMatch.score?.overs || "0.0"}
+                              </span>
+                            </div>
                           </div>
-                          <div className="bg-white p-2 rounded border border-gray-200 flex flex-col items-center justify-center shadow-sm">
-                             <span className="text-[9px] font-black text-gray-400 uppercase">RRR</span>
-                             <span className="text-[14px] font-black text-orange-600">{actualMatch.score?.reqRunRate || "0.00"}</span>
-                          </div>
-                          <div className="bg-white p-2 rounded border border-gray-200 flex flex-col items-center justify-center shadow-sm">
-                             <span className="text-[9px] font-black text-gray-400 uppercase">Target</span>
-                             <span className="text-[14px] font-black text-blue-700">{actualMatch.score?.target || 0}</span>
-                          </div>
-                       </div>
+                        );
+                      })()}
+
+                      {/* Granular Stats Grid */}
+                      <div className="grid grid-cols-3 gap-2 flex-1 max-w-xs">
+                        <div className="bg-white p-2 rounded border border-gray-200 flex flex-col items-center justify-center shadow-sm">
+                          <span className="text-[9px] font-black text-gray-400 uppercase">CRR</span>
+                          <span className="text-[14px] font-black text-green-600">{actualMatch.score?.runRate || "0.00"}</span>
+                        </div>
+                        <div className="bg-white p-2 rounded border border-gray-200 flex flex-col items-center justify-center shadow-sm">
+                          <span className="text-[9px] font-black text-gray-400 uppercase">RRR</span>
+                          <span className="text-[14px] font-black text-orange-600">{actualMatch.score?.reqRunRate || "0.00"}</span>
+                        </div>
+                        <div className="bg-white p-2 rounded border border-gray-200 flex flex-col items-center justify-center shadow-sm">
+                          <span className="text-[9px] font-black text-gray-400 uppercase">Target</span>
+                          <span className="text-[14px] font-black text-blue-700">{actualMatch.score?.target || 0}</span>
+                        </div>
+                      </div>
                     </div>
 
                     {/* This Over and Remaining Stats */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between border-t border-gray-100 pt-3 gap-2">
-                       <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[12px] font-bold text-gray-400">This Over:</span>
-                          <div className="flex gap-1.5 flex-wrap">
-                             {actualMatch.score?.thisOver && actualMatch.score.thisOver.length > 0 ? (
-                               actualMatch.score.thisOver.map((ball, bidx) => (
-                                 <span key={bidx} className={`min-w-5 h-5 px-1.5 flex items-center justify-center rounded-full text-[10px] font-black shadow-xs ${
-                                   ball === 'W' ? 'bg-red-500 text-white' : 
-                                   ['4', '6'].includes(ball) ? 'bg-emerald-600 text-white' :
-                                   ball.includes('Wd') || ball.includes('Nb') ? 'bg-amber-500 text-white' :
-                                   ball.includes('Lb') || ball.includes('B') ? 'bg-purple-600 text-white' :
-                                   ball === '0' ? 'bg-gray-100 text-gray-600 border border-gray-200' :
-                                   'bg-[#243f55] text-white'
-                                 }`}>
-                                   {ball}
-                                 </span>
-                               ))
-                             ) : (
-                               <span className="text-[10px] text-gray-300 italic font-medium">Waiting...</span>
-                             )}
-                          </div>
-                       </div>
-
-                       <div className="text-[13px] font-black text-green-700">
-                          {actualMatch.score?.remRuns > 0 && actualMatch.score?.remBalls > 0 ? (
-                            `Need ${actualMatch.score.remRuns} runs in ${actualMatch.score.remBalls} balls`
-                          ) : actualMatch.score?.target > 0 ? (
-                            "Target achieved"
-                          ) : actualMatch.score?.statusText ? (
-                            actualMatch.score.statusText
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[12px] font-bold text-gray-400">This Over:</span>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {actualMatch.score?.thisOver && actualMatch.score.thisOver.length > 0 ? (
+                            actualMatch.score.thisOver.map((ball, bidx) => (
+                              <span key={bidx} className={`min-w-5 h-5 px-1.5 flex items-center justify-center rounded-full text-[10px] font-black shadow-xs ${ball === 'W' ? 'bg-red-500 text-white' :
+                                ['4', '6'].includes(ball) ? 'bg-emerald-600 text-white' :
+                                  ball.includes('Wd') || ball.includes('Nb') ? 'bg-amber-500 text-white' :
+                                    ball.includes('Lb') || ball.includes('B') ? 'bg-purple-600 text-white' :
+                                      ball === '0' ? 'bg-gray-100 text-gray-600 border border-gray-200' :
+                                        'bg-[#243f55] text-white'
+                                }`}>
+                                {ball}
+                              </span>
+                            ))
                           ) : (
-                            "1st Innings in progress"
+                            <span className="text-[10px] text-gray-300 italic font-medium">Waiting...</span>
                           )}
-                       </div>
+                        </div>
+                      </div>
+
+                      <div className="text-[13px] font-black text-green-700">
+                        {actualMatch.score?.remRuns > 0 && actualMatch.score?.remBalls > 0 ? (
+                          `Need ${actualMatch.score.remRuns} runs in ${actualMatch.score.remBalls} balls`
+                        ) : actualMatch.score?.target > 0 ? (
+                          "Target achieved"
+                        ) : actualMatch.score?.statusText ? (
+                          actualMatch.score.statusText
+                        ) : (
+                          "1st Innings in progress"
+                        )}
+                      </div>
                     </div>
 
                     {/* Last Ball Event Tracker */}
@@ -1585,7 +1667,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                     )}
 
                     {/* Live Batsmen & Bowler In-Play Strip */}
-                    {( (actualMatch.score?.batsmen && actualMatch.score.batsmen.length > 0) || actualMatch.score?.bowler ) && (
+                    {((actualMatch.score?.batsmen && actualMatch.score.batsmen.length > 0) || actualMatch.score?.bowler) && (
                       <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                         {actualMatch.score?.batsmen && actualMatch.score.batsmen.length > 0 && (
                           <div className="bg-[#f8fafc] rounded border border-gray-200 p-2">
@@ -1710,15 +1792,15 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
               </div>
             ) : (
               <div className="animate-in fade-in duration-500">
-                 <div className="bg-white/60 backdrop-blur-md rounded-sm p-6 border border-white flex flex-col items-center text-center shadow-inner">
-                    <div className="w-10 h-10 bg-[#243f55]/10 rounded-full flex items-center justify-center mb-2">
-                       <Clock size={20} className="text-[#243f55]" strokeWidth={2.5} />
-                    </div>
-                    <h3 className="text-[#1c3246] font-black text-sm uppercase tracking-tight mb-1">Match Scheduled</h3>
-                    <p className="text-gray-500 text-[11px] font-medium max-w-[240px]">
-                      Scoreboard will become live once the match starts on {formattedDate} at {formattedTime}
-                    </p>
-                 </div>
+                <div className="bg-white/60 backdrop-blur-md rounded-sm p-6 border border-white flex flex-col items-center text-center shadow-inner">
+                  <div className="w-10 h-10 bg-[#243f55]/10 rounded-full flex items-center justify-center mb-2">
+                    <Clock size={20} className="text-[#243f55]" strokeWidth={2.5} />
+                  </div>
+                  <h3 className="text-[#1c3246] font-black text-sm uppercase tracking-tight mb-1">Match Scheduled</h3>
+                  <p className="text-gray-500 text-[11px] font-medium max-w-[240px]">
+                    Scoreboard will become live once the match starts on {formattedDate} at {formattedTime}
+                  </p>
+                </div>
               </div>
             )}
           </div>
@@ -1730,70 +1812,70 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
         actualMatch.figureMarkets.map((figureMarket, fmIdx) => {
           const isFigureOpen = figureMarket.status === 'OPEN' && (figureMarket.digits || []).some(d => d.status === 'OPEN');
           return (
-          <div key={fmIdx} className="order-2 flex flex-col px-2 mb-2">
-            <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
-              <div className="bg-[#5d7d9a] text-white h-10 flex items-center px-3">
-                <div className="flex items-center gap-2.5">
-                  <div className={`w-5 h-5 ${isFigureOpen ? 'bg-[#00c766] animate-pulse' : 'bg-gray-400'} rounded-full flex items-center justify-center shrink-0 shadow-sm`}>
-                    <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                  </div>
-                  <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                    {figureMarket.name} <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: {figureMarket.maxBet >= 1000000 ? `${(figureMarket.maxBet / 1000000).toFixed(0)}M` : `${(figureMarket.maxBet / 1000).toFixed(0)}K`})</span>
-                    <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
-                  </span>
-                </div>
-              </div>
-
-              {/* Digit Grid - 5 per row */}
-              <div className="relative p-4 bg-white">
-                {figureMarket.status === 'SUSPENDED' && (
-                  <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
-                    <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
-                      SUSPENDED
+            <div key={fmIdx} className="order-2 flex flex-col px-2 mb-2">
+              <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
+                <div className="bg-[#5d7d9a] text-white h-10 flex items-center px-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-5 h-5 ${isFigureOpen ? 'bg-[#00c766] animate-pulse' : 'bg-gray-400'} rounded-full flex items-center justify-center shrink-0 shadow-sm`}>
+                      <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                     </div>
+                    <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                      {figureMarket.name} <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: {figureMarket.maxBet >= 1000000 ? `${(figureMarket.maxBet / 1000000).toFixed(0)}M` : `${(figureMarket.maxBet / 1000).toFixed(0)}K`})</span>
+                      <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
+                    </span>
                   </div>
-                )}
-                {/* Row 1: Digits 0-4 */}
-                <div className="flex justify-center -space-x-[1px] mb-1.5">
-                  {(figureMarket.digits || []).filter(d => d.digit >= 0 && d.digit <= 4).map((d) => (
-                    <button
-                      key={d.digit}
-                      disabled={d.status === 'SUSPENDED' || figureMarket.status === 'SUSPENDED'}
-                      onClick={() => onSelectOutcome(`${figureMarket.name} - Digit ${d.digit}`, d.odds, 'back', actualMatch.status === 'live', 'figure')}
-                      className="w-12 sm:w-14 border border-black cursor-pointer hover:opacity-90 active:scale-95 transition-all shadow-xs disabled:opacity-50 disabled:pointer-events-none overflow-hidden"
-                    >
-                      <div className="h-8 bg-[#bfe2f7] border-b border-black flex items-center justify-center text-[16px] font-black text-black">
-                        {d.digit}
-                      </div>
-                      <div className="h-6 bg-white flex items-center justify-center text-[12px] font-black text-[#1c3246]">
-                        {d.odds}
-                      </div>
-                      {renderDigitExposure(figureMarket.name, d.digit)}
-                    </button>
-                  ))}
                 </div>
-                {/* Row 2: Digits 5-9 */}
-                <div className="flex justify-center -space-x-[1px]">
-                  {(figureMarket.digits || []).filter(d => d.digit >= 5 && d.digit <= 9).map((d) => (
-                    <button
-                      key={d.digit}
-                      disabled={d.status === 'SUSPENDED' || figureMarket.status === 'SUSPENDED'}
-                      onClick={() => onSelectOutcome(`${figureMarket.name} - Digit ${d.digit}`, d.odds, 'back', actualMatch.status === 'live', 'figure')}
-                      className="w-12 sm:w-14 border border-black cursor-pointer hover:opacity-90 active:scale-95 transition-all shadow-xs disabled:opacity-50 disabled:pointer-events-none overflow-hidden"
-                    >
-                      <div className="h-8 bg-[#bfe2f7] border-b border-black flex items-center justify-center text-[16px] font-black text-black">
-                        {d.digit}
+
+                {/* Digit Grid - 5 per row */}
+                <div className="relative p-4 bg-white">
+                  {figureMarket.status === 'SUSPENDED' && (
+                    <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                      <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
+                        SUSPENDED
                       </div>
-                      <div className="h-6 bg-white flex items-center justify-center text-[12px] font-black text-[#1c3246]">
-                        {d.odds}
-                      </div>
-                      {renderDigitExposure(figureMarket.name, d.digit)}
-                    </button>
-                  ))}
+                    </div>
+                  )}
+                  {/* Row 1: Digits 0-4 */}
+                  <div className="flex justify-center -space-x-[1px] mb-1.5">
+                    {(figureMarket.digits || []).filter(d => d.digit >= 0 && d.digit <= 4).map((d) => (
+                      <button
+                        key={d.digit}
+                        disabled={d.status === 'SUSPENDED' || figureMarket.status === 'SUSPENDED'}
+                        onClick={() => onSelectOutcome(`${figureMarket.name} - Digit ${d.digit}`, d.odds, 'back', actualMatch.status === 'live', 'figure')}
+                        className="w-12 sm:w-14 border border-black cursor-pointer hover:opacity-90 active:scale-95 transition-all shadow-xs disabled:opacity-50 disabled:pointer-events-none overflow-hidden"
+                      >
+                        <div className="h-8 bg-[#bfe2f7] border-b border-black flex items-center justify-center text-[16px] font-black text-black">
+                          {d.digit}
+                        </div>
+                        <div className="h-6 bg-white flex items-center justify-center text-[12px] font-black text-[#1c3246]">
+                          {d.odds}
+                        </div>
+                        {renderDigitExposure(figureMarket.name, d.digit)}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Row 2: Digits 5-9 */}
+                  <div className="flex justify-center -space-x-[1px]">
+                    {(figureMarket.digits || []).filter(d => d.digit >= 5 && d.digit <= 9).map((d) => (
+                      <button
+                        key={d.digit}
+                        disabled={d.status === 'SUSPENDED' || figureMarket.status === 'SUSPENDED'}
+                        onClick={() => onSelectOutcome(`${figureMarket.name} - Digit ${d.digit}`, d.odds, 'back', actualMatch.status === 'live', 'figure')}
+                        className="w-12 sm:w-14 border border-black cursor-pointer hover:opacity-90 active:scale-95 transition-all shadow-xs disabled:opacity-50 disabled:pointer-events-none overflow-hidden"
+                      >
+                        <div className="h-8 bg-[#bfe2f7] border-b border-black flex items-center justify-center text-[16px] font-black text-black">
+                          {d.digit}
+                        </div>
+                        <div className="h-6 bg-white flex items-center justify-center text-[12px] font-black text-[#1c3246]">
+                          {d.odds}
+                        </div>
+                        {renderDigitExposure(figureMarket.name, d.digit)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
           );
         })
       )}
@@ -1802,73 +1884,73 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
       {(activeTab === 'ALL' || activeTab === 'Fancy-2') && actualMatch.status !== 'completed' && actualMatch.fancyMarkets && actualMatch.fancyMarkets.length > 0 && (() => {
         const hasOpenFancy = (actualMatch.fancyMarkets || []).some(f => f.status === 'OPEN');
         return (
-        <div className="order-2 flex flex-col px-2 mb-2">
-          <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
-            <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
-              <div className="flex items-center gap-2.5">
-                <div className={`w-5 h-5 ${hasOpenFancy ? 'bg-[#00c766] animate-pulse' : 'bg-gray-400'} rounded-full flex items-center justify-center shrink-0 shadow-sm`}>
-                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+          <div className="order-2 flex flex-col px-2 mb-2">
+            <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
+              <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-5 h-5 ${hasOpenFancy ? 'bg-[#00c766] animate-pulse' : 'bg-gray-400'} rounded-full flex items-center justify-center shrink-0 shadow-sm`}>
+                    <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  </div>
+                  <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                    FANCY 2 <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: 2M)</span>
+                    <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
+                  </span>
                 </div>
-                <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                  FANCY 2 <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: 2M)</span>
-                  <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
-                </span>
+                <div className="flex items-center text-[11px] font-black tracking-widest uppercase">
+                  <div className="hidden sm:block w-12 sm:w-14"></div>
+                  <div className="hidden sm:block w-12 sm:w-14"></div>
+                  <div className="w-14 sm:w-16 text-center bg-[#1c3246] text-white py-1 border-r border-white/20">BACK</div>
+                  <div className="w-14 sm:w-16 text-center bg-[#1c3246] text-white py-1 border-r border-white/20">LAY</div>
+                  <div className="hidden sm:block w-12 sm:w-14"></div>
+                  <div className="hidden sm:block w-12 sm:w-14"></div>
+                </div>
               </div>
-              <div className="flex items-center text-[11px] font-black tracking-widest uppercase">
-                <div className="hidden sm:block w-12 sm:w-14"></div>
-                <div className="hidden sm:block w-12 sm:w-14"></div>
-                <div className="w-14 sm:w-16 text-center bg-[#1c3246] text-white py-1 border-r border-white/20">BACK</div>
-                <div className="w-14 sm:w-16 text-center bg-[#1c3246] text-white py-1 border-r border-white/20">LAY</div>
-                <div className="hidden sm:block w-12 sm:w-14"></div>
-                <div className="hidden sm:block w-12 sm:w-14"></div>
-              </div>
-            </div>
 
-            <div className="divide-y divide-gray-100">
-              {actualMatch.fancyMarkets.map((fancy, fIdx) => {
-                const isSuspended = fancy.status === 'SUSPENDED';
-                return (
-                  <div key={fIdx} className="relative flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
-                    <div className="flex flex-col flex-1 min-w-0 pr-2">
-                      <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{fancy.name}</span>
-                      {renderFancyExposure(fancy.name) || (
-                        <span className="text-[11px] font-black text-[#00c766] hover:underline cursor-pointer mt-0.5">Book</span>
+              <div className="divide-y divide-gray-100">
+                {actualMatch.fancyMarkets.map((fancy, fIdx) => {
+                  const isSuspended = fancy.status === 'SUSPENDED';
+                  return (
+                    <div key={fIdx} className="relative flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
+                      <div className="flex flex-col flex-1 min-w-0 pr-2">
+                        <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{fancy.name}</span>
+                        {renderFancyExposure(fancy.name) || (
+                          <span className="text-[11px] font-black text-[#00c766] hover:underline cursor-pointer mt-0.5">Book</span>
+                        )}
+                      </div>
+                      {isSuspended ? (
+                        <div className="flex shrink-0 w-28 sm:w-[336px] items-center justify-center py-2 bg-gray-50/50">
+                          <span className="text-[#dc2626] font-black text-[12px] tracking-wider">SUSPENDED</span>
+                        </div>
+                      ) : (
+                        <div className="flex shrink-0">
+                          <div className="hidden sm:block w-12 sm:w-14 border-r border-white/40"></div>
+                          <div className="hidden sm:block w-12 sm:w-14 border-r border-white/40"></div>
+                          <button
+                            disabled={!fancy.backPrice}
+                            onClick={() => onSelectOutcome(fancy.name, fancy.backPrice || 1.95, 'back', actualMatch.status === 'live', 'fancy')}
+                            className="w-14 sm:w-16 flex flex-col items-center justify-center py-1.5 bg-[#bbd9f9] hover:bg-[#a5d3f8] active:scale-95 transition-all border-r border-white/40 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                          >
+                            <span className="text-[14px] font-black leading-none text-[#1c3246]">{fancy.backPrice ?? '-'}</span>
+                            <span className="text-[9px] font-bold mt-1 text-gray-600">{fancy.backVol || '100'}</span>
+                          </button>
+                          <button
+                            disabled={!fancy.layPrice}
+                            onClick={() => onSelectOutcome(fancy.name, fancy.layPrice || 1.95, 'lay', actualMatch.status === 'live', 'fancy')}
+                            className="w-14 sm:w-16 flex flex-col items-center justify-center py-1.5 bg-[#f8c9d4] hover:bg-[#f9b6c6] active:scale-95 transition-all border-r border-white/40 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                          >
+                            <span className="text-[14px] font-black leading-none text-[#1c3246]">{fancy.layPrice ?? '-'}</span>
+                            <span className="text-[9px] font-bold mt-1 text-gray-600">{fancy.layVol || '100'}</span>
+                          </button>
+                          <div className="hidden sm:block w-12 sm:w-14 border-r border-white/40"></div>
+                          <div className="hidden sm:block w-12 sm:w-14"></div>
+                        </div>
                       )}
                     </div>
-                    {isSuspended ? (
-                      <div className="flex shrink-0 w-28 sm:w-[336px] items-center justify-center py-2 bg-gray-50/50">
-                        <span className="text-[#dc2626] font-black text-[12px] tracking-wider">SUSPENDED</span>
-                      </div>
-                    ) : (
-                      <div className="flex shrink-0">
-                        <div className="hidden sm:block w-12 sm:w-14 border-r border-white/40"></div>
-                        <div className="hidden sm:block w-12 sm:w-14 border-r border-white/40"></div>
-                        <button
-                          disabled={!fancy.backPrice}
-                          onClick={() => onSelectOutcome(fancy.name, fancy.backPrice || 1.95, 'back', actualMatch.status === 'live', 'fancy')}
-                          className="w-14 sm:w-16 flex flex-col items-center justify-center py-1.5 bg-[#bbd9f9] hover:bg-[#a5d3f8] active:scale-95 transition-all border-r border-white/40 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
-                        >
-                          <span className="text-[14px] font-black leading-none text-[#1c3246]">{fancy.backPrice ?? '-'}</span>
-                          <span className="text-[9px] font-bold mt-1 text-gray-600">{fancy.backVol || '100'}</span>
-                        </button>
-                        <button
-                          disabled={!fancy.layPrice}
-                          onClick={() => onSelectOutcome(fancy.name, fancy.layPrice || 1.95, 'lay', actualMatch.status === 'live', 'fancy')}
-                          className="w-14 sm:w-16 flex flex-col items-center justify-center py-1.5 bg-[#f8c9d4] hover:bg-[#f9b6c6] active:scale-95 transition-all border-r border-white/40 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
-                        >
-                          <span className="text-[14px] font-black leading-none text-[#1c3246]">{fancy.layPrice ?? '-'}</span>
-                          <span className="text-[9px] font-bold mt-1 text-gray-600">{fancy.layVol || '100'}</span>
-                        </button>
-                        <div className="hidden sm:block w-12 sm:w-14 border-r border-white/40"></div>
-                        <div className="hidden sm:block w-12 sm:w-14"></div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
         );
       })()}
 
@@ -1876,73 +1958,73 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
       {(activeTab === 'ALL' || activeTab === 'Even-Odd') && actualMatch.status !== 'completed' && actualMatch.evenOddMarkets && actualMatch.evenOddMarkets.length > 0 && (() => {
         const hasOpenEvenOdd = (actualMatch.evenOddMarkets || []).some(eo => eo.status === 'OPEN');
         return (
-        <div className="order-2 flex flex-col px-2 mb-2">
-          <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
-            <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
-              <div className="flex items-center gap-2.5">
-                <div className={`w-5 h-5 ${hasOpenEvenOdd ? 'bg-[#00c766] animate-pulse' : 'bg-gray-400'} rounded-full flex items-center justify-center shrink-0 shadow-sm`}>
-                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+          <div className="order-2 flex flex-col px-2 mb-2">
+            <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
+              <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-5 h-5 ${hasOpenEvenOdd ? 'bg-[#00c766] animate-pulse' : 'bg-gray-400'} rounded-full flex items-center justify-center shrink-0 shadow-sm`}>
+                    <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  </div>
+                  <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                    EVEN / ODD <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: 2M)</span>
+                    <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
+                  </span>
                 </div>
-                <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                  EVEN / ODD <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: 2M)</span>
-                  <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
-                </span>
+                <div className="flex items-center text-[11px] font-black tracking-widest uppercase">
+                  <div className="hidden sm:block w-12 sm:w-14"></div>
+                  <div className="hidden sm:block w-12 sm:w-14"></div>
+                  <div className="w-14 sm:w-16 text-center bg-[#1c3246] text-white py-1 border-r border-white/20">BACK</div>
+                  <div className="w-14 sm:w-16 text-center bg-[#1c3246] text-white py-1 border-r border-white/20">LAY</div>
+                  <div className="hidden sm:block w-12 sm:w-14"></div>
+                  <div className="hidden sm:block w-12 sm:w-14"></div>
+                </div>
               </div>
-              <div className="flex items-center text-[11px] font-black tracking-widest uppercase">
-                <div className="hidden sm:block w-12 sm:w-14"></div>
-                <div className="hidden sm:block w-12 sm:w-14"></div>
-                <div className="w-14 sm:w-16 text-center bg-[#1c3246] text-white py-1 border-r border-white/20">BACK</div>
-                <div className="w-14 sm:w-16 text-center bg-[#1c3246] text-white py-1 border-r border-white/20">LAY</div>
-                <div className="hidden sm:block w-12 sm:w-14"></div>
-                <div className="hidden sm:block w-12 sm:w-14"></div>
-              </div>
-            </div>
 
-            <div className="divide-y divide-gray-100">
-              {actualMatch.evenOddMarkets.map((eoMarket, eoIdx) => {
-                const isSuspended = eoMarket.status === 'SUSPENDED';
-                return (
-                  <div key={eoIdx} className="relative flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
-                    <div className="flex flex-col flex-1 min-w-0 pr-2">
-                      <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{eoMarket.name}</span>
-                      {renderFancyExposure(eoMarket.name) || (
-                        <span className="text-[11px] font-black text-[#00c766] hover:underline cursor-pointer mt-0.5">Book</span>
+              <div className="divide-y divide-gray-100">
+                {actualMatch.evenOddMarkets.map((eoMarket, eoIdx) => {
+                  const isSuspended = eoMarket.status === 'SUSPENDED';
+                  return (
+                    <div key={eoIdx} className="relative flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
+                      <div className="flex flex-col flex-1 min-w-0 pr-2">
+                        <span className="font-bold text-[#1c3246] text-[13px] leading-tight">{eoMarket.name}</span>
+                        {renderFancyExposure(eoMarket.name) || (
+                          <span className="text-[11px] font-black text-[#00c766] hover:underline cursor-pointer mt-0.5">Book</span>
+                        )}
+                      </div>
+                      {isSuspended ? (
+                        <div className="flex shrink-0 w-28 sm:w-[336px] items-center justify-center py-2 bg-gray-50/50">
+                          <span className="text-[#dc2626] font-black text-[12px] tracking-wider">SUSPENDED</span>
+                        </div>
+                      ) : (
+                        <div className="flex shrink-0">
+                          <div className="hidden sm:block w-12 sm:w-14 border-r border-white/40"></div>
+                          <div className="hidden sm:block w-12 sm:w-14 border-r border-white/40"></div>
+                          <button
+                            disabled={!eoMarket.backPrice}
+                            onClick={() => onSelectOutcome(eoMarket.name, eoMarket.backPrice, 'back', actualMatch.status === 'live', 'even_odd')}
+                            className="w-14 sm:w-16 flex flex-col items-center justify-center py-1.5 bg-[#bbd9f9] hover:bg-[#a5d3f8] active:scale-95 transition-all border-r border-white/40 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                          >
+                            <span className="text-[14px] font-black leading-none text-[#1c3246]">{eoMarket.backPrice ?? '-'}</span>
+                            <span className="text-[9px] font-bold mt-1 text-gray-600">{eoMarket.backVol || '98'}</span>
+                          </button>
+                          <button
+                            disabled={!eoMarket.layPrice}
+                            onClick={() => onSelectOutcome(eoMarket.name, eoMarket.layPrice, 'lay', actualMatch.status === 'live', 'even_odd')}
+                            className="w-14 sm:w-16 flex flex-col items-center justify-center py-1.5 bg-[#f8c9d4] hover:bg-[#f9b6c6] active:scale-95 transition-all border-r border-white/40 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                          >
+                            <span className="text-[14px] font-black leading-none text-[#1c3246]">{eoMarket.layPrice ?? '-'}</span>
+                            <span className="text-[9px] font-bold mt-1 text-gray-600">{eoMarket.layVol || '102'}</span>
+                          </button>
+                          <div className="hidden sm:block w-12 sm:w-14 border-r border-white/40"></div>
+                          <div className="hidden sm:block w-12 sm:w-14"></div>
+                        </div>
                       )}
                     </div>
-                    {isSuspended ? (
-                      <div className="flex shrink-0 w-28 sm:w-[336px] items-center justify-center py-2 bg-gray-50/50">
-                        <span className="text-[#dc2626] font-black text-[12px] tracking-wider">SUSPENDED</span>
-                      </div>
-                    ) : (
-                      <div className="flex shrink-0">
-                        <div className="hidden sm:block w-12 sm:w-14 border-r border-white/40"></div>
-                        <div className="hidden sm:block w-12 sm:w-14 border-r border-white/40"></div>
-                        <button
-                          disabled={!eoMarket.backPrice}
-                          onClick={() => onSelectOutcome(eoMarket.name, eoMarket.backPrice, 'back', actualMatch.status === 'live', 'even_odd')}
-                          className="w-14 sm:w-16 flex flex-col items-center justify-center py-1.5 bg-[#bbd9f9] hover:bg-[#a5d3f8] active:scale-95 transition-all border-r border-white/40 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
-                        >
-                          <span className="text-[14px] font-black leading-none text-[#1c3246]">{eoMarket.backPrice ?? '-'}</span>
-                          <span className="text-[9px] font-bold mt-1 text-gray-600">{eoMarket.backVol || '98'}</span>
-                        </button>
-                        <button
-                          disabled={!eoMarket.layPrice}
-                          onClick={() => onSelectOutcome(eoMarket.name, eoMarket.layPrice, 'lay', actualMatch.status === 'live', 'even_odd')}
-                          className="w-14 sm:w-16 flex flex-col items-center justify-center py-1.5 bg-[#f8c9d4] hover:bg-[#f9b6c6] active:scale-95 transition-all border-r border-white/40 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
-                        >
-                          <span className="text-[14px] font-black leading-none text-[#1c3246]">{eoMarket.layPrice ?? '-'}</span>
-                          <span className="text-[9px] font-bold mt-1 text-gray-600">{eoMarket.layVol || '102'}</span>
-                        </button>
-                        <div className="hidden sm:block w-12 sm:w-14 border-r border-white/40"></div>
-                        <div className="hidden sm:block w-12 sm:w-14"></div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
         );
       })()}
 
@@ -1977,7 +2059,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
               {(actualMatch.tiedMatchMarket.runners || []).map((runner, rIdx) => {
                 const backOdds = runner.backOdds || [];
                 const layOdds = runner.layOdds || [];
-                
+
                 return (
                   <div key={rIdx} className="flex items-stretch hover:bg-gray-50 transition-colors">
                     <div className="flex-1 flex flex-col justify-center px-3 py-2.5 min-w-[100px]">
@@ -1998,9 +2080,8 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                             key={`back-${slotIdx}`}
                             disabled={actualMatch.tiedMatchMarket.status === 'SUSPENDED'}
                             onClick={() => onSelectOutcome(`${actualMatch.tiedMatchMarket.name} - ${runner.name}`, odd.price, 'back', actualMatch.status === 'live', 'tied_match')}
-                            className={`w-13 sm:w-14 flex flex-col items-center justify-center py-1.5 active:scale-95 transition-all border-r border-white/40 cursor-pointer disabled:opacity-50 disabled:pointer-events-none ${
-                              isMain ? 'bg-[#72bbef]' : 'bg-[#bbd9f9]'
-                            } hover:bg-[#a5d3f8]`}
+                            className={`w-13 sm:w-14 flex flex-col items-center justify-center py-1.5 active:scale-95 transition-all border-r border-white/40 cursor-pointer disabled:opacity-50 disabled:pointer-events-none ${isMain ? 'bg-[#72bbef]' : 'bg-[#bbd9f9]'
+                              } hover:bg-[#a5d3f8]`}
                           >
                             <span className="text-[14px] font-black leading-none text-[#1c3246]">{odd.price}</span>
                             <span className="text-[9px] font-bold mt-1 text-gray-600">{odd.volume}</span>
@@ -2020,9 +2101,8 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                             key={`lay-${slotIdx}`}
                             disabled={actualMatch.tiedMatchMarket.status === 'SUSPENDED'}
                             onClick={() => onSelectOutcome(`${actualMatch.tiedMatchMarket.name} - ${runner.name}`, odd.price, 'lay', actualMatch.status === 'live', 'tied_match')}
-                            className={`w-13 sm:w-14 flex flex-col items-center justify-center py-1.5 active:scale-95 transition-all border-r border-white/40 cursor-pointer disabled:opacity-50 disabled:pointer-events-none ${
-                              isMain ? 'bg-[#f8a9b8]' : 'bg-[#f8c9d4]'
-                            } hover:bg-[#f9b6c6]`}
+                            className={`w-13 sm:w-14 flex flex-col items-center justify-center py-1.5 active:scale-95 transition-all border-r border-white/40 cursor-pointer disabled:opacity-50 disabled:pointer-events-none ${isMain ? 'bg-[#f8a9b8]' : 'bg-[#f8c9d4]'
+                              } hover:bg-[#f9b6c6]`}
                           >
                             <span className="text-[14px] font-black leading-none text-[#1c3246]">{odd.price}</span>
                             <span className="text-[9px] font-bold mt-1 text-gray-600">{odd.volume}</span>
@@ -2056,11 +2136,10 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
           ) : (
             <div className="divide-y divide-gray-100 bg-white">
               {betsData.openBets.map((b, idx) => (
-                <div 
+                <div
                   key={idx}
-                  className={`flex items-center px-3 py-2 text-[12px] font-semibold transition-colors ${
-                    b.type === 'lay' ? 'bg-[#f8c9d4]/40 hover:bg-[#f8c9d4]/60' : 'bg-[#bbd9f9]/40 hover:bg-[#bbd9f9]/60'
-                  }`}
+                  className={`flex items-center px-3 py-2 text-[12px] font-semibold transition-colors ${b.type === 'lay' ? 'bg-[#f8c9d4]/40 hover:bg-[#f8c9d4]/60' : 'bg-[#bbd9f9]/40 hover:bg-[#bbd9f9]/60'
+                    }`}
                 >
                   <div className="flex-[3] font-bold text-[#1c3246] truncate">{b.runner}</div>
                   <div className="w-16 text-center text-gray-800 font-bold">{b.price}</div>
@@ -2074,7 +2153,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
         </CollapsibleMarketSection>
 
         {/* Matched Bets with [Full Bet List] Button matching Image 2 */}
-        <CollapsibleMarketSection 
+        <CollapsibleMarketSection
           title={`Matched Bets (${betsData.matchedBets?.length || 0})`}
           rightAction={
             <button
@@ -2102,11 +2181,10 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
           ) : (
             <div className="divide-y divide-gray-100 bg-white">
               {betsData.matchedBets.map((b, idx) => (
-                <div 
+                <div
                   key={idx}
-                  className={`flex items-center px-3 py-2 text-[12px] font-semibold transition-colors ${
-                    b.type === 'lay' ? 'bg-[#f8c9d4]/40 hover:bg-[#f8c9d4]/60' : 'bg-[#bbd9f9]/40 hover:bg-[#bbd9f9]/60'
-                  }`}
+                  className={`flex items-center px-3 py-2 text-[12px] font-semibold transition-colors ${b.type === 'lay' ? 'bg-[#f8c9d4]/40 hover:bg-[#f8c9d4]/60' : 'bg-[#bbd9f9]/40 hover:bg-[#bbd9f9]/60'
+                    }`}
                 >
                   <div className="flex-[3] font-bold text-[#1c3246] truncate">{b.runner}</div>
                   <div className="w-16 text-center text-gray-800 font-bold">{b.price}</div>
@@ -2143,7 +2221,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                   Matched Bets List ({betsData.matchedBets?.length || 0})
                 </span>
               </div>
-              <button 
+              <button
                 onClick={() => setIsFullBetListOpen(false)}
                 className="text-white/80 hover:text-white p-1 rounded-sm transition-colors"
               >
@@ -2161,10 +2239,10 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                 className="flex-1 bg-white border border-gray-300 px-3 py-1.5 rounded text-xs font-semibold text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#009866]"
               />
               <span className="text-xs text-gray-500 font-bold">
-                Showing {betsData.matchedBets.filter(b => 
-                  !betListFilter || 
-                  b.runner?.toLowerCase().includes(betListFilter.toLowerCase()) || 
-                  b.better?.toLowerCase().includes(betListFilter.toLowerCase()) || 
+                Showing {betsData.matchedBets.filter(b =>
+                  !betListFilter ||
+                  b.runner?.toLowerCase().includes(betListFilter.toLowerCase()) ||
+                  b.better?.toLowerCase().includes(betListFilter.toLowerCase()) ||
                   b.master?.toLowerCase().includes(betListFilter.toLowerCase())
                 ).length} of {betsData.matchedBets?.length || 0}
               </span>
@@ -2186,18 +2264,17 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {betsData.matchedBets
-                    .filter(b => 
-                      !betListFilter || 
-                      b.runner?.toLowerCase().includes(betListFilter.toLowerCase()) || 
-                      b.better?.toLowerCase().includes(betListFilter.toLowerCase()) || 
+                    .filter(b =>
+                      !betListFilter ||
+                      b.runner?.toLowerCase().includes(betListFilter.toLowerCase()) ||
+                      b.better?.toLowerCase().includes(betListFilter.toLowerCase()) ||
                       b.master?.toLowerCase().includes(betListFilter.toLowerCase())
                     )
                     .map((b, idx) => (
-                      <tr 
+                      <tr
                         key={idx}
-                        className={`transition-colors ${
-                          b.type === 'lay' ? 'bg-[#f8c9d4]/30 hover:bg-[#f8c9d4]/50' : 'bg-[#bbd9f9]/30 hover:bg-[#bbd9f9]/50'
-                        }`}
+                        className={`transition-colors ${b.type === 'lay' ? 'bg-[#f8c9d4]/30 hover:bg-[#f8c9d4]/50' : 'bg-[#bbd9f9]/30 hover:bg-[#bbd9f9]/50'
+                          }`}
                       >
                         <td className="px-3 py-2 font-bold text-[#1c3246]">{b.runner}</td>
                         <td className="px-3 py-2 text-center uppercase font-black">
@@ -2239,7 +2316,7 @@ function CollapsibleMarketSection({ title, rightAction, children }) {
   const [open, setOpen] = useState(true);
   return (
     <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
-      <div 
+      <div
         onClick={() => setOpen(!open)}
         className="bg-[#243f55] text-white px-3 py-2 flex items-center justify-between cursor-pointer select-none"
       >

@@ -106,7 +106,7 @@ export default function Sidebar({ isOpen, setIsOpen, onSelectMatch }) {
           label
         };
       });
-      
+
       return {
         ...item,
         submenu: [{ id: "all", label: "All Cricket" }, ...matchEntries]
@@ -151,9 +151,8 @@ export default function Sidebar({ isOpen, setIsOpen, onSelectMatch }) {
               </>
             );
 
-            const itemClass = `flex items-center gap-3 px-4 py-3.5 transition-colors w-full text-left ${
-              isSelected ? "bg-[#bf1212]" : "hover:bg-[#3b546b]"
-            }`;
+            const itemClass = `flex items-center gap-3 px-4 py-3.5 transition-colors w-full text-left ${isSelected ? "bg-[#bf1212]" : "hover:bg-[#3b546b]"
+              }`;
 
             return (
               <li key={idx} className="flex flex-col">
