@@ -57,7 +57,19 @@ export default function DashboardLayout({ children }) {
   const [currentView, setCurrentView] = useState("home");
   const [selectedMatchId, setSelectedMatchId] = useState(null);
   const [betSelection, setBetSelection] = useState(null);
-  const [cricketMatches, setCricketMatches] = useState([]);
+  // Instant 0ms hydration: pre-populate with cached live matches from localStorage
+  const [cricketMatches, setCricketMatches] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("bpx_cached_matches");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
   const [walletBalance, setWalletBalance] = useState(0);
   const [creditBalance, setCreditBalance] = useState(0);
   const [socketInstance, setSocketInstance] = useState(null);
@@ -404,12 +416,16 @@ export default function DashboardLayout({ children }) {
     });
 
     const fetchMatches = async () => {
-      console.log("[Dashboard] 🔍 Fetching from:", `${getApiUrl()}/api/matches`);
       try {
         const res = await fetch(`${getApiUrl()}/api/matches`);
         if (res.ok) {
           const data = await res.json();
-          setCricketMatches(data);
+          if (Array.isArray(data) && data.length > 0) {
+            setCricketMatches(data);
+            try {
+              localStorage.setItem("bpx_cached_matches", JSON.stringify(data));
+            } catch (e) {}
+          }
         }
       } catch (err) {
         // Gracefully silent on transient poll failure
@@ -423,14 +439,18 @@ export default function DashboardLayout({ children }) {
           const liveData = await res.json();
           if (Array.isArray(liveData) && liveData.length > 0) {
             setCricketMatches(prev => {
-              return prev.map(m => {
+              const updated = prev.map(m => {
                 const mId = String(m.matchId || '').trim();
-                const updated = liveData.find(ld => {
+                const matchedLive = liveData.find(ld => {
                   const ldId = String(ld.matchId || '').trim();
                   return ldId === mId || ldId.replace(/^id/, '') === mId.replace(/^id/, '');
                 });
-                return updated ? { ...m, ...updated, score: { ...m.score, ...updated.score } } : m;
+                return matchedLive ? { ...m, ...matchedLive, score: { ...m.score, ...matchedLive.score } } : m;
               });
+              try {
+                localStorage.setItem("bpx_cached_matches", JSON.stringify(updated));
+              } catch (e) {}
+              return updated;
             });
           }
         }

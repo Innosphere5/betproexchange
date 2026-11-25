@@ -86,8 +86,16 @@ export default function Sidebar({ isOpen, setIsOpen, onSelectMatch }) {
         return m.status !== 'completed' && !m.winner && !m.isCompleted;
       });
 
+      // Prioritize LIVE matches at the top of the sidebar
+      const sortedActiveMatches = [...activeMatches].sort((a, b) => {
+        const isLiveA = a.status === 'live' ? 1 : 0;
+        const isLiveB = b.status === 'live' ? 1 : 0;
+        if (isLiveA !== isLiveB) return isLiveB - isLiveA;
+        return 0;
+      });
+
       const seenTeams = new Map();
-      const matchEntries = activeMatches.map(m => {
+      const matchEntries = sortedActiveMatches.map(m => {
         const teamsKey = `${m.teamA} v ${m.teamB}`;
         const count = (seenTeams.get(teamsKey) || 0) + 1;
         seenTeams.set(teamsKey, count);
