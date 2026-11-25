@@ -18,9 +18,11 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   // Score staleness tracker — seconds since last score update (displayed in live strip)
   const [scoreAgeSec, setScoreAgeSec] = useState(0);
 
-  // Auto-remove settled toss market from UI
+  // Auto-remove settled toss market from UI (20 minutes after result declaration)
+  const TOSS_HIDE_DELAY_MS = 20 * 60 * 1000; // 20 minutes
   const [tossAutoRemoved, setTossAutoRemoved] = useState(false);
   const [tossLiveNotification, setTossLiveNotification] = useState(null); // { winner, secondsLeft }
+  const [tossHideCountdown, setTossHideCountdown] = useState(null); // minutes remaining until auto-hide
   const initialTossSettledRef = useRef(null);
 
   // Feature 1 & 2 State: Live Matched Bets & Dynamic Exposure
@@ -420,6 +422,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
           tossMarketStatus: data.tossMarketStatus !== undefined ? data.tossMarketStatus : prev?.tossMarketStatus,
           tossWinner: data.tossWinner !== undefined ? data.tossWinner : prev?.tossWinner,
           tossSettled: data.tossSettled !== undefined ? data.tossSettled : prev?.tossSettled,
+          tossSettledAt: data.tossSettledAt !== undefined ? data.tossSettledAt : (data.tossSettled ? new Date().toISOString() : prev?.tossSettledAt),
           tossBackA: data.tossBackA !== undefined ? data.tossBackA : prev?.tossBackA,
           tossLayA: data.tossLayA !== undefined ? data.tossLayA : prev?.tossLayA,
           tossBackB: data.tossBackB !== undefined ? data.tossBackB : prev?.tossBackB,
@@ -582,31 +585,125 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
     }
   }, [actualMatch, isTossSettled]);
 
-  // Live countdown to remove toss market from UI when declared in real-time
+  // Derive effective settled timestamp
+  const effectiveSettledAt = useMemo(() => {
+    if (!isTossSettled) return null;
+
+    // In real cricket, the toss happens 30 minutes before the match start time.
+    // If the match has a startTime, that is the definitive physical anchor for when the toss took place.
+    if (actualMatch?.startTime) {
+      const startMs = new Date(actualMatch.startTime).getTime();
+      const tossScheduledMs = startMs - (30 * 60 * 1000);
+
+      // If tossSettledAt is present and was recorded before start time, use it
+      if (actualMatch?.tossSettledAt) {
+        const settledMs = new Date(actualMatch.tossSettledAt).getTime();
+        if (settledMs <= startMs) {
+          return settledMs;
+        }
+      }
+
+      // If match has started or is live, the toss took place at tossScheduledMs (~30m before start)
+      if (Date.now() >= startMs || actualMatch?.status === 'live' || isMatchLive) {
+        return tossScheduledMs;
+      }
+    }
+
+    if (actualMatch?.tossSettledAt) return new Date(actualMatch.tossSettledAt).getTime();
+    if (actualMatch?.lastUpdated) return new Date(actualMatch.lastUpdated).getTime();
+    if (actualMatch?.updatedAt) return new Date(actualMatch.updatedAt).getTime();
+    return null;
+  }, [isTossSettled, actualMatch?.tossSettledAt, actualMatch?.startTime, actualMatch?.status, isMatchLive, actualMatch?.lastUpdated, actualMatch?.updatedAt]);
+
+  // Is toss already past the 20-minute window? (Synchronous check on render prevents UI flicker)
+  // Logic: 
+  // 1. If match has already started or is live/completed, the toss is ALWAYS >20 minutes old (toss occurs 30m before start).
+  // 2. If toss was settled for an upcoming match, it remains visible for exactly 20 minutes from settlement, then auto-hides.
+  const isTossExpired = useMemo(() => {
+    if (!isTossSettled) return false;
+
+    // Live or completed matches: toss took place before match began (>30m ago), so toss UI must be hidden
+    if (actualMatch?.status === 'live' || actualMatch?.isCompleted || isMatchLive) {
+      return true;
+    }
+
+    if (effectiveSettledAt) {
+      return (Date.now() - effectiveSettledAt) >= TOSS_HIDE_DELAY_MS;
+    }
+
+    return false;
+  }, [isTossSettled, effectiveSettledAt, actualMatch?.status, actualMatch?.isCompleted, isMatchLive]);
+
+  // 20-minute auto-hide timer: After toss result is declared, keep showing for 20 minutes then hide
+  useEffect(() => {
+    if (!isTossSettled || tossAutoRemoved || isTossExpired) return;
+
+    const settledTime = effectiveSettledAt || Date.now();
+    const hideAt = settledTime + TOSS_HIDE_DELAY_MS;
+    const now = Date.now();
+
+    // Already past 20 minutes — hide immediately
+    if (now >= hideAt) {
+      setTossAutoRemoved(true);
+      setTossHideCountdown(null);
+      if (activeTab === 'Toss') setActiveTab('ALL');
+      return;
+    }
+
+    // Set initial countdown
+    const remainMs = hideAt - now;
+    setTossHideCountdown(Math.ceil(remainMs / 60000));
+
+    // Tick every 15 seconds to update the countdown
+    const ticker = setInterval(() => {
+      const remaining = hideAt - Date.now();
+      if (remaining <= 0) {
+        setTossAutoRemoved(true);
+        setTossHideCountdown(null);
+        setActiveTab(prev => prev === 'Toss' ? 'ALL' : prev);
+        clearInterval(ticker);
+      } else {
+        setTossHideCountdown(Math.ceil(remaining / 60000));
+      }
+    }, 15000);
+
+    // Also set a precise timeout for the exact hide moment
+    const hideTimeout = setTimeout(() => {
+      setTossAutoRemoved(true);
+      setTossHideCountdown(null);
+      setActiveTab(prev => prev === 'Toss' ? 'ALL' : prev);
+      clearInterval(ticker);
+    }, remainMs);
+
+    return () => {
+      clearInterval(ticker);
+      clearTimeout(hideTimeout);
+    };
+  }, [isTossSettled, effectiveSettledAt, isTossExpired, tossAutoRemoved, activeTab]);
+
+  // Live countdown to remove toss market from UI when declared in real-time (4s flash notification)
   useEffect(() => {
     if (!tossLiveNotification) return;
     if (tossLiveNotification.secondsLeft <= 0) {
-      setTossAutoRemoved(true);
       setTossLiveNotification(null);
-      if (activeTab === 'Toss') setActiveTab('ALL');
       return;
     }
     const timer = setInterval(() => {
       setTossLiveNotification(prev => {
         if (!prev) return null;
-        if (prev.secondsLeft <= 1) {
-          setTossAutoRemoved(true);
-          if (activeTab === 'Toss') setActiveTab('ALL');
-          return null;
-        }
+        if (prev.secondsLeft <= 1) return null;
         return { ...prev, secondsLeft: prev.secondsLeft - 1 };
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [tossLiveNotification, activeTab]);
+  }, [tossLiveNotification]);
 
-  // Toss market is only visible if NOT settled and NOT auto-removed (or active live settlement notification)
-  const isTossVisible = (!isTossSettled && !tossAutoRemoved) || Boolean(tossLiveNotification);
+  // Toss market visibility:
+  // - Before settlement: show (not settled, not auto-removed)
+  // - After settlement: show for 20 minutes (isTossSettled=true but tossAutoRemoved=false and !isTossExpired)
+  // - After 20 minutes: hide (isTossExpired=true or tossAutoRemoved=true)
+  // - Live notification banner always shows during its countdown
+  const isTossVisible = (!isTossExpired && !tossAutoRemoved) || Boolean(tossLiveNotification);
 
   const availableTabs = [
     'ALL',
@@ -1258,7 +1355,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                     <span className="text-yellow-300 font-black">{tossLiveNotification.winner}</span>
                   </div>
                   <div className="text-[11px] text-emerald-100 font-medium">
-                    Toss settled! Automatically removing market in {tossLiveNotification.secondsLeft}s...
+                    Toss settled! Market will auto-hide in {tossHideCountdown || 20} min
                   </div>
                 </div>
               </div>
@@ -1270,7 +1367,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                 }}
                 className="bg-white/20 hover:bg-white/30 text-white text-[10px] font-black uppercase px-2.5 py-1 rounded transition-colors cursor-pointer shrink-0"
               >
-                Remove Now
+                Hide Now
               </button>
             </div>
           )}
@@ -1326,7 +1423,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
               </div>
             )}
 
-            {/* Toss Result Banner (if already settled) */}
+            {/* Toss Result Banner (if already settled) — shows countdown to auto-hide */}
             {actualMatch.tossWinner ? (
               <div className="bg-[#ecfdf5] border-b border-emerald-200 px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1335,9 +1432,16 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                     Toss Winner: {actualMatch.tossWinner}
                   </span>
                 </div>
-                <span className="bg-[#009866] text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase">
-                  Settled
-                </span>
+                <div className="flex items-center gap-2">
+                  {tossHideCountdown !== null && (
+                    <span className="text-[9px] font-bold text-gray-500">
+                      Auto-hide in {tossHideCountdown}m
+                    </span>
+                  )}
+                  <span className="bg-[#009866] text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase">
+                    Settled
+                  </span>
+                </div>
               </div>
             ) : isTossClosed ? (
               <div className="bg-[#f0f2f5] border-b border-gray-200 px-4 py-2.5 flex items-center justify-between text-[#333333] text-[12px] font-bold">
