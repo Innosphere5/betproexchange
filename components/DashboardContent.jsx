@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useDashboard } from "./DashboardLayout";
 import MatchDetail from "./MatchDetail";
 import RightPanel from "./RightPanel";
+import { isTestMatchFormat } from "../lib/matchFormat";
 
 // --- Inline SVGs ---
 const CricketIcon = () => (
@@ -31,56 +32,56 @@ export default function DashboardContent() {
   const [activeCricketFilter, setActiveCricketFilter] = useState("ALL");
 
   const filteredMatches = useMemo(() => {
-    if (!cricketMatches || cricketMatches.length === 0) return [];
+    const activeOnly = (cricketMatches || []).filter(
+      m => m && m.status !== 'completed' && m.status !== 'resulted' && !m.winner && !m.isCompleted
+    );
+    if (activeOnly.length === 0) return [];
     if (activeCricketFilter === "LIVE") {
-      return cricketMatches.filter(m => m.status === 'live');
+      return activeOnly.filter(m => m.status === 'live');
     }
     if (activeCricketFilter === "PAK_IND") {
-      return cricketMatches.filter(m => {
+      return activeOnly.filter(m => {
         const tA = (m.teamA || '').toLowerCase();
         const tB = (m.teamB || '').toLowerCase();
         return tA.includes('pakistan') || tB.includes('pakistan') || tA.includes('india') || tB.includes('india');
       });
     }
     if (activeCricketFilter === "TEST") {
-      return cricketMatches.filter(m => {
-        const str = `${m.league || ''} ${m.teamA || ''} ${m.teamB || ''}`.toLowerCase();
-        return Boolean(m.isTestMatch || m.backOddsDraw != null || /\b(test|ashes|border gavaskar|wtc|sheffield|ranji|first class|first-class)\b/i.test(str));
-      });
+      return activeOnly.filter(m => isTestMatchFormat(m));
     }
     if (activeCricketFilter === "ODI") {
-      return cricketMatches.filter(m => {
+      return activeOnly.filter(m => {
         const str = `${m.league || ''} ${m.teamA || ''} ${m.teamB || ''}`.toLowerCase();
         return /\b(odi|one day|one-day|cwc|world cup|champions trophy)\b/i.test(str);
       });
     }
     if (activeCricketFilter === "T20") {
-      return cricketMatches.filter(m => {
+      return activeOnly.filter(m => {
         const str = `${m.league || ''} ${m.teamA || ''} ${m.teamB || ''}`.toLowerCase();
         return !/\b(t10|ten10|t-10)\b/i.test(str) && /\b(t20|t20i|twenty20|big bash|wbbl|ipl|psl|bbl|cpl|hundred|sa20|ilt20|international league|mlc|wpl|blast|smash)\b/i.test(str);
       });
     }
     if (activeCricketFilter === "BBL") {
-      return cricketMatches.filter(m => {
+      return activeOnly.filter(m => {
         const str = `${m.league || ''} ${m.teamA || ''} ${m.teamB || ''}`.toLowerCase();
         return /\b(big bash|bbl|wbbl)\b/i.test(str);
       });
     }
     if (activeCricketFilter === "T10") {
-      return cricketMatches.filter(m => {
+      return activeOnly.filter(m => {
         const str = `${m.league || ''} ${m.teamA || ''} ${m.teamB || ''}`.toLowerCase();
         return /\b(t10|ten10|t-10|10-over|ecs|ecl|max 60|max60)\b/i.test(str);
       });
     }
     if (activeCricketFilter === "INTERNATIONAL") {
-      return cricketMatches.filter(m => {
+      return activeOnly.filter(m => {
         const tA = (m.teamA || '').toLowerCase();
         const tB = (m.teamB || '').toLowerCase();
         const l = (m.league || '').toLowerCase();
         return m.sportKey === 'cricket_international' || /\b(odi|t20|t20i|test|tri series|world cup)\b/i.test(l) || tA.includes('pakistan') || tB.includes('pakistan') || tA.includes('india') || tB.includes('india');
       });
     }
-    return cricketMatches;
+    return activeOnly;
   }, [cricketMatches, activeCricketFilter]);
 
   if (currentView === "match") {
@@ -368,7 +369,7 @@ export default function DashboardContent() {
                     const isToday = startTime >= todayStart && startTime < todayEnd;
                     const isLive = row.status === 'live';
                     const showOdds = isLive || isToday || row.backOddsA;
-                    const isTest = Boolean(row.isTestMatch || row.backOddsDraw != null || (row.league && /\b(test|sheffield|ranji|first-class)\b/i.test(row.league)));
+                    const isTest = isTestMatchFormat(row);
 
                     return (
                       <>

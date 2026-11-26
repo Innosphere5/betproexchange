@@ -50,6 +50,14 @@ const getAuthToken = () => {
 
 const normalizeMatchIdKey = (id) => String(id || '').trim().replace(/^id/i, '');
 
+const isMatchCompletedOrEnded = (m) =>
+  Boolean(m && (m.status === 'completed' || m.status === 'resulted' || m.winner || m.isCompleted));
+
+const filterActiveMatches = (list) => {
+  if (!Array.isArray(list)) return [];
+  return sortLiveFirst(list.filter(m => m && !isMatchCompletedOrEnded(m)));
+};
+
 const sortLiveFirst = (list) => {
   if (!Array.isArray(list)) return [];
   return [...list].sort((a, b) => {
@@ -60,8 +68,9 @@ const sortLiveFirst = (list) => {
 };
 
 const upsertLiveMatches = (prevList, liveList) => {
-  const result = Array.isArray(prevList) ? [...prevList] : [];
+  const result = filterActiveMatches(prevList);
   for (const ld of liveList || []) {
+    if (isMatchCompletedOrEnded(ld)) continue;
     const ldKey = normalizeMatchIdKey(ld?.matchId);
     if (!ldKey) continue;
     const idx = result.findIndex(m => normalizeMatchIdKey(m?.matchId) === ldKey);
@@ -75,13 +84,18 @@ const upsertLiveMatches = (prevList, liveList) => {
       result.unshift(ld);
     }
   }
-  return sortLiveFirst(result);
+  return filterActiveMatches(result);
 };
 
 const saveMatchesCache = (list) => {
   try {
-    if (typeof window !== 'undefined' && Array.isArray(list) && list.length > 0) {
-      localStorage.setItem('bpx_cached_matches', JSON.stringify(list));
+    const active = filterActiveMatches(list);
+    if (typeof window !== 'undefined') {
+      if (active.length > 0) {
+        localStorage.setItem('bpx_cached_matches', JSON.stringify(active));
+      } else {
+        localStorage.removeItem('bpx_cached_matches');
+      }
     }
   } catch (_) {}
 };
@@ -148,9 +162,11 @@ export default function DashboardLayout({ children }) {
     try {
       const cached = localStorage.getItem('bpx_cached_matches');
       if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setCricketMatches(prev => (prev.length === 0 ? sortLiveFirst(parsed) : prev));
+        const parsed = filterActiveMatches(JSON.parse(cached));
+        if (parsed.length > 0) {
+          setCricketMatches(prev => (prev.length === 0 ? parsed : prev));
+        } else {
+          localStorage.removeItem('bpx_cached_matches');
         }
       }
     } catch (_) {}
@@ -211,11 +227,13 @@ export default function DashboardLayout({ children }) {
     setSocketInstance(socket);
 
     socket.on('matches_updated', (data) => {
-        setCricketMatches(data);
+        const active = filterActiveMatches(data);
+        saveMatchesCache(active);
+        setCricketMatches(active);
     });
 
     socket.on('live_score_update', (data) => {
-        setCricketMatches(prev => prev.map(m => {
+        setCricketMatches(prev => filterActiveMatches(prev.map(m => {
             const mId = String(m.matchId || '').trim();
             const dId = String(data.matchId || '').trim();
             const matches = mId === dId || mId.replace(/^id/, '') === dId.replace(/^id/, '');
@@ -249,13 +267,14 @@ export default function DashboardLayout({ children }) {
                 return {
                     ...m,
                     status: data.status || m.status,
+                    winner: data.winner ?? m.winner,
                     tossWinner: data.tossWinner ?? m.tossWinner,
                     tossDecision: data.tossDecision ?? m.tossDecision,
                     score: nextScore
                 };
             }
             return m;
-        }));
+        })));
     });
 
     socket.on('market_odds_update', (data) => {
@@ -367,23 +386,14 @@ export default function DashboardLayout({ children }) {
     });
 
     socket.on('match_result', (data) => {
-        setCricketMatches(prev => prev.map(m => {
-            if (String(m.matchId) === String(data.matchId)) {
-                return {
-                    ...m,
-                    status: 'completed',
-                    winner: data.winner,
-                    score: {
-                        ...m.score,
-                        teamA_runs: data.finalScore?.teamA || m.score?.teamA_runs,
-                        teamB_runs: data.finalScore?.teamB || m.score?.teamB_runs,
-                        overs: "Final",
-                        lastUpdated: new Date()
-                    }
-                };
-            }
-            return m;
-        }));
+        setCricketMatches(prev => {
+            const endedKey = normalizeMatchIdKey(data?.matchId);
+            const next = filterActiveMatches(
+                (prev || []).filter(m => normalizeMatchIdKey(m?.matchId) !== endedKey)
+            );
+            saveMatchesCache(next);
+            return next;
+        });
     });
 
     const handleDashboardTossUpdate = (data) => {
@@ -463,9 +473,9 @@ export default function DashboardLayout({ children }) {
           const data = await res.json();
           if (Array.isArray(data) && data.length > 0) {
             setCricketMatches(prev => {
-              // Preserve any live matches not yet in /api/matches or with newer live score timestamps
+              const activeData = filterActiveMatches(data);
               const byId = new Map((prev || []).map(m => [normalizeMatchIdKey(m?.matchId), m]));
-              const merged = data.map(d => {
+              const merged = activeData.map(d => {
                 const old = byId.get(normalizeMatchIdKey(d?.matchId));
                 if (old?.status === 'live' && d?.status === 'live') {
                   const oldTs = new Date(old.score?.lastUpdated || old.lastUpdated || 0).getTime();
@@ -475,8 +485,8 @@ export default function DashboardLayout({ children }) {
                 return d;
               });
               const dataIds = new Set(merged.map(m => normalizeMatchIdKey(m?.matchId)));
-              const missingLive = (prev || []).filter(m => m?.status === 'live' && !dataIds.has(normalizeMatchIdKey(m?.matchId)));
-              const finalSorted = sortLiveFirst([...missingLive, ...merged]);
+              const missingLive = (prev || []).filter(m => m?.status === 'live' && !isMatchCompletedOrEnded(m) && !dataIds.has(normalizeMatchIdKey(m?.matchId)));
+              const finalSorted = filterActiveMatches([...missingLive, ...merged]);
               saveMatchesCache(finalSorted);
               return finalSorted;
             });

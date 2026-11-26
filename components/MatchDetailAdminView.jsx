@@ -24,6 +24,7 @@ import {
 import io from "socket.io-client";
 import { getApiUrl, isServerlessBackend } from "@/lib/apiConfig";
 import { formatTossBannerText } from "@/lib/tossFormat";
+import { isTestMatchFormat, getDefaultTiedMatchMarket } from "@/lib/matchFormat";
 
 export default function MatchDetailAdminView({
   role = "admin",
@@ -1118,7 +1119,8 @@ export default function MatchDetailAdminView({
         { name: "1st inn 20 Over Run Odd (Kalli)", backPrice: null, backVol: "100", layPrice: null, layVol: "100", status: "SUSPENDED" }
       ];
 
-  const tiedMatchMarket = matchData?.tiedMatchMarket;
+  const isTestMatch = isTestMatchFormat(matchData);
+  const tiedMatchMarket = !isTestMatch ? (matchData?.tiedMatchMarket || getDefaultTiedMatchMarket()) : null;
 
   const isShowAll = selectedMarketType === "ALL";
 
@@ -2118,8 +2120,8 @@ export default function MatchDetailAdminView({
             );
           })()}
 
-          {/* ══════════ SECTION 8: TIED MATCH (OTHERS) ══════════ */}
-          {(isShowAll || selectedMarketType === "Others") && tiedMatchMarket && (
+          {/* ══════════ SECTION 8: TIED MATCH (OTHERS) — Footer for T10 / T20 / ODI ══════════ */}
+          {(isShowAll || selectedMarketType === "Others") && !isTestMatch && tiedMatchMarket && (
             <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
               <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
                 <div className="flex items-center gap-2">

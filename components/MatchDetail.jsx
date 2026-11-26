@@ -3,6 +3,7 @@ import { Info, Tv, Clock, Trophy, Users, ShieldCheck, ChevronDown, CheckCircle2,
 import { useDashboard } from "./DashboardLayout";
 import { getApiUrl } from "../lib/apiConfig";
 import { formatTossBannerText } from "../lib/tossFormat";
+import { isTestMatchFormat, getDefaultTiedMatchMarket } from "../lib/matchFormat";
 
 export default function MatchDetail({ matchId, onSelectOutcome }) {
   const { cricketMatches, socket, goToHome } = useDashboard();
@@ -863,11 +864,8 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
 
   const matchName = `${actualMatch.teamA} v ${actualMatch.teamB}`;
 
-  const isTestMatch = Boolean(
-    actualMatch.isTestMatch ||
-    actualMatch.backOddsDraw != null ||
-    (actualMatch.league && /\b(test|test match|sheffield|ranji|first-class|first class|4-day|5-day)\b/i.test(actualMatch.league))
-  );
+  const isTestMatch = isTestMatchFormat(actualMatch);
+  const tiedMatchData = !isTestMatch ? (actualMatch.tiedMatchMarket || getDefaultTiedMatchMarket()) : null;
 
   const runners = [
     {
@@ -2148,9 +2146,9 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
         );
       })()}
 
-      {/* 8. TIED MATCH (OTHERS) MARKET SECTION */}
-      {(activeTab === 'ALL' || activeTab === 'Others') && actualMatch.status !== 'completed' && actualMatch.tiedMatchMarket && (
-        <div className="order-2 flex flex-col px-2 mb-2">
+      {/* 8. TIED MATCH (OTHERS) MARKET SECTION — Footer for T10 / T20 / ODI */}
+      {(activeTab === 'ALL' || activeTab === 'Others') && actualMatch.status !== 'completed' && !isTestMatch && tiedMatchData && (
+        <div className="order-3 flex flex-col px-2 mb-2">
           <div className="bg-white rounded-sm shadow-sm border border-gray-300 overflow-hidden">
             <div className="bg-[#5d7d9a] text-white h-10 flex items-center justify-between px-3">
               <div className="flex items-center gap-2.5">
@@ -2158,7 +2156,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                   <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                 </div>
                 <span className="text-[13px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                  {actualMatch.tiedMatchMarket.name || 'TIED MATCH'} <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: {actualMatch.tiedMatchMarket.maxBet >= 1000000 ? `${(actualMatch.tiedMatchMarket.maxBet / 1000000).toFixed(0)}M` : `${(actualMatch.tiedMatchMarket.maxBet / 1000).toFixed(0)}K`})</span>
+                  {tiedMatchData.name || 'TIED MATCH'} <span className="text-white/80 font-bold ml-1 text-[11px]">(MaxBet: {tiedMatchData.maxBet >= 1000000 ? `${(tiedMatchData.maxBet / 1000000).toFixed(0)}M` : `${(tiedMatchData.maxBet / 1000).toFixed(0)}K`})</span>
                   <Info size={14} className="text-white/70 ml-1 inline cursor-pointer" />
                 </span>
               </div>
@@ -2169,14 +2167,14 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
             </div>
 
             <div className="relative divide-y divide-gray-100">
-              {actualMatch.tiedMatchMarket.status === 'SUSPENDED' && (
+              {tiedMatchData.status === 'SUSPENDED' && (
                 <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
                   <div className="bg-[#1c3246] text-white px-6 py-2 rounded-full font-black text-xs tracking-widest shadow-2xl animate-pulse">
                     MARKET SUSPENDED
                   </div>
                 </div>
               )}
-              {(actualMatch.tiedMatchMarket.runners || []).map((runner, rIdx) => {
+              {(tiedMatchData.runners || []).map((runner, rIdx) => {
                 const backOdds = runner.backOdds || [];
                 const layOdds = runner.layOdds || [];
 
@@ -2198,8 +2196,8 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                         return (
                           <button
                             key={`back-${slotIdx}`}
-                            disabled={actualMatch.tiedMatchMarket.status === 'SUSPENDED'}
-                            onClick={() => onSelectOutcome(`${actualMatch.tiedMatchMarket.name} - ${runner.name}`, odd.price, 'back', actualMatch.status === 'live', 'tied_match')}
+                            disabled={tiedMatchData.status === 'SUSPENDED'}
+                            onClick={() => onSelectOutcome(`${tiedMatchData.name} - ${runner.name}`, odd.price, 'back', actualMatch.status === 'live', 'tied_match')}
                             className={`w-13 sm:w-14 flex flex-col items-center justify-center py-1.5 active:scale-95 transition-all border-r border-white/40 cursor-pointer disabled:opacity-50 disabled:pointer-events-none ${isMain ? 'bg-[#72bbef]' : 'bg-[#bbd9f9]'
                               } hover:bg-[#a5d3f8]`}
                           >
@@ -2219,8 +2217,8 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                         return (
                           <button
                             key={`lay-${slotIdx}`}
-                            disabled={actualMatch.tiedMatchMarket.status === 'SUSPENDED'}
-                            onClick={() => onSelectOutcome(`${actualMatch.tiedMatchMarket.name} - ${runner.name}`, odd.price, 'lay', actualMatch.status === 'live', 'tied_match')}
+                            disabled={tiedMatchData.status === 'SUSPENDED'}
+                            onClick={() => onSelectOutcome(`${tiedMatchData.name} - ${runner.name}`, odd.price, 'lay', actualMatch.status === 'live', 'tied_match')}
                             className={`w-13 sm:w-14 flex flex-col items-center justify-center py-1.5 active:scale-95 transition-all border-r border-white/40 cursor-pointer disabled:opacity-50 disabled:pointer-events-none ${isMain ? 'bg-[#f8a9b8]' : 'bg-[#f8c9d4]'
                               } hover:bg-[#f9b6c6]`}
                           >
