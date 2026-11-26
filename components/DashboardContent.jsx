@@ -57,7 +57,13 @@ export default function DashboardContent() {
     if (activeCricketFilter === "T20") {
       return cricketMatches.filter(m => {
         const str = `${m.league || ''} ${m.teamA || ''} ${m.teamB || ''}`.toLowerCase();
-        return !/\b(t10|ten10|t-10)\b/i.test(str) && /\b(t20|t20i|twenty20|ipl|psl|bbl|cpl|hundred|sa20|ilt20|mlc|wpl|blast|smash)\b/i.test(str);
+        return !/\b(t10|ten10|t-10)\b/i.test(str) && /\b(t20|t20i|twenty20|big bash|wbbl|ipl|psl|bbl|cpl|hundred|sa20|ilt20|international league|mlc|wpl|blast|smash)\b/i.test(str);
+      });
+    }
+    if (activeCricketFilter === "BBL") {
+      return cricketMatches.filter(m => {
+        const str = `${m.league || ''} ${m.teamA || ''} ${m.teamB || ''}`.toLowerCase();
+        return /\b(big bash|bbl|wbbl)\b/i.test(str);
       });
     }
     if (activeCricketFilter === "T10") {
@@ -210,6 +216,7 @@ export default function DashboardContent() {
                     { id: "TEST", label: "🏏 Test Matches" },
                     { id: "ODI", label: "🏏 ODI" },
                     { id: "T20", label: "🏏 T20" },
+                    { id: "BBL", label: "🔥 BBL / WBBL" },
                     { id: "T10", label: "⚡ T10 League" },
                     { id: "LIVE", label: "🔴 In-Play (Live)" },
                     { id: "PAK_IND", label: "🇵🇰 Pakistan & 🇮🇳 India" },

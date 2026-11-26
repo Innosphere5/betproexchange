@@ -249,6 +249,8 @@ export default function DashboardLayout({ children }) {
                 return {
                     ...m,
                     status: data.status || m.status,
+                    tossWinner: data.tossWinner ?? m.tossWinner,
+                    tossDecision: data.tossDecision ?? m.tossDecision,
                     score: nextScore
                 };
             }
@@ -394,6 +396,7 @@ export default function DashboardLayout({ children }) {
                     ...m,
                     tossMarketStatus: data.tossMarketStatus !== undefined ? data.tossMarketStatus : m.tossMarketStatus,
                     tossWinner: data.tossWinner !== undefined ? data.tossWinner : m.tossWinner,
+                    tossDecision: data.tossDecision !== undefined ? data.tossDecision : m.tossDecision,
                     tossSettled: data.tossSettled !== undefined ? data.tossSettled : m.tossSettled,
                     tossBackA: data.tossBackA !== undefined ? data.tossBackA : m.tossBackA,
                     tossLayA: data.tossLayA !== undefined ? data.tossLayA : m.tossLayA,

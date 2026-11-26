@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Info, Tv, Clock, Trophy, Users, ShieldCheck, ChevronDown, CheckCircle2, Lock, X, Volume2, ArrowLeft } from "lucide-react";
 import { useDashboard } from "./DashboardLayout";
 import { getApiUrl } from "../lib/apiConfig";
+import { formatTossBannerText } from "../lib/tossFormat";
 
 export default function MatchDetail({ matchId, onSelectOutcome }) {
   const { cricketMatches, socket, goToHome } = useDashboard();
@@ -354,6 +355,8 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
         setFetchedMatch(prev => ({
           ...(prev || {}),
           status: data.status || prev?.status || 'live',
+          tossWinner: data.tossWinner ?? prev?.tossWinner,
+          tossDecision: data.tossDecision ?? prev?.tossDecision,
           score: {
             ...(prev?.score || {}),
             teamA_runs: data.teamA_runs ?? prev?.score?.teamA_runs,
@@ -421,6 +424,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
           ...(prev || {}),
           tossMarketStatus: data.tossMarketStatus !== undefined ? data.tossMarketStatus : prev?.tossMarketStatus,
           tossWinner: data.tossWinner !== undefined ? data.tossWinner : prev?.tossWinner,
+          tossDecision: data.tossDecision !== undefined ? data.tossDecision : prev?.tossDecision,
           tossSettled: data.tossSettled !== undefined ? data.tossSettled : prev?.tossSettled,
           tossSettledAt: data.tossSettledAt !== undefined ? data.tossSettledAt : (data.tossSettled ? new Date().toISOString() : prev?.tossSettledAt),
           tossBackA: data.tossBackA !== undefined ? data.tossBackA : prev?.tossBackA,
@@ -1034,8 +1038,8 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
           ))}
         </div>
 
-        {/* BPEXCH LIVE SCORE & BALL CHALOO STRIP */}
-        {showLiveMarkets && (() => {
+        {/* BPEXCH LIVE SCORE, TOSS DECISION & BALL CHALOO STRIP */}
+        {(showLiveMarkets || (!isCompleted && Boolean(actualMatch?.tossWinner))) && (() => {
           const sc = actualMatch?.score || {};
           const isTeamBBatting = sc.battingTeam === 'teamB' || (Number(sc.target) > 0 && !sc.battingTeam);
           const activeTeamName = isTeamBBatting ? (actualMatch.teamB || 'Team B') : (actualMatch.teamA || 'Team A');
@@ -1048,19 +1052,23 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
             runs = parts[0] || '0';
             if (parts[1] !== undefined && parts[1] !== '') wickets = parts[1];
           }
-          const overs = sc.overs || '0.0';
-          const crr = sc.runRate || sc.crr || '0.00';
+          const overs = sc.overs || '0';
+          const crr = sc.runRate || sc.crr || '0';
           const rrr = sc.reqRunRate || '0.00';
           const target = sc.target || 0;
           const remRuns = sc.remRuns || (target > 0 ? Math.max(0, target - Number(runs)) : 0);
           const remBalls = sc.remBalls || 0;
-          const thisOverList = Array.isArray(sc.thisOver) && sc.thisOver.length > 0 ? sc.thisOver : ['0', '1', '0', '1'];
+          const thisOverList = Array.isArray(sc.thisOver) && sc.thisOver.length > 0 ? sc.thisOver : [];
           const thisOverStr = thisOverList.join(' ');
+          const tossBannerText = formatTossBannerText(
+            actualMatch?.tossWinner ?? sc?.tossWinner,
+            actualMatch?.tossDecision ?? sc?.tossDecision
+          );
 
           return (
             <div>
               {/* Stale score warning banner — shown when OddsPapi source hasn't updated in >90s */}
-              {scoreAgeSec > 90 && actualMatch?.status === 'live' && (
+              {showLiveMarkets && scoreAgeSec > 90 && actualMatch?.status === 'live' && (
                 <div className="flex items-center gap-2 px-3 py-1 bg-red-900/80 border-t border-red-500/40 text-red-300 text-[10px] font-bold animate-pulse">
                   <span>⚠️</span>
                   <span>SCORE DELAYED — Source last updated {Math.floor(scoreAgeSec / 60)}m {scoreAgeSec % 60}s ago. Live feed may be lagging.</span>
@@ -1081,8 +1089,13 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                       </span>
                     )}
                   </div>
+                  {tossBannerText && (
+                    <div className="text-xs sm:text-[13px] font-black text-[#00e676] uppercase tracking-wide leading-snug">
+                      {tossBannerText}
+                    </div>
+                  )}
                   <div className="text-[10px] font-semibold text-gray-300 flex items-center gap-3 flex-wrap">
-                    <span>This Over : <span className="font-mono text-white font-bold">{thisOverStr}</span></span>
+                    <span>This Over :{thisOverStr ? <span className="font-mono text-white font-bold ml-1">{thisOverStr}</span> : null}</span>
                     {Number(remBalls) > 0 && Number(remRuns) > 0 && (
                       <span className="text-emerald-300 font-bold">{remRuns} of {remBalls} balls</span>
                     )}
@@ -1090,7 +1103,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                       <span className="text-amber-400 font-extrabold">RRR: {rrr}</span>
                     )}
                     {/* Score staleness indicator — shows when OddsPapi source is delayed */}
-                    {actualMatch?.status === 'live' && (() => {
+                    {showLiveMarkets && actualMatch?.status === 'live' && (() => {
                       if (scoreAgeSec <= 10) return null;
                       const isStale = scoreAgeSec > 60;
                       const isWarn = scoreAgeSec > 30;

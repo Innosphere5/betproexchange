@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import io from "socket.io-client";
 import { getApiUrl, isServerlessBackend } from "@/lib/apiConfig";
+import { formatTossBannerText } from "@/lib/tossFormat";
 
 export default function MatchDetailAdminView({
   role = "admin",
@@ -273,6 +274,7 @@ export default function MatchDetailAdminView({
           tossDepthLayB: data.tossDepthLayB !== undefined ? data.tossDepthLayB : prev?.tossDepthLayB,
           tossMarketStatus: data.tossMarketStatus !== undefined ? data.tossMarketStatus : prev?.tossMarketStatus,
           tossWinner: data.tossWinner !== undefined ? data.tossWinner : prev?.tossWinner,
+          tossDecision: data.tossDecision !== undefined ? data.tossDecision : prev?.tossDecision,
           tossSettled: data.tossSettled !== undefined ? data.tossSettled : prev?.tossSettled,
           tossSettledAt: data.tossSettledAt !== undefined ? data.tossSettledAt : (data.tossSettled ? new Date().toISOString() : prev?.tossSettledAt)
         }));
@@ -353,6 +355,8 @@ export default function MatchDetailAdminView({
         setMatchData((prev) => ({
           ...(prev || {}),
           status: data.status || prev?.status || 'live',
+          tossWinner: data.tossWinner ?? prev?.tossWinner,
+          tossDecision: data.tossDecision ?? prev?.tossDecision,
           score: {
             ...(prev?.score || {}),
             teamA_runs: data.teamA_runs ?? prev?.score?.teamA_runs,
@@ -1172,6 +1176,11 @@ export default function MatchDetailAdminView({
             <h1 className="text-base sm:text-lg font-black text-white tracking-tight mt-0.5">
               {matchName}
             </h1>
+            {!isCompleted && formatTossBannerText(matchData?.tossWinner ?? matchData?.score?.tossWinner, matchData?.tossDecision ?? matchData?.score?.tossDecision) && (
+              <div className="text-xs font-black text-[#00e676] uppercase tracking-wide mt-0.5">
+                {formatTossBannerText(matchData?.tossWinner ?? matchData?.score?.tossWinner, matchData?.tossDecision ?? matchData?.score?.tossDecision)}
+              </div>
+            )}
           </div>
           <div className="flex flex-col items-end">
             <span className={`text-[11px] font-black uppercase px-2 py-0.5 rounded-full ${isLive ? 'bg-emerald-600 text-white animate-pulse' : isCompleted ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white'}`}>
