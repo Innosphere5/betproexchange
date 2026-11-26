@@ -48,6 +48,44 @@ const getAuthToken = () => {
   return null;
 };
 
+const normalizeMatchIdKey = (id) => String(id || '').trim().replace(/^id/i, '');
+
+const sortLiveFirst = (list) => {
+  if (!Array.isArray(list)) return [];
+  return [...list].sort((a, b) => {
+    const liveA = a?.status === 'live' ? 1 : 0;
+    const liveB = b?.status === 'live' ? 1 : 0;
+    return liveB - liveA;
+  });
+};
+
+const upsertLiveMatches = (prevList, liveList) => {
+  const result = Array.isArray(prevList) ? [...prevList] : [];
+  for (const ld of liveList || []) {
+    const ldKey = normalizeMatchIdKey(ld?.matchId);
+    if (!ldKey) continue;
+    const idx = result.findIndex(m => normalizeMatchIdKey(m?.matchId) === ldKey);
+    if (idx >= 0) {
+      result[idx] = {
+        ...result[idx],
+        ...ld,
+        score: { ...(result[idx].score || {}), ...(ld.score || {}) }
+      };
+    } else {
+      result.unshift(ld);
+    }
+  }
+  return sortLiveFirst(result);
+};
+
+const saveMatchesCache = (list) => {
+  try {
+    if (typeof window !== 'undefined' && Array.isArray(list) && list.length > 0) {
+      localStorage.setItem('bpx_cached_matches', JSON.stringify(list));
+    }
+  } catch (_) {}
+};
+
 export default function DashboardLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -57,19 +95,8 @@ export default function DashboardLayout({ children }) {
   const [currentView, setCurrentView] = useState("home");
   const [selectedMatchId, setSelectedMatchId] = useState(null);
   const [betSelection, setBetSelection] = useState(null);
-  // Instant 0ms hydration: pre-populate with cached live matches from localStorage
-  const [cricketMatches, setCricketMatches] = useState(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem("bpx_cached_matches");
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        }
-      } catch (e) {}
-    }
-    return [];
-  });
+  // Keep initial SSR state [] to prevent React hydration mismatch; hydrated synchronously in useEffect
+  const [cricketMatches, setCricketMatches] = useState([]);
   const [walletBalance, setWalletBalance] = useState(0);
   const [creditBalance, setCreditBalance] = useState(0);
   const [socketInstance, setSocketInstance] = useState(null);
@@ -117,6 +144,17 @@ export default function DashboardLayout({ children }) {
   };
 
   useEffect(() => {
+    // Immediate client hydration from cached catalog (avoids React SSR hydration mismatch while displaying <1ms)
+    try {
+      const cached = localStorage.getItem('bpx_cached_matches');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCricketMatches(prev => (prev.length === 0 ? sortLiveFirst(parsed) : prev));
+        }
+      }
+    } catch (_) {}
+
     fetchWallet();
 
     // ─── Socket.IO connection configuration ──────────────────────────────────
@@ -421,10 +459,24 @@ export default function DashboardLayout({ children }) {
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data) && data.length > 0) {
-            setCricketMatches(data);
-            try {
-              localStorage.setItem("bpx_cached_matches", JSON.stringify(data));
-            } catch (e) {}
+            setCricketMatches(prev => {
+              // Preserve any live matches not yet in /api/matches or with newer live score timestamps
+              const byId = new Map((prev || []).map(m => [normalizeMatchIdKey(m?.matchId), m]));
+              const merged = data.map(d => {
+                const old = byId.get(normalizeMatchIdKey(d?.matchId));
+                if (old?.status === 'live' && d?.status === 'live') {
+                  const oldTs = new Date(old.score?.lastUpdated || old.lastUpdated || 0).getTime();
+                  const newTs = new Date(d.score?.lastUpdated || d.lastUpdated || 0).getTime();
+                  if (oldTs > newTs) return { ...d, ...old, score: { ...(d.score || {}), ...(old.score || {}) } };
+                }
+                return d;
+              });
+              const dataIds = new Set(merged.map(m => normalizeMatchIdKey(m?.matchId)));
+              const missingLive = (prev || []).filter(m => m?.status === 'live' && !dataIds.has(normalizeMatchIdKey(m?.matchId)));
+              const finalSorted = sortLiveFirst([...missingLive, ...merged]);
+              saveMatchesCache(finalSorted);
+              return finalSorted;
+            });
           }
         }
       } catch (err) {
@@ -439,17 +491,9 @@ export default function DashboardLayout({ children }) {
           const liveData = await res.json();
           if (Array.isArray(liveData) && liveData.length > 0) {
             setCricketMatches(prev => {
-              const updated = prev.map(m => {
-                const mId = String(m.matchId || '').trim();
-                const matchedLive = liveData.find(ld => {
-                  const ldId = String(ld.matchId || '').trim();
-                  return ldId === mId || ldId.replace(/^id/, '') === mId.replace(/^id/, '');
-                });
-                return matchedLive ? { ...m, ...matchedLive, score: { ...m.score, ...matchedLive.score } } : m;
-              });
-              try {
-                localStorage.setItem("bpx_cached_matches", JSON.stringify(updated));
-              } catch (e) {}
+              // Upsert live matches at the top even if prev is [] on first visit
+              const updated = upsertLiveMatches(prev, liveData);
+              saveMatchesCache(updated);
               return updated;
             });
           }
@@ -459,8 +503,9 @@ export default function DashboardLayout({ children }) {
       }
     };
 
-    fetchMatches();
+    // Prioritize lightweight /live endpoint first so live matches render immediately on first visit
     fetchLiveScores();
+    fetchMatches();
     const matchesRefetchInterval = setInterval(fetchMatches, 30000);
     const liveScoresInterval = setInterval(fetchLiveScores, 3000);
     const walletPollInterval = isVercelBackend ? setInterval(fetchWallet, 4000) : null;
