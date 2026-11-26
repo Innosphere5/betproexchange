@@ -10,7 +10,7 @@ import { getApiUrl } from "../../lib/apiConfig";
 export default function SuperAdminHeader({ setIsSidebarOpen }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [walletBalance, setWalletBalance] = useState(0);
+  const [walletBalance, setWalletBalance] = useState(100000);
   const [username, setUsername] = useState('SuperAdmin');
 
   const getAuthToken = () => {

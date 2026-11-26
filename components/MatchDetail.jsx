@@ -575,6 +575,9 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
   const showOdds = !isCompleted && (isLive || isToday || (actualMatch && actualMatch.backOddsA));
 
   const isMatchLive = actualMatch ? (actualMatch.status === 'live' || (actualMatch.startTime && new Date() >= new Date(actualMatch.startTime))) : false;
+  const hasOversStarted = Boolean(actualMatch?.score?.overs && parseFloat(String(actualMatch.score.overs)) > 0);
+  // Toss decision banner ("OPT TO BAT / BOWL") shows after toss result and hides once the match starts
+  const isMatchStarted = Boolean(isLive || isCompleted || isMatchLive || hasOversStarted);
 
   // Toss Settled Check: true if winner declared, tossSettled flag true, or match in-play and toss closed
   const isTossSettled = Boolean(
@@ -1039,7 +1042,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
         </div>
 
         {/* BPEXCH LIVE SCORE, TOSS DECISION & BALL CHALOO STRIP */}
-        {(showLiveMarkets || (!isCompleted && Boolean(actualMatch?.tossWinner))) && (() => {
+        {(showLiveMarkets || (!isMatchStarted && Boolean(actualMatch?.tossWinner))) && (() => {
           const sc = actualMatch?.score || {};
           const isTeamBBatting = sc.battingTeam === 'teamB' || (Number(sc.target) > 0 && !sc.battingTeam);
           const activeTeamName = isTeamBBatting ? (actualMatch.teamB || 'Team B') : (actualMatch.teamA || 'Team A');
@@ -1089,7 +1092,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                       </span>
                     )}
                   </div>
-                  {tossBannerText && (
+                  {!isMatchStarted && tossBannerText && (
                     <div className="text-xs sm:text-[13px] font-black text-[#00e676] uppercase tracking-wide leading-snug">
                       {tossBannerText}
                     </div>

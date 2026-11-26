@@ -1176,7 +1176,7 @@ export default function MatchDetailAdminView({
             <h1 className="text-base sm:text-lg font-black text-white tracking-tight mt-0.5">
               {matchName}
             </h1>
-            {!isCompleted && formatTossBannerText(matchData?.tossWinner ?? matchData?.score?.tossWinner, matchData?.tossDecision ?? matchData?.score?.tossDecision) && (
+            {!isLive && !isCompleted && !isMatchLive && !(Number(parseFloat(String(scoreData?.displayOvers || '0'))) > 0) && formatTossBannerText(matchData?.tossWinner ?? matchData?.score?.tossWinner, matchData?.tossDecision ?? matchData?.score?.tossDecision) && (
               <div className="text-xs font-black text-[#00e676] uppercase tracking-wide mt-0.5">
                 {formatTossBannerText(matchData?.tossWinner ?? matchData?.score?.tossWinner, matchData?.tossDecision ?? matchData?.score?.tossDecision)}
               </div>
