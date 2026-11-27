@@ -1,32 +1,19 @@
 "use client";
 
-export default function CasinoLayout({ leftContent, rightContent, header }) {
+export default function CasinoLayout({ leftContent, rightContent }) {
   return (
-    <div className="flex flex-col lg:h-[calc(100vh-64px)] bg-[#0d1621] text-white overflow-hidden font-sans select-none">
-      {/* Optional Header for End Game / Info - HIDDEN ON MOBILE */}
-      {header && (
-        <div className="h-14 border-b border-white/5 bg-[#1b2b3b] hidden lg:flex items-center justify-between px-6 z-10">
-          <div className="flex items-center gap-3">
-             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-             <span className="text-sm font-medium tracking-wider text-gray-400">LIVE CASINO</span>
-          </div>
-          <div>{header}</div>
-        </div>
-      )}
-
-      <div className="flex flex-col lg:flex-row flex-1 overflow-y-auto lg:overflow-hidden">
-        {/* Left Main Game Area (70%) */}
-        <div className="w-full lg:flex-[7] flex flex-col bg-[#1b2b3b] shadow-2xl border-b lg:border-b-0 lg:border-r border-white/5">
+    <div className="flex flex-col lg:h-[calc(100vh-56px)] bg-[#070d16] text-white font-sans select-none">
+      <div className="flex flex-col lg:flex-row flex-1 lg:overflow-hidden">
+        {/* Main Felt Arena (Desktop 70%, Mobile top-to-bottom natural flow) */}
+        <div className="w-full lg:flex-[7] flex flex-col bg-[#0a131f] lg:border-r border-white/10 lg:overflow-y-auto no-scrollbar">
           {leftContent}
         </div>
 
-        {/* Right Panel (30%) */}
-        <div className="w-full lg:flex-[3] flex flex-col min-h-[500px] lg:min-h-0 bg-[#0d1621]">
+        {/* Desktop Side Panel (Active Slip, Round Bets & Detailed Road) */}
+        <div className="hidden lg:flex lg:flex-[3] flex-col bg-[#070b13] lg:overflow-y-auto no-scrollbar">
           {rightContent}
         </div>
       </div>
     </div>
   );
 }
-
-

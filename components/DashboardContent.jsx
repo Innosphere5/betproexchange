@@ -116,56 +116,46 @@ export default function DashboardContent() {
   return (
     <div className="flex flex-col pb-20 lg:pb-10 font-sans">
 
-      {/* ⚠️ UNDER DEVELOPMENT BANNER */}
-      <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white px-4 py-2.5 shadow-md flex items-center justify-between border-b border-amber-400/30">
-        <div className="flex items-center gap-2.5 text-xs md:text-sm font-bold">
-          <span className="bg-black/40 text-amber-300 px-2 py-0.5 rounded text-[10px] md:text-xs uppercase tracking-wider font-extrabold animate-pulse">
-            NOTICE
-          </span>
-          <span>Casino & Card Games are currently under development. Cricket Exchange & Live Markets are fully operational!</span>
-        </div>
-      </div>
-
-      {/* 🚀 PREMIUM BETTING BANNERS (HORIZONTAL SQUARE LAYOUT - 5 GAMES, CRICKET 5th) */}
+      {/* 🚀 PREMIUM BETTING BANNERS */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-3 p-2 md:p-4 bg-[#eaedf1]">
         {/* 1. Casino Hero */}
-        <div 
+        <div
           onClick={() => router.push("/dashboard/casino")}
-          className="relative aspect-square rounded-lg md:rounded-xl overflow-hidden shadow-lg group cursor-pointer border-2 border-amber-500/60 hover:border-amber-400 transition-all font-sans"
+          className="relative aspect-square rounded-lg md:rounded-xl overflow-hidden shadow-lg group cursor-pointer border-2 border-amber-500/70 hover:border-amber-400 hover:scale-[1.02] transition-all font-sans"
         >
-          <img src="/images/casino_banner.png" className="absolute inset-0 w-full h-full object-cover grayscale opacity-70 transform group-hover:scale-105 transition-transform duration-700" alt="Casino" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-black/20"></div>
-          
-          <div className="absolute top-2 right-2 bg-amber-500/90 text-black text-[8px] md:text-[10px] font-black px-2 py-0.5 rounded shadow uppercase tracking-wider">
-            UNDER DEV
+          <img src="/images/casino_banner.png" className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" alt="Casino" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent"></div>
+
+          <div className="absolute top-2 right-2 bg-[#00c766] text-black text-[8px] md:text-[10px] font-black px-2 py-0.5 rounded shadow uppercase tracking-wider animate-pulse">
+            LIVE
           </div>
 
           <div className="absolute bottom-1.5 left-1.5 md:bottom-3 md:left-3">
-            <div className="bg-amber-500 text-black text-[7px] md:text-[9px] font-black px-1.5 md:px-2 py-0.5 rounded mb-1 inline-block uppercase tracking-widest font-sans">Coming Soon</div>
+            <div className="bg-amber-500 text-black text-[7px] md:text-[9px] font-black px-1.5 md:px-2 py-0.5 rounded mb-1 inline-block uppercase tracking-widest font-sans">3-Card Table</div>
             <h2 className="text-white text-xs sm:text-base md:text-xl font-black italic tracking-tighter leading-none uppercase">CASINO</h2>
           </div>
         </div>
 
-        {/* 4. Teen Patti Hero */}
-        <div 
+        {/* 2. Teen Patti Hero */}
+        <div
           onClick={() => router.push("/dashboard/teenpatti")}
-          className="relative aspect-square rounded-lg md:rounded-xl overflow-hidden shadow-lg group cursor-pointer border-2 border-amber-500/60 hover:border-amber-400 transition-all font-sans"
+          className="relative aspect-square rounded-lg md:rounded-xl overflow-hidden shadow-lg group cursor-pointer border-2 border-amber-500/70 hover:border-amber-400 hover:scale-[1.02] transition-all font-sans"
         >
-          <img src="/images/teenpatti_banner.png" className="absolute inset-0 w-full h-full object-cover grayscale opacity-70 transform group-hover:scale-105 transition-transform duration-700" alt="Teen Patti" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-black/20"></div>
-          
-          <div className="absolute top-2 right-2 bg-amber-500/90 text-black text-[8px] md:text-[10px] font-black px-2 py-0.5 rounded shadow uppercase tracking-wider">
-            UNDER DEV
+          <img src="/images/teenpatti_banner.png" className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" alt="Teen Patti" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent"></div>
+
+          <div className="absolute top-2 right-2 bg-[#00c766] text-black text-[8px] md:text-[10px] font-black px-2 py-0.5 rounded shadow uppercase tracking-wider animate-pulse">
+            LIVE
           </div>
 
           <div className="absolute bottom-1.5 left-1.5 md:bottom-3 md:left-3">
-            <div className="bg-amber-500 text-black text-[7px] md:text-[9px] font-black px-1.5 md:px-2 py-0.5 rounded mb-1 inline-block uppercase tracking-widest font-sans">Coming Soon</div>
+            <div className="bg-amber-500 text-black text-[7px] md:text-[9px] font-black px-1.5 md:px-2 py-0.5 rounded mb-1 inline-block uppercase tracking-widest font-sans">Exchange + Pair+</div>
             <h2 className="text-white text-xs sm:text-base md:text-xl font-black italic tracking-tighter leading-none uppercase">TEEN PATTI</h2>
           </div>
         </div>
 
         {/* 5. Cricket Hero (POSITIONED 5TH) */}
-        <div 
+        <div
           onClick={() => {
             const el = document.getElementById('cricket-matches-section');
             if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -229,11 +219,10 @@ export default function DashboardContent() {
                         e.stopPropagation();
                         setActiveCricketFilter(tab.id);
                       }}
-                      className={`px-3 py-1 rounded text-[11px] font-black transition-all whitespace-nowrap uppercase tracking-wider ${
-                        activeCricketFilter === tab.id
-                          ? "bg-[#bf1212] text-white shadow-md"
-                          : "bg-[#243f55] text-gray-300 hover:bg-[#32526e] hover:text-white"
-                      }`}
+                      className={`px-3 py-1 rounded text-[11px] font-black transition-all whitespace-nowrap uppercase tracking-wider ${activeCricketFilter === tab.id
+                        ? "bg-[#bf1212] text-white shadow-md"
+                        : "bg-[#243f55] text-gray-300 hover:bg-[#32526e] hover:text-white"
+                        }`}
                     >
                       {tab.label}
                     </button>

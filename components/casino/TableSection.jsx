@@ -2,359 +2,324 @@
 
 import React, { useEffect, useState } from "react";
 import { soundFX } from "../../lib/casinoSoundFX";
-import { Trophy } from "lucide-react";
+import { Trophy, Clock } from "lucide-react";
 
 const PlayingCard = ({ value, suit, hidden, isWinner, isDealing, target, index = 0 }) => {
-  const isRed = suit === '♥' || suit === '♦';
-  const dealDelay = target === 'A' ? `${0.1 + index * 0.3}s` : `${0.25 + index * 0.3}s`;
+  const isRed = suit === "♥" || suit === "♦";
+  // Alternating split cadence straight out of the top-center card shoe: A1, B1, A2, B2, A3, B3
+  const dealDelay = target === "A" ? `${0.1 + index * 0.45}s` : `${0.32 + index * 0.45}s`;
 
   if (hidden) {
     return (
-      <div 
-        style={{ animationDelay: isDealing ? dealDelay : '0s' }}
-        className={`w-[56px] h-[82px] sm:w-[68px] sm:h-[98px] bg-gradient-to-br from-blue-900 via-indigo-950 to-slate-900 rounded-xl shadow-[0_8px_20px_rgba(0,0,0,0.6)] border-2 border-slate-400/40 flex items-center justify-center relative overflow-hidden group transform hover:-translate-y-1 transition-transform duration-300 ${
-          isDealing 
-            ? target === 'A' ? 'split-anim-a' : 'split-anim-b'
-            : ''
+      <div
+        style={{ animationDelay: isDealing ? dealDelay : "0s" }}
+        className={`w-[42px] h-[60px] sm:w-[64px] sm:h-[92px] bg-gradient-to-br from-blue-900 via-indigo-950 to-slate-900 rounded-lg sm:rounded-xl shadow-[0_6px_14px_rgba(0,0,0,0.65)] border border-slate-400/40 flex items-center justify-center relative overflow-hidden ${
+          isDealing ? (target === "A" ? "split-anim-a" : "split-anim-b") : ""
         }`}
       >
-        <div className="absolute inset-1 border border-white/10 rounded-lg bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.2)_0%,transparent_70%)]"></div>
-        <div className="w-6 h-8 sm:w-8 sm:h-10 rounded border border-white/20 flex items-center justify-center bg-blue-900/40">
-          <span className="text-amber-400/70 font-black text-xs sm:text-sm">♠</span>
+        <div className="absolute inset-1 border border-white/15 rounded-md bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.22)_0%,transparent_70%)]" />
+        <div className="w-5 h-7 sm:w-7 sm:h-9 rounded border border-white/20 flex items-center justify-center bg-blue-950/60">
+          <span className="text-amber-400/80 font-black text-[10px] sm:text-xs">♠</span>
         </div>
       </div>
     );
   }
-  
+
   return (
-    <div 
-      style={{ animationDelay: `${index * 0.1}s` }}
-      className={`flip-reveal w-[56px] h-[82px] sm:w-[68px] sm:h-[98px] bg-gradient-to-b from-white via-slate-50 to-slate-200 rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.7)] border-2 flex flex-col items-center justify-between p-1.5 sm:p-2 relative overflow-hidden transform transition-all duration-500 ${
-        isWinner 
-          ? 'border-amber-400 ring-4 ring-amber-400/40 shadow-[0_0_25px_rgba(245,158,11,0.6)] scale-105' 
-          : 'border-slate-300'
-      } ${isRed ? 'text-rose-600' : 'text-slate-900'}`}
+    <div
+      style={{ animationDelay: `${index * 0.08}s` }}
+      className={`flip-reveal w-[42px] h-[60px] sm:w-[64px] sm:h-[92px] bg-gradient-to-b from-white via-slate-50 to-slate-200 rounded-lg sm:rounded-xl shadow-[0_8px_20px_rgba(0,0,0,0.75)] border-2 flex flex-col items-center justify-between p-1 sm:p-1.5 relative overflow-hidden transition-all duration-300 ${
+        isWinner
+          ? "border-amber-400 ring-2 sm:ring-4 ring-amber-400/45 shadow-[0_0_22px_rgba(245,158,11,0.6)] scale-105"
+          : "border-slate-300"
+      } ${isRed ? "text-rose-600" : "text-slate-900"}`}
     >
-      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 to-transparent pointer-events-none"></div>
-
       <div className="w-full flex justify-between items-center leading-none">
-        <span className="text-xs sm:text-base font-black font-mono tracking-tighter">{value}</span>
-        <span className="text-xs sm:text-sm">{suit}</span>
+        <span className="text-[11px] sm:text-sm font-black font-mono tracking-tighter">{value}</span>
+        <span className="text-[10px] sm:text-xs">{suit}</span>
       </div>
 
-      <div className="text-xl sm:text-3xl leading-none font-black my-auto drop-shadow-sm">
-        {suit}
-      </div>
+      <div className="text-base sm:text-2xl leading-none font-black my-auto">{suit}</div>
 
       <div className="w-full flex justify-between items-center leading-none transform rotate-180">
-        <span className="text-xs sm:text-base font-black font-mono tracking-tighter">{value}</span>
-        <span className="text-xs sm:text-sm">{suit}</span>
+        <span className="text-[11px] sm:text-sm font-black font-mono tracking-tighter">{value}</span>
+        <span className="text-[10px] sm:text-xs">{suit}</span>
       </div>
     </div>
   );
 };
 
-export default function TableSection({ round, onBetClick, selectedChoice, userBetAmount, isBettingOpen }) {
-  const isDealing = round?.status === 'DEALING';
-  const isClosed = round?.status === 'BETTING_CLOSED';
-  const showResult = round?.status === 'RESULT_DECLARED';
+export default function TableSection({
+  round,
+  stakeByChoice = { A: 0, B: 0 },
+  isBettingOpen,
+}) {
+  const status = round?.status || "IDLE";
+  const isDealing = status === "DEALING";
+  const isClosed = status === "BETTING_CLOSED";
+  const showResult = status === "RESULT_DECLARED";
   const winner = round?.result;
 
-  // Progressive reveal state for cards
   const [revealedA, setRevealedA] = useState([false, false, false]);
   const [revealedB, setRevealedB] = useState([false, false, false]);
 
-  // Handle progressive card reveals
+  // 5-second progressive suspense reveal (card 1 -> card 2 -> pause -> decisive card 3)
   useEffect(() => {
-    if (round?.status === 'DEALING' || round?.status === 'BETTING_OPEN') {
+    if (status === "IDLE" || status === "DEALING" || status === "BETTING_OPEN") {
       setRevealedA([false, false, false]);
       setRevealedB([false, false, false]);
       return;
     }
 
-    if (round?.status === 'BETTING_CLOSED') {
-      // 3.5s dramatic progressive reveal
-      const timers = [];
-      timers.push(setTimeout(() => { setRevealedA([true, false, false]); soundFX.playCardFlip(); }, 300));
-      timers.push(setTimeout(() => { setRevealedB([true, false, false]); soundFX.playCardFlip(); }, 800));
-      timers.push(setTimeout(() => { setRevealedA([true, true, false]); soundFX.playCardFlip(); }, 1400));
-      timers.push(setTimeout(() => { setRevealedB([true, true, false]); soundFX.playCardFlip(); }, 1900));
-      timers.push(setTimeout(() => { setRevealedA([true, true, true]); soundFX.playCardFlip(); }, 2500));
-      timers.push(setTimeout(() => { setRevealedB([true, true, true]); soundFX.playCardFlip(); }, 3000));
-      return () => timers.forEach(t => clearTimeout(t));
+    if (status === "BETTING_CLOSED") {
+      const remSec = Number(round?.timer ?? 5);
+      const scale = remSec <= 2 ? 0.35 : 1;
+      const t = (ms) => Math.round(ms * scale);
+
+      const timers = [
+        setTimeout(() => { setRevealedA([true, false, false]); soundFX.playCardFlip(); }, t(350)),
+        setTimeout(() => { setRevealedB([true, false, false]); soundFX.playCardFlip(); }, t(1000)),
+        setTimeout(() => { setRevealedA([true, true, false]); soundFX.playCardFlip(); }, t(1850)),
+        setTimeout(() => { setRevealedB([true, true, false]); soundFX.playCardFlip(); }, t(2500)),
+        setTimeout(() => { setRevealedA([true, true, true]); soundFX.playCardFlip(); }, t(3550)),
+        setTimeout(() => { setRevealedB([true, true, true]); soundFX.playCardFlip(); }, t(4350)),
+      ];
+      return () => timers.forEach(clearTimeout);
     }
 
-    if (round?.status === 'RESULT_DECLARED') {
+    if (status === "RESULT_DECLARED") {
       setRevealedA([true, true, true]);
       setRevealedB([true, true, true]);
     }
-  }, [round?.status, round?.roundId]);
+  }, [status, round?.roundId]);
 
-  // Card dealing sounds
   useEffect(() => {
     if (isDealing) {
-      const delays = [150, 450, 750, 1050, 1350, 1650];
-      const timers = delays.map(d => setTimeout(() => soundFX.playCardFlip(), d));
-      return () => timers.forEach(t => clearTimeout(t));
+      const delays = [120, 340, 560, 780, 1020, 1240];
+      const timers = delays.map((d) => setTimeout(() => soundFX.playCardFlip(), d));
+      return () => timers.forEach(clearTimeout);
     }
   }, [isDealing, round?.roundId]);
 
+  const timer = Math.max(0, round?.timer || 0);
+  const maxTimer = Math.max(1, round?.maxTimer || 15);
+  const progressPct = Math.min(100, Math.round((timer / maxTimer) * 100));
+  const isFinalSeconds = isBettingOpen && timer <= 5;
+  const hasAnyBet = stakeByChoice.A > 0 || stakeByChoice.B > 0;
+
+  const phaseMeta = {
+    IDLE: { label: "Table Ready", badge: "bg-slate-800 text-slate-300 border-slate-700" },
+    DEALING: { label: "Dealing Cards...", badge: "bg-sky-500/15 text-sky-300 border-sky-500/40" },
+    BETTING_OPEN: hasAnyBet && isFinalSeconds
+      ? { label: "Bet Placed — Cards Reveal Soon", badge: "bg-amber-500/20 text-amber-300 border-amber-500/50" }
+      : isFinalSeconds
+        ? { label: "Closing Bets Soon!", badge: "bg-rose-500/20 text-rose-300 border-rose-500/60" }
+        : { label: "Place Your Bet", badge: "bg-emerald-500/15 text-emerald-300 border-emerald-500/45" },
+    BETTING_CLOSED: { label: "Revealing Cards...", badge: "bg-amber-500/20 text-amber-300 border-amber-500/50" },
+    RESULT_DECLARED: {
+      label: winner ? `Player ${winner} Wins!` : "Result Declared",
+      badge: "bg-amber-500/25 text-amber-200 border-amber-400/70",
+    },
+  }[status] || { label: "Connecting...", badge: "bg-slate-800 text-slate-300 border-slate-700" };
+
   return (
-    <div className="flex-1 bg-gradient-to-b from-[#09111e] via-[#0c1a13] to-[#08120b] relative overflow-hidden flex flex-col items-center justify-start py-4 lg:py-6 px-3 border-b border-slate-800 shadow-[inset_0_0_50px_rgba(0,0,0,0.8)] min-h-[310px] select-none">
-      
-      {/* Keyframe Card Split & Flip Animations */}
-      <style dangerouslySetInnerHTML={{__html: `
+    <div className="flex-1 bg-gradient-to-b from-[#081511] via-[#0c271b] to-[#08130e] relative overflow-hidden flex flex-col items-center justify-between py-2.5 sm:py-4 px-2.5 sm:px-5 shadow-[inset_0_0_50px_rgba(0,0,0,0.85)] select-none">
+      <style dangerouslySetInnerHTML={{ __html: `
         @keyframes splitToPlayerA {
-          0% {
-            transform: translateY(-90px) rotate(25deg) scale(0.2);
-            opacity: 0;
-            filter: blur(2px);
-          }
-          70% {
-            transform: translateY(6px) rotate(-4deg) scale(1.05);
-            opacity: 1;
-            filter: blur(0px);
-          }
-          100% {
-            transform: translate(0, 0) rotate(0deg) scale(1);
-            opacity: 1;
-          }
+          0% { transform: translate(85px, -95px) rotate(18deg) scale(0.3); opacity: 0; }
+          65% { opacity: 1; }
+          100% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
         }
-
         @keyframes splitToPlayerB {
-          0% {
-            transform: translateY(-90px) rotate(-25deg) scale(0.2);
-            opacity: 0;
-            filter: blur(2px);
-          }
-          70% {
-            transform: translateY(6px) rotate(4deg) scale(1.05);
-            opacity: 1;
-            filter: blur(0px);
-          }
-          100% {
-            transform: translate(0, 0) rotate(0deg) scale(1);
-            opacity: 1;
-          }
+          0% { transform: translate(-85px, -95px) rotate(-18deg) scale(0.3); opacity: 0; }
+          65% { opacity: 1; }
+          100% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
         }
-
         @keyframes flipCardFace {
-          0% {
-            transform: rotateY(90deg) scale(0.85);
-            opacity: 0;
-          }
-          100% {
-            transform: rotateY(0deg) scale(1);
-            opacity: 1;
-          }
+          0% { transform: rotateY(90deg) scale(0.88); opacity: 0; }
+          100% { transform: rotateY(0deg) scale(1); opacity: 1; }
         }
-
-        .split-anim-a {
-          animation: splitToPlayerA 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-        }
-
-        .split-anim-b {
-          animation: splitToPlayerB 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-        }
-
-        .flip-reveal {
-          animation: flipCardFace 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
-        }
+        .split-anim-a { animation: splitToPlayerA 0.55s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+        .split-anim-b { animation: splitToPlayerB 0.55s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+        .flip-reveal { animation: flipCardFace 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) both; }
       `}} />
 
-      {/* Luxury Green Felt Radial Backdrop */}
-      <div className="absolute inset-0 opacity-40 bg-[radial-gradient(ellipse_at_center,#14532d_0%,#09111e_85%)]"></div>
-      
-      {/* Golden Table Arc Borders */}
-      <div className="absolute -top-[30%] w-[130%] h-[160%] border-[3px] border-amber-500/20 rounded-[100%] pointer-events-none shadow-[inset_0_0_30px_rgba(245,158,11,0.1)]"></div>
-      <div className="absolute -top-[25%] w-[120%] h-[150%] border border-amber-500/10 rounded-[100%] pointer-events-none"></div>
+      {/* Authentic Casino Felt Backdrop */}
+      <div className="absolute inset-0 opacity-45 bg-[radial-gradient(ellipse_at_center,#14532d_0%,#07111a_82%)] pointer-events-none" />
+      <div className="absolute -top-[42%] w-[135%] h-[165%] border-2 border-amber-500/20 rounded-[100%] pointer-events-none" />
 
-      {/* Central Deck Area (Dealer Shoe Origin) */}
-      <div className="relative z-10 flex flex-col items-center mb-3 scale-[0.8] sm:scale-100">
-         <div className={`relative w-[55px] h-[80px] opacity-90 transition-all duration-300 ${isDealing ? 'scale-110 shadow-[0_0_20px_rgba(245,158,11,0.5)]' : ''}`}>
-            <div className="absolute top-0 left-0 w-full h-full bg-blue-950 rounded-xl border border-white/20 shadow-md rotate-3"></div>
-            <div className="absolute top-[-2px] left-[-2px] w-full h-full bg-blue-900 rounded-xl border border-white/20 shadow-md -rotate-2"></div>
-            <div className="absolute top-[-4px] left-[-4px] w-full h-full bg-gradient-to-br from-blue-900 to-indigo-950 rounded-xl border-2 border-amber-400/50 shadow-xl flex flex-col items-center justify-center">
-               <span className="text-amber-400 font-black text-xs tracking-widest">DECK</span>
-               {isDealing && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping mt-1"></span>}
+      {/* Top Phase & Countdown Bar */}
+      <div className="relative z-10 w-full max-w-4xl flex flex-col gap-1.5 mb-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className={`px-3 py-1 rounded-full border text-[10px] sm:text-xs font-black uppercase tracking-wider flex items-center gap-1.5 ${phaseMeta.badge}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${isBettingOpen ? "bg-current animate-ping" : "bg-current"}`} />
+            <span>{phaseMeta.label}</span>
+          </div>
+
+          {status !== "IDLE" && (
+            <div
+              className={`flex items-center gap-1 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full border font-mono font-black text-xs sm:text-sm ${
+                isFinalSeconds
+                  ? "bg-rose-950/90 border-rose-500 text-rose-300 animate-pulse"
+                  : isBettingOpen
+                    ? "bg-emerald-950/80 border-emerald-500/60 text-emerald-300"
+                    : isClosed
+                      ? "bg-amber-950/80 border-amber-500/60 text-amber-300"
+                      : "bg-slate-900/90 border-slate-700 text-slate-300"
+              }`}
+            >
+              <Clock size={12} />
+              <span>{timer}s</span>
             </div>
-         </div>
-      </div>
-      
-      {/* Cards & Sector Layout */}
-      <div className="relative z-10 flex w-full flex-col lg:flex-row justify-around items-center gap-6 max-w-4xl px-2">
-         
-         {/* PLAYER A SECTOR (Interactive & Clickable for Table Bets) */}
-         <div 
-           onClick={() => isBettingOpen && onBetClick && onBetClick('A')}
-           className={`relative flex flex-col items-center gap-3 p-4 sm:p-5 rounded-3xl border-2 transition-all duration-500 w-full max-w-sm lg:w-72 ${
-            showResult && winner === 'A'
-              ? 'bg-gradient-to-b from-blue-950/90 to-slate-900/95 border-amber-400 shadow-[0_0_40px_rgba(245,158,11,0.5)] scale-105 ring-4 ring-amber-400/30'
-              : selectedChoice === 'A'
-              ? 'bg-blue-950/70 border-blue-400 ring-2 ring-blue-400/50 shadow-[0_0_20px_rgba(59,130,246,0.3)]'
-              : 'bg-slate-950/60 backdrop-blur-md border-blue-500/20 shadow-lg'
-           } ${isBettingOpen ? 'cursor-pointer hover:border-blue-400 hover:scale-[1.02] active:scale-95' : ''}`}
-         >
-            {/* Winning Table Spotlight */}
-            {showResult && winner === 'A' && (
-               <div className="absolute inset-0 bg-amber-400/10 rounded-3xl animate-pulse pointer-events-none"></div>
-            )}
+          )}
+        </div>
 
-            {/* Placed Chip Badge */}
-            {(selectedChoice === 'A' || userBetAmount?.choice === 'A') && (
-              <div className="absolute -top-3 -right-3 z-30 bg-gradient-to-tr from-amber-500 to-yellow-400 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded-full shadow-lg border-2 border-white flex items-center gap-1 animate-bounce">
-                <span>🪙</span>
-                <span>${userBetAmount?.amount || userBetAmount || 'BET'}</span>
-              </div>
-            )}
-
-            <div className="relative flex gap-2">
-               {[0, 1, 2].map((i) => {
-                  const cardData = round?.cards?.A?.[i];
-                  const isRevealed = revealedA[i];
-                  return (
-                    <PlayingCard 
-                      key={`A-${round?.roundId || '0'}-${i}-${isRevealed ? 'rev' : 'hid'}`}
-                      target="A"
-                      index={i}
-                      suit={cardData?.suit || "♠"} 
-                      value={cardData?.value || "A"} 
-                      hidden={!isRevealed}
-                      isWinner={showResult && winner === 'A'}
-                      isDealing={isDealing}
-                    />
-                  );
-               })}
-            </div>
-
-            <div className="flex flex-col items-center gap-1 w-full">
-               <div className={`px-6 py-1.5 rounded-full font-black text-xs tracking-[0.2em] border transition-all ${
-                  showResult && winner === 'A'
-                    ? 'bg-amber-500 text-slate-950 border-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.6)] animate-bounce flex items-center gap-1.5'
-                    : 'bg-blue-600/20 border-blue-500/30 text-blue-400'
-               }`}>
-                  {showResult && winner === 'A' && <Trophy size={14} className="text-slate-950" />}
-                  <span>PLAYER A</span>
-                  <span className="font-mono text-[10px] text-amber-300 ml-1">1.98x</span>
-               </div>
-
-               {showResult && round?.handNames?.A && (
-                  <span className="text-[10px] font-black text-amber-300 uppercase tracking-widest bg-black/60 px-3 py-0.5 rounded-full border border-amber-400/30 mt-1">
-                     {round.handNames.A}
-                  </span>
-               )}
-            </div>
-         </div>
-
-         {/* VS EMBLEM */}
-         <div className="hidden lg:flex items-center justify-center">
-            <div className="w-12 h-12 rounded-full bg-slate-900/90 border border-amber-500/30 flex items-center justify-center backdrop-blur-md shadow-xl ring-4 ring-black/30">
-               <span className="text-xs font-black text-amber-400 italic">VS</span>
-            </div>
-         </div>
-
-         {/* PLAYER B SECTOR (Interactive & Clickable for Table Bets) */}
-         <div 
-           onClick={() => isBettingOpen && onBetClick && onBetClick('B')}
-           className={`relative flex flex-col items-center gap-3 p-4 sm:p-5 rounded-3xl border-2 transition-all duration-500 w-full max-w-sm lg:w-72 ${
-            showResult && winner === 'B'
-              ? 'bg-gradient-to-b from-rose-950/90 to-slate-900/95 border-amber-400 shadow-[0_0_40px_rgba(245,158,11,0.5)] scale-105 ring-4 ring-amber-400/30'
-              : selectedChoice === 'B'
-              ? 'bg-rose-950/70 border-rose-400 ring-2 ring-rose-400/50 shadow-[0_0_20px_rgba(244,63,94,0.3)]'
-              : 'bg-slate-950/60 backdrop-blur-md border-rose-500/20 shadow-lg'
-           } ${isBettingOpen ? 'cursor-pointer hover:border-rose-400 hover:scale-[1.02] active:scale-95' : ''}`}
-         >
-            {/* Winning Table Spotlight */}
-            {showResult && winner === 'B' && (
-               <div className="absolute inset-0 bg-amber-400/10 rounded-3xl animate-pulse pointer-events-none"></div>
-            )}
-
-            {/* Placed Chip Badge */}
-            {(selectedChoice === 'B' || userBetAmount?.choice === 'B') && (
-              <div className="absolute -top-3 -right-3 z-30 bg-gradient-to-tr from-amber-500 to-yellow-400 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded-full shadow-lg border-2 border-white flex items-center gap-1 animate-bounce">
-                <span>🪙</span>
-                <span>${userBetAmount?.amount || userBetAmount || 'BET'}</span>
-              </div>
-            )}
-
-            <div className="relative flex gap-2">
-               {[0, 1, 2].map((i) => {
-                  const cardData = round?.cards?.B?.[i];
-                  const isRevealed = revealedB[i];
-                  return (
-                    <PlayingCard 
-                      key={`B-${round?.roundId || '0'}-${i}-${isRevealed ? 'rev' : 'hid'}`}
-                      target="B"
-                      index={i}
-                      suit={cardData?.suit || "♦"} 
-                      value={cardData?.value || "K"} 
-                      hidden={!isRevealed}
-                      isWinner={showResult && winner === 'B'}
-                      isDealing={isDealing}
-                    />
-                  );
-               })}
-            </div>
-
-            <div className="flex flex-col items-center gap-1 w-full">
-               <div className={`px-6 py-1.5 rounded-full font-black text-xs tracking-[0.2em] border transition-all ${
-                  showResult && winner === 'B'
-                    ? 'bg-amber-500 text-slate-950 border-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.6)] animate-bounce flex items-center gap-1.5'
-                    : 'bg-rose-600/20 border-rose-500/30 text-rose-400'
-               }`}>
-                  {showResult && winner === 'B' && <Trophy size={14} className="text-slate-950" />}
-                  <span>PLAYER B</span>
-                  <span className="font-mono text-[10px] text-amber-300 ml-1">1.98x</span>
-               </div>
-
-               {showResult && round?.handNames?.B && (
-                  <span className="text-[10px] font-black text-amber-300 uppercase tracking-widest bg-black/60 px-3 py-0.5 rounded-full border border-amber-400/30 mt-1">
-                     {round.handNames.B}
-                  </span>
-               )}
-            </div>
-         </div>
-
+        {status !== "IDLE" && (
+          <div className="w-full h-1.5 bg-black/50 rounded-full overflow-hidden border border-white/5">
+            <div
+              className={`h-full transition-all duration-700 ease-linear ${
+                isFinalSeconds
+                  ? "bg-rose-500"
+                  : isBettingOpen
+                    ? "bg-emerald-500"
+                    : isClosed
+                      ? "bg-amber-400"
+                      : "bg-sky-400"
+              }`}
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        )}
       </div>
 
-      {/* Desktop HUD State Indicator */}
-      {round?.status === 'DEALING' && (
-         <div className="mt-5 hidden lg:flex flex-col items-center gap-1.5 animate-in fade-in duration-300">
-            <div className="w-11 h-11 rounded-full border-2 border-amber-500/40 bg-slate-950/80 flex items-center justify-center shadow-lg relative animate-pulse">
-               <span className="text-base font-black text-amber-400 font-mono">{round.timer}</span>
+      {/* Pure Visual Card Shoe / Deck Stack (no "Computer" text labels — cards animate directly from here to A & B) */}
+      <div className="relative z-20 flex flex-col items-center my-1.5 sm:my-2.5">
+        <div
+          className={`relative w-11 h-14 sm:w-14 sm:h-[76px] transition-all duration-300 ${
+            isDealing ? "scale-110 drop-shadow-[0_0_16px_rgba(245,158,11,0.55)]" : "opacity-90"
+          }`}
+        >
+          <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-blue-950 to-slate-900 border border-white/20 shadow-md rotate-6 translate-x-1" />
+          <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-blue-900 to-slate-950 border border-white/25 shadow-md -rotate-3 -translate-x-0.5" />
+          <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-indigo-950 via-blue-900 to-slate-950 border-2 border-amber-400/65 shadow-xl flex flex-col items-center justify-center">
+            <div className="w-6 h-8 sm:w-8 sm:h-11 rounded border border-amber-400/35 flex items-center justify-center bg-black/25">
+              <span className="text-amber-400 text-xs sm:text-base font-black">♠</span>
             </div>
-            <span className="text-[10px] font-black text-amber-400 animate-pulse tracking-widest uppercase">Dealing Cards to A & B...</span>
-         </div>
-      )}
+          </div>
+        </div>
+      </div>
 
-      {round?.status === 'BETTING_OPEN' && (
-         <div className="mt-5 hidden lg:flex flex-col items-center gap-1.5">
-            <div className="w-11 h-11 rounded-full border-2 border-emerald-500/50 bg-slate-950/90 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)] relative ring-2 ring-emerald-500/20">
-               <span className="text-base font-black text-emerald-400 font-mono">{round.timer}s</span>
+      {/* Player A vs Player B Card Felt Display */}
+      <div className="relative z-10 grid grid-cols-2 gap-2.5 sm:gap-6 w-full max-w-4xl my-auto items-stretch">
+        {/* PLAYER A */}
+        <div
+          className={`relative flex flex-col items-center justify-between gap-2 sm:gap-3.5 p-2.5 sm:p-5 rounded-2xl sm:rounded-3xl border-2 transition-all duration-300 ${
+            showResult && winner === "A"
+              ? "bg-gradient-to-b from-blue-950/95 to-slate-900 border-amber-400 shadow-[0_0_28px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/35"
+              : "bg-black/45 backdrop-blur-md border-blue-500/30"
+          }`}
+        >
+          {stakeByChoice.A > 0 && (
+            <div className="absolute -top-2.5 right-2 z-30 bg-gradient-to-tr from-amber-500 to-yellow-300 text-slate-950 font-black text-[10px] sm:text-xs px-2.5 py-0.5 rounded-full shadow-lg border border-white">
+              Bet ₹{stakeByChoice.A.toLocaleString("en-IN")}
             </div>
-            <span className="text-[11px] font-black text-emerald-400 animate-pulse tracking-widest uppercase">PLACE YOUR BETS (PLAYER A OR B)</span>
-         </div>
-      )}
-      
-      {round?.status === 'BETTING_CLOSED' && (
-         <div className="mt-5 hidden lg:flex flex-col items-center gap-1.5">
-            <div className="w-11 h-11 rounded-full border-2 border-amber-500/50 bg-slate-950/90 flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.3)] relative animate-pulse">
-               <span className="text-base font-black text-amber-400 font-mono">{round.timer}s</span>
-            </div>
-            <div className="bg-amber-500/20 border border-amber-500/40 px-5 py-1 rounded-full backdrop-blur-md">
-               <span className="text-xs font-black text-amber-300 tracking-widest uppercase animate-pulse">REVEALING CARDS...</span>
-            </div>
-         </div>
-      )}
+          )}
 
-      {round?.status === 'RESULT_DECLARED' && (
-         <div className="mt-5 hidden lg:flex flex-col items-center gap-1.5">
-            <div className="bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 px-6 py-1.5 rounded-full font-black text-sm tracking-widest uppercase shadow-[0_0_25px_rgba(245,158,11,0.5)] flex items-center gap-2 animate-bounce">
-               <Trophy size={16} />
-               <span>Player {winner} Wins!</span>
+          <div className="flex items-center justify-between w-full">
+            <span className="text-[11px] sm:text-xs font-black uppercase tracking-widest text-blue-300 flex items-center gap-1">
+              {showResult && winner === "A" && <Trophy size={13} className="text-amber-400" />}
+              Player A
+            </span>
+            <span className="text-[10px] font-mono font-black text-amber-400 bg-black/50 px-1.5 py-0.5 rounded">
+              1.98x
+            </span>
+          </div>
+
+          <div className="relative flex justify-center gap-1 sm:gap-2 my-0.5">
+            {[0, 1, 2].map((i) => {
+              const cardData = round?.cards?.A?.[i];
+              const isRevealed = revealedA[i];
+              return (
+                <PlayingCard
+                  key={`A-${round?.roundId || "0"}-${i}-${isRevealed ? "rev" : "hid"}`}
+                  target="A"
+                  index={i}
+                  suit={cardData?.suit || "♠"}
+                  value={cardData?.value || "A"}
+                  hidden={!isRevealed}
+                  isWinner={showResult && winner === "A"}
+                  isDealing={isDealing}
+                />
+              );
+            })}
+          </div>
+
+          <div className="min-h-[20px] flex items-center justify-center">
+            {showResult && round?.handNames?.A && (
+              <span className="text-[9px] sm:text-[11px] font-black text-amber-300 uppercase tracking-wider bg-black/75 px-2.5 py-0.5 rounded-full border border-amber-400/40">
+                {round.handNames.A}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Center VS Badge */}
+        <div className="hidden sm:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-[#09131e] border-2 border-amber-500/50 items-center justify-center shadow-2xl pointer-events-none">
+          <span className="font-black italic text-xs text-amber-400">VS</span>
+        </div>
+
+        {/* PLAYER B */}
+        <div
+          className={`relative flex flex-col items-center justify-between gap-2 sm:gap-3.5 p-2.5 sm:p-5 rounded-2xl sm:rounded-3xl border-2 transition-all duration-300 ${
+            showResult && winner === "B"
+              ? "bg-gradient-to-b from-rose-950/95 to-slate-900 border-amber-400 shadow-[0_0_28px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/35"
+              : "bg-black/45 backdrop-blur-md border-rose-500/30"
+          }`}
+        >
+          {stakeByChoice.B > 0 && (
+            <div className="absolute -top-2.5 right-2 z-30 bg-gradient-to-tr from-amber-500 to-yellow-300 text-slate-950 font-black text-[10px] sm:text-xs px-2.5 py-0.5 rounded-full shadow-lg border border-white">
+              Bet ₹{stakeByChoice.B.toLocaleString("en-IN")}
             </div>
-         </div>
-      )}
+          )}
+
+          <div className="flex items-center justify-between w-full">
+            <span className="text-[11px] sm:text-xs font-black uppercase tracking-widest text-rose-300 flex items-center gap-1">
+              {showResult && winner === "B" && <Trophy size={13} className="text-amber-400" />}
+              Player B
+            </span>
+            <span className="text-[10px] font-mono font-black text-amber-400 bg-black/50 px-1.5 py-0.5 rounded">
+              1.98x
+            </span>
+          </div>
+
+          <div className="relative flex justify-center gap-1 sm:gap-2 my-0.5">
+            {[0, 1, 2].map((i) => {
+              const cardData = round?.cards?.B?.[i];
+              const isRevealed = revealedB[i];
+              return (
+                <PlayingCard
+                  key={`B-${round?.roundId || "0"}-${i}-${isRevealed ? "rev" : "hid"}`}
+                  target="B"
+                  index={i}
+                  suit={cardData?.suit || "♥"}
+                  value={cardData?.value || "A"}
+                  hidden={!isRevealed}
+                  isWinner={showResult && winner === "B"}
+                  isDealing={isDealing}
+                />
+              );
+            })}
+          </div>
+
+          <div className="min-h-[20px] flex items-center justify-center">
+            {showResult && round?.handNames?.B && (
+              <span className="text-[9px] sm:text-[11px] font-black text-amber-300 uppercase tracking-wider bg-black/75 px-2.5 py-0.5 rounded-full border border-amber-400/40">
+                {round.handNames.B}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

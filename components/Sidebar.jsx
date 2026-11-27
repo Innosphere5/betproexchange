@@ -55,8 +55,8 @@ const CardsIcon = () => (
 );
 
 const navItems = [
-  { label: "Casino", icon: <CasinoIcon />, link: "/dashboard/casino", isUnderDev: true },
-  { label: "Teen Patti", icon: <CardsIcon />, link: "/dashboard/teenpatti", isUnderDev: true },
+  { label: "Casino", icon: <CasinoIcon />, link: "/dashboard/casino" },
+  { label: "Teen Patti", icon: <CardsIcon />, link: "/dashboard/teenpatti" },
   {
     label: "Cricket",
     icon: <CricketIcon />,

@@ -195,6 +195,12 @@ export default function DashboardLayout({ children }) {
 
       socket.on('connect', () => {
         console.log('[Socket] ✅ Connected. Transport:', socket.io.engine.transport.name);
+        try {
+          const s = JSON.parse(localStorage.getItem('user_session') || '{}');
+          if (s?.username) {
+            socket.emit('join_user', s.username);
+          }
+        } catch {}
       });
 
       socket.on('connect_error', (err) => {
