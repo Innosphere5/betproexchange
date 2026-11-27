@@ -1096,7 +1096,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                     </div>
                   )}
                   <div className="text-[10px] font-semibold text-gray-300 flex items-center gap-3 flex-wrap">
-                    <span>This Over :{thisOverStr ? <span className="font-mono text-white font-bold ml-1">{thisOverStr}</span> : null}</span>
+                    <span>This Over :{thisOverStr ? <span className="font-mono text-white font-bold ml-1">{thisOverStr}</span> : <span className="font-mono text-gray-400 font-bold ml-1">-</span>}</span>
                     {Number(remBalls) > 0 && Number(remRuns) > 0 && (
                       <span className="text-emerald-300 font-bold">{remRuns} of {remBalls} balls</span>
                     )}
@@ -1747,7 +1747,7 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
                         <div className="flex gap-1.5 flex-wrap">
                           {actualMatch.score?.thisOver && actualMatch.score.thisOver.length > 0 ? (
                             actualMatch.score.thisOver.map((ball, bidx) => (
-                              <span key={bidx} className={`min-w-5 h-5 px-1.5 flex items-center justify-center rounded-full text-[10px] font-black shadow-xs ${ball === 'W' ? 'bg-red-500 text-white' :
+                              <span key={bidx} className={`min-w-5 h-5 px-1.5 flex items-center justify-center rounded-full text-[10px] font-black shadow-xs ${(ball === 'W' || ball.endsWith('+W')) ? 'bg-red-500 text-white' :
                                 ['4', '6'].includes(ball) ? 'bg-emerald-600 text-white' :
                                   ball.includes('Wd') || ball.includes('Nb') ? 'bg-amber-500 text-white' :
                                     ball.includes('Lb') || ball.includes('B') ? 'bg-purple-600 text-white' :

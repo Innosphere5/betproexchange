@@ -1793,12 +1793,16 @@ export default function MatchDetailAdminView({
                         scoreData.thisOverList.map((ball, bidx) => (
                           <span
                             key={bidx}
-                            className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-black ${
-                              ball === "W"
+                            className={`min-w-5 h-5 px-1.5 flex items-center justify-center rounded-full text-[10px] font-black ${
+                              (ball === "W" || ball.endsWith("+W"))
                                 ? "bg-red-500 text-white"
                                 : ["4", "6"].includes(ball)
                                   ? "bg-[#00e676] text-gray-950"
-                                  : "bg-[#253d52] text-gray-200"
+                                  : ball.includes("Wd") || ball.includes("Nb")
+                                    ? "bg-amber-500 text-white"
+                                    : ball.includes("Lb") || ball.includes("B")
+                                      ? "bg-purple-600 text-white"
+                                      : "bg-[#253d52] text-gray-200"
                             }`}
                           >
                             {ball}
