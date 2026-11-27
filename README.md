@@ -74,7 +74,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    Route["App Router Entry<br/>middleware.js JWT & Role Guard"] --> Shell["DashboardLayout Shell<br/>Hydrates localStorage < 1ms"]
+    Route["App Router Entry<br/>middleware.js JWT & Role Guard"] --> Shell["DashboardLayout Shell<br/>Hydrates localStorage sub-1ms"]
     Shell --> Poll["Priority Fetch Sequence<br/>1. GET /api/matches/live<br/>2. GET /api/matches"]
     Shell --> Stream["Socket.IO Event Bus<br/>live_score_update, market_odds_update,<br/>toss_settled, fancy/figure/even_odd updates"]
     Poll --> Filter["Active Catalog Filter<br/>Excludes Completed & Winner-Set Fixtures"]
