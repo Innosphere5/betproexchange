@@ -257,6 +257,8 @@ export default function DashboardLayout({ children }) {
                     runRate: data.runRate ?? m.score?.runRate,
                     reqRunRate: data.reqRunRate ?? m.score?.reqRunRate,
                     thisOver: data.thisOver ?? m.score?.thisOver,
+                    prevOver: data.prevOver ?? m.score?.prevOver,
+                    inningsStats: data.inningsStats ?? m.score?.inningsStats,
                     remRuns: data.remRuns ?? m.score?.remRuns,
                     remBalls: data.remBalls ?? m.score?.remBalls,
                     battingTeam: data.battingTeam ?? m.score?.battingTeam,

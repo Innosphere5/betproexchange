@@ -4,6 +4,7 @@ import { useDashboard } from "./DashboardLayout";
 import { getApiUrl } from "../lib/apiConfig";
 import { formatTossBannerText } from "../lib/tossFormat";
 import { isTestMatchFormat, getDefaultTiedMatchMarket } from "../lib/matchFormat";
+import BroadcastScorecard from "./BroadcastScorecard";
 
 export default function MatchDetail({ matchId, onSelectOutcome }) {
   const { cricketMatches, socket, goToHome } = useDashboard();
@@ -370,6 +371,9 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
             runRate: data.runRate ?? prev?.score?.runRate,
             reqRunRate: data.reqRunRate ?? prev?.score?.reqRunRate,
             thisOver: data.thisOver ?? prev?.score?.thisOver,
+            prevOver: data.prevOver ?? prev?.score?.prevOver,
+            inningsStats: data.inningsStats ?? prev?.score?.inningsStats,
+            innings: data.innings ?? prev?.score?.innings,
             remRuns: data.remRuns ?? prev?.score?.remRuns,
             remBalls: data.remBalls ?? prev?.score?.remBalls,
             battingTeam: data.battingTeam ?? prev?.score?.battingTeam,
@@ -1555,376 +1559,6 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
         </button>
       </div>
 
-      {/* 4. BPEXCH TV & SCORE CARD */}
-      {(activeTab === 'ALL' || activeTab === 'Score Card') && (
-        <div className="order-2 flex flex-col mb-2">
-          {/* TV & Score Card Tab Bar */}
-          <div className="px-2 mb-2">
-            <div className="grid grid-cols-2 rounded-sm overflow-hidden shadow-sm">
-              <button
-                onClick={() => setBottomTab('tv')}
-                className={`py-2.5 text-center text-[13px] font-black uppercase tracking-wider transition-colors cursor-pointer ${bottomTab === 'tv'
-                  ? 'bg-[#009866] text-white'
-                  : 'bg-[#007f55] text-white/80 hover:text-white'
-                  }`}
-              >
-                Tv
-              </button>
-              <button
-                onClick={() => setBottomTab('scorecard')}
-                className={`py-2.5 text-center text-[13px] font-black uppercase tracking-wider transition-colors cursor-pointer ${bottomTab === 'scorecard'
-                  ? 'bg-[#009866] text-white'
-                  : 'bg-[#007f55] text-white/80 hover:text-white'
-                  }`}
-              >
-                Score Card
-              </button>
-            </div>
-          </div>
-
-          {/* TV Stream Box or Scorecard View */}
-          <div className="px-2">
-            {bottomTab === 'tv' ? (
-              <div className="aspect-video bg-black flex items-center justify-center text-white font-serif text-2xl italic rounded-sm shadow-sm">
-                Match not live
-              </div>
-            ) : actualMatch?.status === 'completed' ? (
-              <div className="animate-in zoom-in duration-500">
-                <div className="bg-[#0f172a] rounded-xl overflow-hidden shadow-2xl border-2 border-yellow-500/30">
-                  <div className="px-5 py-8 bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] text-white text-center relative overflow-hidden">
-                    <div className="flex flex-col items-center mb-4">
-                      <div className="bg-yellow-500 text-black text-[10px] font-black px-4 py-1 rounded-full mb-3 shadow-[0_0_15px_rgba(234,179,8,0.4)]">
-                        MATCH COMPLETED
-                      </div>
-                      <h2 className="text-2xl font-black text-white tracking-tighter uppercase mb-1">
-                        {actualMatch.winner === 'TIE' ? "MATCH TIED" : (actualMatch.winner === 'VOID' ? "MATCH VOIDED" : `${actualMatch.winner} WON`)}
-                      </h2>
-                      <div className="w-12 h-1 bg-yellow-500 rounded-full"></div>
-                    </div>
-
-                    <div className="flex items-center justify-center gap-10 mb-6">
-                      <div className="flex flex-col items-center">
-                        <div className={`text-3xl font-black mb-1 ${actualMatch.winner === actualMatch.teamA ? 'text-white' : 'text-gray-600'}`}>{actualMatch.score?.teamA_runs || "0/0"}</div>
-                        <div className="text-[11px] text-gray-400 font-black uppercase tracking-[0.2em]">{actualMatch.teamA}</div>
-                      </div>
-
-                      <div className="flex flex-col items-center">
-                        <div className="text-gray-700 font-black text-lg italic opacity-30">VS</div>
-                      </div>
-
-                      <div className="flex flex-col items-center">
-                        <div className={`text-3xl font-black mb-1 ${actualMatch.winner === actualMatch.teamB ? 'text-white' : 'text-gray-600'}`}>{actualMatch.score?.teamB_runs || "0/0"}</div>
-                        <div className="text-[11px] text-gray-400 font-black uppercase tracking-[0.2em]">{actualMatch.teamB}</div>
-                      </div>
-                    </div>
-
-                    <div className="bg-white/5 backdrop-blur-md rounded-lg p-3 border border-white/10 max-w-sm mx-auto">
-                      <p className="text-[11px] font-bold text-gray-400 leading-relaxed">
-                        The match has concluded and all bets have been settled. Winning amounts have been credited to user wallets.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : actualMatch?.status === 'live' ? (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-[#f1f4f8] rounded-sm overflow-hidden shadow-sm border border-gray-200">
-                  <div className="px-4 py-3 bg-white text-[#1c3246]">
-                    {/* Header */}
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h2 className="text-xl font-black text-[#243f55] uppercase tracking-tight">
-                          {actualMatch.teamA} v {actualMatch.teamB} - Match Odds
-                        </h2>
-                        <span className="text-pink-500 font-black text-sm uppercase italic">InPlay</span>
-                        {actualMatch.score?.statusText && (
-                          <span className="bg-[#243f55] text-white text-[10px] font-black uppercase px-2 py-0.5 rounded shadow-sm">
-                            {actualMatch.score.statusText}
-                          </span>
-                        )}
-                        <div className="w-5 h-5 bg-[#243f55] rounded-sm flex items-center justify-center">
-                          <Info size={12} color="white" strokeWidth={3} />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Score Line */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                      {(() => {
-                        const parseTeamScore = (runsStr, teamKey) => {
-                          const raw = String(runsStr || '0');
-                          let r = '0';
-                          let w = null;
-                          if (raw.includes('/') || raw.includes('-')) {
-                            const parts = raw.split(/[\/-]/);
-                            r = parts[0] || '0';
-                            w = parts[1];
-                          } else {
-                            r = raw;
-                          }
-                          if (w === null || w === undefined || w === '') {
-                            if (teamKey === 'teamA') {
-                              w = actualMatch.score?.teamA_wickets ?? (actualMatch.score?.battingTeam === 'teamA' ? actualMatch.score?.wickets : 0);
-                            } else {
-                              w = actualMatch.score?.teamB_wickets ?? (actualMatch.score?.battingTeam === 'teamB' ? actualMatch.score?.wickets : 0);
-                            }
-                          }
-                          return { runs: r, wickets: Number(w) || 0 };
-                        };
-
-                        const teamAScore = parseTeamScore(actualMatch.score?.teamA_runs, 'teamA');
-                        const teamBScore = parseTeamScore(actualMatch.score?.teamB_runs, 'teamB');
-
-                        return (
-                          <div className="flex items-baseline gap-3 flex-wrap">
-                            <div className="flex flex-col">
-                              <div className="flex items-center gap-1.5 mb-1">
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate max-w-[120px]">{actualMatch.teamA}</span>
-                                {actualMatch.score?.battingTeam === 'teamA' && (
-                                  <span className="px-1.5 py-0.2 rounded text-[8px] bg-[#00c766] text-white font-extrabold uppercase animate-pulse">Batting</span>
-                                )}
-                              </div>
-                              <div className="flex items-baseline gap-2">
-                                <span className="text-3xl md:text-4xl font-black text-[#1c3246] tracking-tighter">
-                                  {teamAScore.runs}
-                                  <span className="text-xl md:text-2xl text-gray-300 mx-0.5">/</span>
-                                  {teamAScore.wickets}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="h-10 w-[1px] bg-gray-200 mx-1 self-center"></div>
-
-                            <div className="flex flex-col">
-                              <div className="flex items-center gap-1.5 mb-1">
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate max-w-[120px]">{actualMatch.teamB}</span>
-                                {actualMatch.score?.battingTeam === 'teamB' && (
-                                  <span className="px-1.5 py-0.2 rounded text-[8px] bg-[#00c766] text-white font-extrabold uppercase animate-pulse">Batting</span>
-                                )}
-                              </div>
-                              <div className="flex items-baseline gap-2">
-                                <span className="text-3xl md:text-4xl font-black text-[#1c3246] tracking-tighter">
-                                  {teamBScore.runs}
-                                  <span className="text-xl md:text-2xl text-gray-300 mx-0.5">/</span>
-                                  {teamBScore.wickets}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="h-10 w-[1px] bg-gray-200 mx-1 self-center"></div>
-
-                            <div className="flex flex-col">
-                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Overs</span>
-                              <span className="text-2xl md:text-3xl font-black text-[#243f55]">
-                                {actualMatch.score?.overs || "0.0"}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })()}
-
-                      {/* Granular Stats Grid */}
-                      <div className="grid grid-cols-3 gap-2 flex-1 max-w-xs">
-                        <div className="bg-white p-2 rounded border border-gray-200 flex flex-col items-center justify-center shadow-sm">
-                          <span className="text-[9px] font-black text-gray-400 uppercase">CRR</span>
-                          <span className="text-[14px] font-black text-green-600">{actualMatch.score?.runRate || "0.00"}</span>
-                        </div>
-                        <div className="bg-white p-2 rounded border border-gray-200 flex flex-col items-center justify-center shadow-sm">
-                          <span className="text-[9px] font-black text-gray-400 uppercase">RRR</span>
-                          <span className="text-[14px] font-black text-orange-600">{actualMatch.score?.reqRunRate || "0.00"}</span>
-                        </div>
-                        <div className="bg-white p-2 rounded border border-gray-200 flex flex-col items-center justify-center shadow-sm">
-                          <span className="text-[9px] font-black text-gray-400 uppercase">Target</span>
-                          <span className="text-[14px] font-black text-blue-700">{actualMatch.score?.target || 0}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* This Over and Remaining Stats */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between border-t border-gray-100 pt-3 gap-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[12px] font-bold text-gray-400">This Over:</span>
-                        <div className="flex gap-1.5 flex-wrap">
-                          {actualMatch.score?.thisOver && actualMatch.score.thisOver.length > 0 ? (
-                            actualMatch.score.thisOver.map((ball, bidx) => (
-                              <span key={bidx} className={`min-w-5 h-5 px-1.5 flex items-center justify-center rounded-full text-[10px] font-black shadow-xs ${(ball === 'W' || ball.endsWith('+W')) ? 'bg-red-500 text-white' :
-                                ['4', '6'].includes(ball) ? 'bg-emerald-600 text-white' :
-                                  ball.includes('Wd') || ball.includes('Nb') ? 'bg-amber-500 text-white' :
-                                    ball.includes('Lb') || ball.includes('B') ? 'bg-purple-600 text-white' :
-                                      ball === '0' ? 'bg-gray-100 text-gray-600 border border-gray-200' :
-                                        'bg-[#243f55] text-white'
-                                }`}>
-                                {ball}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-[10px] text-gray-300 italic font-medium">Waiting...</span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="text-[13px] font-black text-green-700">
-                        {actualMatch.score?.remRuns > 0 && actualMatch.score?.remBalls > 0 ? (
-                          `Need ${actualMatch.score.remRuns} runs in ${actualMatch.score.remBalls} balls`
-                        ) : actualMatch.score?.target > 0 ? (
-                          "Target achieved"
-                        ) : actualMatch.score?.statusText ? (
-                          actualMatch.score.statusText
-                        ) : (
-                          "1st Innings in progress"
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Last Ball Event Tracker */}
-                    {actualMatch.score?.lastBall && (
-                      <div className="mt-2.5 px-3 py-1.5 bg-[#f8fafc] border border-gray-200 rounded flex items-center gap-2 text-[11px]">
-                        <span className="bg-[#243f55] text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase">Last Ball</span>
-                        <span className="font-bold text-[#1e293b] truncate">{actualMatch.score.lastBall}</span>
-                      </div>
-                    )}
-
-                    {/* Live Batsmen & Bowler In-Play Strip */}
-                    {((actualMatch.score?.batsmen && actualMatch.score.batsmen.length > 0) || actualMatch.score?.bowler) && (
-                      <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                        {actualMatch.score?.batsmen && actualMatch.score.batsmen.length > 0 && (
-                          <div className="bg-[#f8fafc] rounded border border-gray-200 p-2">
-                            <div className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1 flex justify-between">
-                              <span>Batter</span>
-                              <div className="flex gap-3">
-                                <span>R(B)</span>
-                                <span>4s/6s</span>
-                                <span>SR</span>
-                              </div>
-                            </div>
-                            {actualMatch.score.batsmen.map((b, idx) => (
-                              <div key={idx} className="flex justify-between items-center py-0.5 font-bold text-[#1e293b]">
-                                <span className="truncate max-w-[140px] flex items-center gap-1">
-                                  {b.name} <span className="text-emerald-500 font-extrabold">*</span>
-                                </span>
-                                <div className="flex gap-3 text-right">
-                                  <span className="w-10 text-emerald-600 font-extrabold">{b.runs} ({b.balls})</span>
-                                  <span className="w-8 text-gray-500">{b.fours}/{b.sixes}</span>
-                                  <span className="w-10 text-gray-700">{b.strikeRate}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {actualMatch.score?.bowler && (
-                          <div className="bg-[#f8fafc] rounded border border-gray-200 p-2">
-                            <div className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1 flex justify-between">
-                              <span>Bowler</span>
-                              <div className="flex gap-3">
-                                <span>O-M-R-W</span>
-                                <span>Econ</span>
-                              </div>
-                            </div>
-                            <div className="flex justify-between items-center py-0.5 font-bold text-[#1e293b]">
-                              <span className="truncate max-w-[140px]">{actualMatch.score.bowler.name}</span>
-                              <div className="flex gap-3 text-right">
-                                <span className="text-gray-700">
-                                  {actualMatch.score.bowler.overs}-{actualMatch.score.bowler.maidens}-{actualMatch.score.bowler.runs}-{actualMatch.score.bowler.wickets}
-                                </span>
-                                <span className="w-10 text-blue-700 font-extrabold">{actualMatch.score.bowler.economy}</span>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Official Period Scores Breakdown */}
-                    {actualMatch.score?.periods && Object.keys(actualMatch.score.periods).length > 0 && (
-                      <div className="border-t border-gray-100 pt-3 mt-3">
-                        <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          <div className="text-[11px] font-black text-gray-500 uppercase tracking-wider">
-                            {actualMatch.score?.batsmen?.length > 0
-                              ? 'Period Breakdown (Roanuz Live)'
-                              : 'Period Breakdown (Official OddsAPI Scores)'}
-                          </div>
-                          {/* Show data-source badge */}
-                          {actualMatch.score?.batsmen?.length > 0 ? (
-                            <span className="text-[9px] font-bold bg-green-100 text-green-700 border border-green-300 px-1.5 py-0.5 rounded uppercase tracking-wide">
-                              ✅ Roanuz — Ball-by-Ball
-                            </span>
-                          ) : (
-                            <span className="text-[9px] font-bold bg-yellow-100 text-yellow-700 border border-yellow-300 px-1.5 py-0.5 rounded uppercase tracking-wide">
-                              ⚡ Limited Data — No Ball-by-Ball
-                            </span>
-                          )}
-                          {/* Staleness warning on the scorecard itself */}
-                          {scoreAgeSec > 60 && actualMatch?.status === 'live' && (
-                            <span className="text-[9px] font-bold bg-red-100 text-red-600 border border-red-300 px-1.5 py-0.5 rounded uppercase tracking-wide animate-pulse">
-                              ⚠️ Score {Math.floor(scoreAgeSec / 60)}m{scoreAgeSec % 60}s old
-                            </span>
-                          )}
-                        </div>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left text-xs border border-gray-200 rounded">
-                            <thead className="bg-[#1c3246] text-white text-[10px] uppercase font-bold">
-                              <tr>
-                                <th className="py-1.5 px-3">Period / Innings</th>
-                                <th className="py-1.5 px-3">{actualMatch.teamA}</th>
-                                <th className="py-1.5 px-3">{actualMatch.teamB}</th>
-                                <th className="py-1.5 px-3 text-right">Updated</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 font-semibold text-gray-700">
-                              {Object.entries(actualMatch.score.periods)
-                                .sort(([a], [b]) => (a === '0' ? 1 : b === '0' ? -1 : a.localeCompare(b)))
-                                .map(([periodKey, pScore]) => {
-                                  // Show wickets alongside runs — use teamA/B_wickets when available (Sportmonks),
-                                  // otherwise parse from teamA_runs / teamB_runs string (e.g. "84/2")
-                                  const sc = actualMatch.score;
-                                  const teamA_wkts = sc?.teamA_wickets ?? (sc?.teamA_runs?.includes('/') ? sc.teamA_runs.split('/')[1] : '');
-                                  const teamB_wkts = sc?.teamB_wickets ?? (sc?.teamB_runs?.includes('/') ? sc.teamB_runs.split('/')[1] : '');
-                                  // For completed innings (periodKey === "1" or the active innings), append wickets
-                                  const addWktA = (periodKey === '1' || periodKey === '2') && teamA_wkts !== '' && teamA_wkts !== '0' ? `/${teamA_wkts}` : '';
-                                  const addWktB = (periodKey === '1' || periodKey === '2') && teamB_wkts !== '' && teamB_wkts !== '0' ? `/${teamB_wkts}` : '';
-                                  return (
-                                    <tr key={periodKey} className={periodKey === '0' ? 'bg-blue-50/50 font-bold' : ''}>
-                                      <td className="py-1.5 px-3">
-                                        {periodKey === '0' ? 'Overall Match (Total)' : `Innings ${periodKey} (Period ${periodKey})`}
-                                      </td>
-                                      <td className="py-1.5 px-3 text-[#1c3246] font-black">
-                                        {pScore?.participant1Score ?? 0}{addWktA}
-                                      </td>
-                                      <td className="py-1.5 px-3 text-[#1c3246] font-black">
-                                        {pScore?.participant2Score ?? 0}{addWktB}
-                                      </td>
-                                      <td className="py-1.5 px-3 text-right text-[10px] text-gray-400">
-                                        {pScore?.updatedAt ? new Date(pScore.updatedAt).toLocaleTimeString() : '--'}
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="animate-in fade-in duration-500">
-                <div className="bg-white/60 backdrop-blur-md rounded-sm p-6 border border-white flex flex-col items-center text-center shadow-inner">
-                  <div className="w-10 h-10 bg-[#243f55]/10 rounded-full flex items-center justify-center mb-2">
-                    <Clock size={20} className="text-[#243f55]" strokeWidth={2.5} />
-                  </div>
-                  <h3 className="text-[#1c3246] font-black text-sm uppercase tracking-tight mb-1">Match Scheduled</h3>
-                  <p className="text-gray-500 text-[11px] font-medium max-w-[240px]">
-                    Scoreboard will become live once the match starts on {formattedDate} at {formattedTime}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* 5. FIGURE MARKET SECTION (0-9 Digit Grid) */}
       {(activeTab === 'ALL' || activeTab === 'Figure') && actualMatch.status !== 'completed' && actualMatch.figureMarkets && actualMatch.figureMarkets.length > 0 && (
         actualMatch.figureMarkets.map((figureMarket, fmIdx) => {
@@ -2233,6 +1867,92 @@ export default function MatchDetail({ matchId, onSelectOutcome }) {
               })}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 4. BPEXCH TV & BROADCAST SCORE CARD (Shifted into footer right before Open Bets & Matched Bets) */}
+      {(activeTab === 'ALL' || activeTab === 'Score Card') && (
+        <div className="order-4 flex flex-col px-2 mt-2 mb-1">
+          {/* TV & Score Card Tab Bar flush with dark broadcast scorecard */}
+          <div className="grid grid-cols-2 rounded-t-sm overflow-hidden shadow-sm">
+            <button
+              onClick={() => setBottomTab('tv')}
+              className={`py-2 text-center text-[13px] font-bold tracking-wide transition-colors cursor-pointer border-b-2 ${bottomTab === 'tv'
+                ? 'bg-[#008c61] text-white border-[#00c766]'
+                : 'bg-[#007a54] text-white/80 hover:text-white border-transparent'
+                }`}
+            >
+              Tv
+            </button>
+            <button
+              onClick={() => setBottomTab('scorecard')}
+              className={`py-2 text-center text-[13px] font-bold tracking-wide transition-colors cursor-pointer border-b-2 ${bottomTab === 'scorecard'
+                ? 'bg-[#569e74] text-white border-[#a7f3d0]'
+                : 'bg-[#007a54] text-white/80 hover:text-white border-transparent'
+                }`}
+            >
+              Score Card
+            </button>
+          </div>
+
+          {/* TV Stream Box or Cloned Broadcast Scorecard */}
+          {bottomTab === 'tv' ? (
+            <div className="aspect-video bg-black flex items-center justify-center text-white font-serif text-2xl italic rounded-b-sm shadow-sm">
+              Match not live
+            </div>
+          ) : actualMatch?.status === 'completed' ? (
+            <div className="animate-in zoom-in duration-500">
+              <div className="bg-[#0f172a] rounded-b-lg overflow-hidden shadow-2xl border-2 border-yellow-500/30">
+                <div className="px-5 py-8 bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] text-white text-center relative overflow-hidden">
+                  <div className="flex flex-col items-center mb-4">
+                    <div className="bg-yellow-500 text-black text-[10px] font-black px-4 py-1 rounded-full mb-3 shadow-[0_0_15px_rgba(234,179,8,0.4)]">
+                      MATCH COMPLETED
+                    </div>
+                    <h2 className="text-2xl font-black text-white tracking-tighter uppercase mb-1">
+                      {actualMatch.winner === 'TIE' ? "MATCH TIED" : (actualMatch.winner === 'VOID' ? "MATCH VOIDED" : `${actualMatch.winner} WON`)}
+                    </h2>
+                    <div className="w-12 h-1 bg-yellow-500 rounded-full"></div>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-10 mb-6">
+                    <div className="flex flex-col items-center">
+                      <div className={`text-3xl font-black mb-1 ${actualMatch.winner === actualMatch.teamA ? 'text-white' : 'text-gray-600'}`}>{actualMatch.score?.teamA_runs || "0/0"}</div>
+                      <div className="text-[11px] text-gray-400 font-black uppercase tracking-[0.2em]">{actualMatch.teamA}</div>
+                    </div>
+
+                    <div className="flex flex-col items-center">
+                      <div className="text-gray-700 font-black text-lg italic opacity-30">VS</div>
+                    </div>
+
+                    <div className="flex flex-col items-center">
+                      <div className={`text-3xl font-black mb-1 ${actualMatch.winner === actualMatch.teamB ? 'text-white' : 'text-gray-600'}`}>{actualMatch.score?.teamB_runs || "0/0"}</div>
+                      <div className="text-[11px] text-gray-400 font-black uppercase tracking-[0.2em]">{actualMatch.teamB}</div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white/5 backdrop-blur-md rounded-lg p-3 border border-white/10 max-w-sm mx-auto">
+                    <p className="text-[11px] font-bold text-gray-400 leading-relaxed">
+                      The match has concluded and all bets have been settled. Winning amounts have been credited to user wallets.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : actualMatch?.status === 'live' ? (
+            <BroadcastScorecard actualMatch={actualMatch} scoreAgeSec={scoreAgeSec} />
+          ) : (
+            <div className="animate-in fade-in duration-500">
+              <div className="bg-[#0a102b] rounded-b-sm p-6 border border-[#1a224a] flex flex-col items-center text-center shadow-inner text-white">
+                <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center mb-2">
+                  <Clock size={20} className="text-emerald-400" strokeWidth={2.5} />
+                </div>
+                <h3 className="text-white font-black text-sm uppercase tracking-tight mb-1">Match Scheduled</h3>
+                <p className="text-slate-300 text-[11px] font-medium max-w-[240px]">
+                  Scoreboard will become live once the match starts on {formattedDate} at {formattedTime}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
